@@ -76,24 +76,28 @@ class _NodeScreenState extends State<NodeScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            RadioListTile<bool>(
-                              title: const Text('Local Gateway', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                              subtitle: const Text('Auto-pair with gateway on this device'),
-                              value: true,
-                              groupValue: _isLocal,
-                              selected: _isLocal == true,
-                              onChanged: (value) => setState(() => _isLocal = value!),
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            RadioListTile<bool>(
-                              title: const Text('Remote Gateway', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                              subtitle: const Text('Connect to a gateway on another device'),
-                              value: false,
-                              groupValue: _isLocal,
-                              selected: _isLocal == false,
-                              onChanged: (value) => setState(() => _isLocal = value!),
-                              contentPadding: EdgeInsets.zero,
-                            ),
+            ListTile(
+              leading: Radio<bool>(
+                value: true,
+                groupValue: _isLocal,
+                onChanged: (value) => setState(() => _isLocal = value!),
+              ),
+              title: const Text('Local Gateway', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+              subtitle: const Text('Auto-pair with gateway on this device'),
+              contentPadding: EdgeInsets.zero,
+              onTap: () => setState(() => _isLocal = true),
+            ),
+            ListTile(
+              leading: Radio<bool>(
+                value: false,
+                groupValue: _isLocal,
+                onChanged: (value) => setState(() => _isLocal = value!),
+              ),
+              title: const Text('Remote Gateway', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+              subtitle: const Text('Connect to a gateway on another device'),
+              contentPadding: EdgeInsets.zero,
+              onTap: () => setState(() => _isLocal = false),
+            ),
                             if (!_isLocal) ...[
                               const SizedBox(height: 12),
                               TextField(
