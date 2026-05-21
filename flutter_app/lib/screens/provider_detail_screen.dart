@@ -252,6 +252,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
+            initialValue: _selectedModel,
             isExpanded: true,
             decoration: const InputDecoration(
               prefixIcon: Icon(Icons.model_training),

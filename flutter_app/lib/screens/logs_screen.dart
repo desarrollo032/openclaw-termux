@@ -179,10 +179,10 @@ class _LogsScreenState extends State<LogsScreen> {
       return _LogStyle(theme.colorScheme.error, '[ERR]');
     }
     if (line.contains('[WARN]') || line.contains('WARNING')) {
-      return _LogStyle(AppColors.statusAmber, '[WRN]');
+      return const _LogStyle(AppColors.statusAmber, '[WRN]');
     }
     if (line.contains('[INFO]')) {
-      return _LogStyle(AppColors.mutedText, '[INF]');
+      return const _LogStyle(AppColors.mutedText, '[INF]');
     }
     return _LogStyle(theme.colorScheme.onSurface.withAlpha(180), null);
   }

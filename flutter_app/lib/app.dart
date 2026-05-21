@@ -233,7 +233,6 @@ class OpenClawApp extends StatelessWidget {
           side: const BorderSide(color: AppColors.darkBorder),
         ),
         behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
       ),
       listTileTheme: const ListTileThemeData(
         iconColor: AppColors.darkMutedText,
@@ -407,7 +406,6 @@ class OpenClawApp extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
       ),
       listTileTheme: const ListTileThemeData(
         iconColor: AppColors.mutedText,

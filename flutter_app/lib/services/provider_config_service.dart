@@ -13,7 +13,7 @@ class ProviderConfigService {
 
   /// Read the current config and return a map with:
   /// - `activeModel`: the current primary model string (or null)
-  /// - `providers`: Map<providerId, {apiKey, model}> for configured providers
+  /// - `providers`: Map of provider ID to its config (apiKey, model)
   static Future<Map<String, dynamic>> readConfig() async {
     try {
       final content = await NativeBridge.readRootfsFile(_configPath);

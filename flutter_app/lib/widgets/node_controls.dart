@@ -30,7 +30,7 @@ class NodeControls extends StatelessWidget {
                         color: AppColors.statusGreen.withAlpha(15),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.devices_outlined,
                         color: AppColors.statusGreen,
                         size: 22,
@@ -72,7 +72,7 @@ class NodeControls extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.link, size: 16, color: AppColors.statusGreen),
+                        const Icon(Icons.link, size: 16, color: AppColors.statusGreen),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -101,7 +101,7 @@ class NodeControls extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.qr_code, size: 16, color: AppColors.statusAmber),
+                        const Icon(Icons.qr_code, size: 16, color: AppColors.statusAmber),
                         const SizedBox(width: 8),
                         Text(
                           'Pairing code: ',
