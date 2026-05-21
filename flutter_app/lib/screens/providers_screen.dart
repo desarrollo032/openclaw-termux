@@ -62,6 +62,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final activeModel = _activeModel;
 
     return Scaffold(
       appBar: AppBar(title: const Text('AI Providers')),
@@ -70,7 +71,6 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               children: [
-              final activeModel = _activeModel;
               if (activeModel != null && activeModel.isNotEmpty)
                 ...[
                   Container(

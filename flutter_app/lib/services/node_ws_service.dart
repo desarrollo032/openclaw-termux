@@ -23,10 +23,10 @@ class NodeWsService {
 
   /// Returns true if the WebSocket hasn't received any data for over 90s,
   /// indicating the connection is likely stale.
-  bool get isStale =>
-      _connected &&
-      _lastActivity != null &&
-      DateTime.now().difference(_lastActivity).inSeconds > 90;
+  bool get isStale {
+    final last = _lastActivity;
+    return _connected && last != null && DateTime.now().difference(last).inSeconds > 90;
+  }
 
   Future<void> connect(String host, int port) async {
     _url = 'ws://$host:$port';

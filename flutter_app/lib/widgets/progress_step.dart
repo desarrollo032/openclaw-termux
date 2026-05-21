@@ -96,10 +96,9 @@ class ProgressStep extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                final textStyle = theme.textTheme.bodyMedium ?? theme.textTheme.bodySmall;
                 AnimatedDefaultTextStyle(
                   duration: const Duration(milliseconds: 200),
-                  style: (textStyle ?? const TextStyle()).copyWith(
+                  style: (theme.textTheme.bodyMedium ?? theme.textTheme.bodySmall ?? const TextStyle()).copyWith(
                     fontWeight: isActive
                         ? FontWeight.w600
                         : isComplete

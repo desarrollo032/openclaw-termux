@@ -182,7 +182,7 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
     for (final part in parts) {
       final match = _anyUrlRegex.firstMatch(part);
       if (match != null) {
-        final url = match.group(0)!;
+        final url = match.group(0) ?? '';
         if (best == null || url.length > best.length) {
           best = url;
         }
