@@ -13,7 +13,7 @@
 [![Flutter](https://img.shields.io/badge/Flutter-3.24-02569B?logo=flutter)](https://flutter.dev/)
 [![PRs Bienvenidas](https://img.shields.io/badge/PRs-bienvenidas-brightgreen.svg)](https://github.com/mithun50/openclaw-termux/pulls)
 
-<img src="assets/ic_launcher.png" alt="OpenClaw" width="600"/>
+<img src="assets/ic_launcher.png" alt="OpenClaw" width="100"/>
 
 ---
 
@@ -39,13 +39,13 @@ OpenClaw lleva la puerta de enlace de IA [OpenClaw](https://github.com/anthropic
 
 ### Dos formas de usar
 
-| Característica | 📱 App Flutter (Autónoma) | 💻 CLI de Termux |
-|---|---|---|
-| **Instalar** | Compilar APK o descargar release | `npm install -g openclaw-termux` |
-| **Configurar** | Tocar "Comenzar configuración" | `openclawx setup` |
-| **Gateway** | Tocar "Iniciar Gateway" | `openclawx start` |
-| **Terminal** | Emulador de terminal integrado | Shell de Termux |
-| **Panel Web** | WebView integrado | Navegador en `localhost:18789` |
+| Característica | 📱 App Flutter (Autónoma)        | 💻 CLI de Termux                 |
+| -------------- | -------------------------------- | -------------------------------- |
+| **Instalar**   | Compilar APK o descargar release | `npm install -g openclaw-termux` |
+| **Configurar** | Tocar "Comenzar configuración"   | `openclawx setup`                |
+| **Gateway**    | Tocar "Iniciar Gateway"          | `openclawx start`                |
+| **Terminal**   | Emulador de terminal integrado   | Shell de Termux                  |
+| **Panel Web**  | WebView integrado                | Navegador en `localhost:18789`   |
 
 ---
 
@@ -53,10 +53,10 @@ OpenClaw lleva la puerta de enlace de IA [OpenClaw](https://github.com/anthropic
 
 <div align="center">
 
-| | | |
-|---|---|---|
-| <img src="assets/dashboard.png" width="200"/><br/>**📊 Panel** | <img src="assets/setupscreen.png" width="200"/><br/>**⚙️ Configuración** | <img src="assets/onboardingscreen.png" width="200"/><br/>**🚀 Incorporación** |
-| <img src="assets/websscreen.png" width="200"/><br/>**🌐 Panel Web** | <img src="assets/logscreen.png" width="200"/><br/>**📋 Registros** | <img src="assets/settingsscreen.png" width="200"/><br/>**🔧 Configuración** |
+|                                                                     |                                                                          |                                                                               |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| <img src="assets/dashboard.png" width="200"/><br/>**📊 Panel**      | <img src="assets/setupscreen.png" width="200"/><br/>**⚙️ Configuración** | <img src="assets/onboardingscreen.png" width="200"/><br/>**🚀 Incorporación** |
+| <img src="assets/websscreen.png" width="200"/><br/>**🌐 Panel Web** | <img src="assets/logscreen.png" width="200"/><br/>**📋 Registros**       | <img src="assets/settingsscreen.png" width="200"/><br/>**🔧 Configuración**   |
 
 </div>
 
@@ -128,11 +128,11 @@ openclawx setup
 
 ## 📋 Requisitos
 
-| Requisito | Detalle |
-|---|---|
-| **📱 Android** | 10 o superior (API 29) |
-| **💾 Almacenamiento** | ~500 MB para Ubuntu + Node.js + OpenClaw |
-| **🏗️ Arquitecturas** | arm64-v8a, armeabi-v7a, x86_64 |
+| Requisito                | Detalle                                                                   |
+| ------------------------ | ------------------------------------------------------------------------- |
+| **📱 Android**           | 10 o superior (API 29)                                                    |
+| **💾 Almacenamiento**    | ~500 MB para Ubuntu + Node.js + OpenClaw                                  |
+| **🏗️ Arquitecturas**     | arm64-v8a, armeabi-v7a, x86_64                                            |
 | **📦 Termux** (solo CLI) | Desde [F-Droid](https://f-droid.org/packages/com.termux/) (NO Play Store) |
 
 ---
@@ -179,11 +179,11 @@ openclawx gateway --verbose
 
 Después de la configuración inicial, instala herramientas de desarrollo directamente desde la app:
 
-| Paquete | Instalación | Tamaño | Acceso |
-|---|---|---|---|
-| **Go (Golang)** | `apt install golang` | ~150 MB | Setup, Dashboard, Settings |
-| **Homebrew** | Instalador oficial | ~500 MB | Setup, Dashboard, Settings |
-| **OpenSSH** | `apt install openssh-server` | ~10 MB | Setup, Dashboard, Settings |
+| Paquete         | Instalación                  | Tamaño  | Acceso                     |
+| --------------- | ---------------------------- | ------- | -------------------------- |
+| **Go (Golang)** | `apt install golang`         | ~150 MB | Setup, Dashboard, Settings |
+| **Homebrew**    | Instalador oficial           | ~500 MB | Setup, Dashboard, Settings |
+| **OpenSSH**     | `apt install openssh-server` | ~10 MB  | Setup, Dashboard, Settings |
 
 ---
 
@@ -191,15 +191,15 @@ Después de la configuración inicial, instala herramientas de desarrollo direct
 
 La app se conecta al gateway como un **nodo**, exponiendo hardware de Android a la IA:
 
-| Capacidad | Comandos | Permiso Requerido |
-|---|---|---|
-| **📷 Cámara** | `camera.snap`, `camera.clip`, `camera.list` | Cámara |
-| **🎨 Lienzo** | `canvas.navigate`, `canvas.eval`, `canvas.snapshot` | Ninguno |
-| **💡 Flash** | `flash.on`, `flash.off`, `flash.toggle`, `flash.status` | Cámara (linterna) |
-| **📍 Ubicación** | `location.get` | Ubicación |
-| **🖥️ Pantalla** | `screen.record` | MediaProjection |
-| **📊 Sensor** | `sensor.read`, `sensor.list` | Sensores corporales |
-| **📳 Háptica** | `haptic.vibrate` | Ninguno |
+| Capacidad        | Comandos                                                | Permiso Requerido   |
+| ---------------- | ------------------------------------------------------- | ------------------- |
+| **📷 Cámara**    | `camera.snap`, `camera.clip`, `camera.list`             | Cámara              |
+| **🎨 Lienzo**    | `canvas.navigate`, `canvas.eval`, `canvas.snapshot`     | Ninguno             |
+| **💡 Flash**     | `flash.on`, `flash.off`, `flash.toggle`, `flash.status` | Cámara (linterna)   |
+| **📍 Ubicación** | `location.get`                                          | Ubicación           |
+| **🖥️ Pantalla**  | `screen.record`                                         | MediaProjection     |
+| **📊 Sensor**    | `sensor.read`, `sensor.list`                            | Sensores corporales |
+| **📳 Háptica**   | `haptic.vibrate`                                        | Ninguno             |
 
 > El archivo `openclaw.json` se parchea automáticamente para permitir los 15 comandos.
 
