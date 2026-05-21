@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import '../app.dart';
 import '../constants.dart';
 import '../services/preferences_service.dart';
 

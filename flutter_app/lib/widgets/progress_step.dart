@@ -98,7 +98,7 @@ class ProgressStep extends StatelessWidget {
               children: [
                 AnimatedDefaultTextStyle(
                   duration: const Duration(milliseconds: 200),
-                  style: theme.textTheme.bodyMedium?.copyWith(
+                  style: (theme.textTheme.bodyMedium ?? theme.textTheme.bodySmall)!.copyWith(
                     fontWeight: isActive
                         ? FontWeight.w600
                         : isComplete

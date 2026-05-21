@@ -120,7 +120,7 @@ class OpenClawApp extends StatelessWidget {
           color: Colors.white,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 0,
         color: AppColors.darkSurface,
         shadowColor: Colors.black.withAlpha(80),
@@ -128,7 +128,6 @@ class OpenClawApp extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           side: const BorderSide(color: AppColors.darkBorder),
         ),
-        margin: const EdgeInsets.symmetric(vertical: 6),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -215,7 +214,7 @@ class OpenClawApp extends StatelessWidget {
         space: 1,
         thickness: 1,
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: AppColors.darkSurface,
         elevation: 8,
         shape: RoundedRectangleBorder(
@@ -296,7 +295,7 @@ class OpenClawApp extends StatelessWidget {
           color: const Color(0xFF0A0A0A),
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 0,
         color: AppColors.lightBg,
         shadowColor: Colors.black.withAlpha(12),
@@ -304,7 +303,6 @@ class OpenClawApp extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           side: const BorderSide(color: AppColors.lightBorder),
         ),
-        margin: const EdgeInsets.symmetric(vertical: 6),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -391,7 +389,7 @@ class OpenClawApp extends StatelessWidget {
         space: 1,
         thickness: 1,
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: AppColors.lightBg,
         elevation: 8,
         shape: RoundedRectangleBorder(

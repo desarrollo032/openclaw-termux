@@ -11,6 +11,8 @@ class ProviderConfigService {
     return "'${s.replaceAll("'", "'\\''")}'";
   }
 
+
+
   /// Read the current config and return a map with:
   /// - `activeModel`: the current primary model string (or null)
   /// - `providers`: Map<providerId, {apiKey, model}> for configured providers

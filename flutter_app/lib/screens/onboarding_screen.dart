@@ -458,7 +458,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: Column(
         children: [
           if (_loading)
-            const Expanded(
+            Expanded(
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -470,12 +470,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             Theme.of(context).colorScheme.primary.withAlpha(15),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: SizedBox(
+                      child: const SizedBox(
                         width: 28,
                         height: 28,
                         child: CircularProgressIndicator(
                           strokeWidth: 3,
-                          color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
                     ),
