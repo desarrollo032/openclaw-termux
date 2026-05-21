@@ -38,8 +38,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _altNotifier = ValueNotifier<bool>(false);
   final _screenshotKey = GlobalKey();
   static final _anyUrlRegex = RegExp(r'https?://[^\s<>\[\]"' "'" r'\)]+');
-  static final _tokenUrlRegex = RegExp(r'https?://(?:localhost|127\.0\.0\.1):18789/#token=[0-9a-f]+');
+  static final _tokenUrlRegex =
+      RegExp(r'https?://(?:localhost|127\.0\.0\.1):18789/#token=[0-9a-f]+');
   static final _ansiEscape = AppConstants.ansiEscape;
+
   /// Box-drawing and other TUI characters that break URLs when copied
   static final _boxDrawing = RegExp(r'[│┤├┬┴┼╮╯╰╭─╌╴╶┌┐└┘◇◆]+');
   static final _completionPattern = RegExp(
@@ -80,8 +82,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _pty = null;
     try {
       // Ensure dirs + resolv.conf exist before proot starts (#40).
-      try { await NativeBridge.setupDirs(); } catch (_) {}
-      try { await NativeBridge.writeResolv(); } catch (_) {}
+      try {
+        await NativeBridge.setupDirs();
+      } catch (_) {}
+      try {
+        await NativeBridge.writeResolv();
+      } catch (_) {}
       try {
         final filesDir = await NativeBridge.getFilesDir();
         const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
@@ -112,13 +118,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       onboardingArgs.removeLast(); // remove '-l'
       onboardingArgs.removeLast(); // remove '/bin/bash'
       onboardingArgs.addAll([
-        '/bin/bash', '-lc',
+        '/bin/bash',
+        '-lc',
         'echo "=== OpenClaw Onboarding ===" && '
-        'echo "Configure your API keys and binding settings." && '
-        'echo "TIP: Select Loopback (127.0.0.1) when asked for binding!" && '
-        'echo "" && '
-        'openclaw onboard; '
-        'echo "" && echo "Onboarding complete! You can close this screen."',
+            'echo "Configure your API keys and binding settings." && '
+            'echo "TIP: Select Loopback (127.0.0.1) when asked for binding!" && '
+            'echo "" && '
+            'openclaw onboard; '
+            'echo "" && echo "Onboarding complete! You can close this screen."',
       ]);
 
       _pty = Pty.start(
@@ -234,7 +241,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   /// chars and rejoining lines, but splitting on `http` boundaries
   /// so concatenated URLs don't merge into one.
   String? _extractUrl(String text) {
-    final clean = text.replaceAll(_boxDrawing, '').replaceAll(RegExp(r'\s+'), '');
+    final clean =
+        text.replaceAll(_boxDrawing, '').replaceAll(RegExp(r'\s+'), '');
     // Split before each http(s):// so concatenated URLs become separate
     final parts = clean.split(RegExp(r'(?=https?://)'));
     // Return the longest URL match (token URLs are longest)
@@ -313,7 +321,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _takeScreenshot() async {
-    final path = await ScreenshotService.capture(_screenshotKey, prefix: 'onboarding');
+    final path =
+        await ScreenshotService.capture(_screenshotKey, prefix: 'onboarding');
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -454,10 +463,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-Container(
+                    Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withAlpha(15),
+                        color:
+                            Theme.of(context).colorScheme.primary.withAlpha(15),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: SizedBox(
@@ -473,8 +483,9 @@ Container(
                     Text(
                       'Starting onboarding...',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                     ),
                   ],
                 ),
@@ -491,7 +502,8 @@ Container(
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.error.withAlpha(15),
+                          color:
+                              Theme.of(context).colorScheme.error.withAlpha(15),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Icon(
@@ -503,17 +515,20 @@ Container(
                       const SizedBox(height: 20),
                       Text(
                         'Failed to start',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         _error!,
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
                       ),
                       const SizedBox(height: 24),
                       FilledButton.icon(
@@ -565,12 +580,10 @@ Container(
                   onPressed: widget.isFirstRun
                       ? _goToDashboard
                       : () => Navigator.of(context).pop(),
-                  icon: Icon(widget.isFirstRun
-                      ? Icons.arrow_forward
-                      : Icons.check, size: 18),
-                  label: Text(widget.isFirstRun
-                      ? 'Go to Dashboard'
-                      : 'Done'),
+                  icon: Icon(
+                      widget.isFirstRun ? Icons.arrow_forward : Icons.check,
+                      size: 18),
+                  label: Text(widget.isFirstRun ? 'Go to Dashboard' : 'Done'),
                 ),
               ),
             ),
