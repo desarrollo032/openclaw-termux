@@ -1,4 +1,6 @@
-{
+import json, os
+
+content = r'''{
 	"version": "0.2.0",
 	"configurations": [
 		// ═══════════════════════════════════════════
@@ -147,3 +149,9 @@
 		}
 	]
 }
+'''
+
+target = os.path.join('.vscode', 'launch.json')
+with open(target, 'w', encoding='utf-8') as f:
+    f.write(content)
+print(f'Written {len(content)} bytes to {target}')
