@@ -96,19 +96,21 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
         'echo "" && echo "Configuration complete! You can close this screen."',
       ]);
 
-      _pty = Pty.start(
-        config['executable']!,
+      final executable = config['executable'] as String;
+      final pty = Pty.start(
+        executable,
         arguments: configureArgs,
         environment: TerminalService.buildHostEnv(config),
         columns: _terminal.viewWidth,
         rows: _terminal.viewHeight,
       );
+      _pty = pty;
 
-      _pty!.output.cast<List<int>>().listen((data) {
+      pty.output.cast<List<int>>().listen((data) {
         _terminal.write(utf8.decode(data, allowMalformed: true));
       });
 
-      _pty!.exitCode.then((code) {
+      pty.exitCode.then((code) {
         _terminal.write('\r\n[Configure exited with code $code]\r\n');
         if (mounted) {
           setState(() => _finished = true);
@@ -244,8 +246,9 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
 
   Future<void> _paste() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (data?.text != null && data!.text!.isNotEmpty) {
-      _pty?.write(utf8.encode(data.text!));
+    final text = data?.text;
+    if (text != null && text.isNotEmpty) {
+      _pty?.write(utf8.encode(text));
     }
   }
 
@@ -357,7 +360,7 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _error!,
+                        _error ?? '',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,

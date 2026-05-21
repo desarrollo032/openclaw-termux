@@ -33,14 +33,15 @@ class CameraCapability extends CapabilityHandler {
   /// when done so the camera hardware is released immediately.
   Future<CameraController> _createController({String? facing}) async {
     _cameras ??= await availableCameras();
-    if (_cameras!.isEmpty) throw Exception('No camera available');
+    final cameras = _cameras;
+    if (cameras == null || cameras.isEmpty) throw Exception('No camera available');
 
     final direction = facing == 'front'
         ? CameraLensDirection.front
         : CameraLensDirection.back;
-    final target = _cameras!.firstWhere(
+    final target = cameras.firstWhere(
       (c) => c.lensDirection == direction,
-      orElse: () => _cameras!.first,
+      orElse: () => cameras.first,
     );
 
     final controller = CameraController(target, ResolutionPreset.medium);
@@ -68,7 +69,8 @@ class CameraCapability extends CapabilityHandler {
   Future<NodeFrame> _list() async {
     try {
       _cameras ??= await availableCameras();
-      final cameraList = _cameras!.map((c) => {
+      final cameras = _cameras ?? <CameraDescription>[];
+      final cameraList = cameras.map((c) => {
         'id': c.name,
         'facing': c.lensDirection == CameraLensDirection.front ? 'front' : 'back',
       }).toList();

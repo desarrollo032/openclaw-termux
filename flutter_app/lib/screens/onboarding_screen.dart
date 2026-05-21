@@ -128,8 +128,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             'echo "" && echo "Onboarding complete! You can close this screen."',
       ]);
 
-      _pty = Pty.start(
-        config['executable']!,
+      final executable = config['executable'] as String;
+      final pty = Pty.start(
+        executable,
         arguments: onboardingArgs,
         // Host-side env: only proot-specific vars.
         // Guest env is set via env -i in buildProotArgs.
@@ -137,8 +138,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         columns: _terminal.viewWidth,
         rows: _terminal.viewHeight,
       );
+      _pty = pty;
 
-      _pty!.output.cast<List<int>>().listen((data) {
+      pty.output.cast<List<int>>().listen((data) {
         final text = utf8.decode(data, allowMalformed: true);
         _terminal.write(text);
         // Scan output for token URL (e.g. http://localhost:18789/#token=...)
@@ -156,7 +158,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         // Save token URL to preferences if found
         final tokenMatch = _tokenUrlRegex.firstMatch(cleanForUrl);
         if (tokenMatch != null) {
-          _saveTokenUrl(tokenMatch.group(0)!);
+          _saveTokenUrl(tokenMatch.group(0) ?? '');
         }
         // Detect onboarding completion from output text
         if (!_finished && _completionPattern.hasMatch(cleanText)) {
@@ -166,7 +168,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         }
       });
 
-      _pty!.exitCode.then((code) {
+      pty.exitCode.then((code) {
         _terminal.write('\r\n[Onboarding exited with code $code]\r\n');
         if (mounted) {
           setState(() => _finished = true);
@@ -250,7 +252,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     for (final part in parts) {
       final match = _anyUrlRegex.firstMatch(part);
       if (match != null) {
-        final url = match.group(0)!;
+        final url = match.group(0) ?? '';
         if (best == null || url.length > best.length) {
           best = url;
         }
@@ -315,8 +317,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _paste() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (data?.text != null && data!.text!.isNotEmpty) {
-      _pty?.write(utf8.encode(data.text!));
+    final text = data?.text;
+    if (text != null && text.isNotEmpty) {
+      _pty?.write(utf8.encode(text));
     }
   }
 
@@ -521,7 +524,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _error!,
+                        _error ?? '',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Theme.of(context)

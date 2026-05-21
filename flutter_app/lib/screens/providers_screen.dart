@@ -50,9 +50,10 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
   String _statusLabel(AiProvider provider) {
     final isConfigured = _providers.containsKey(provider.id);
     if (!isConfigured) return '';
-    if (_activeModel != null) {
-      final isActive = provider.defaultModels.any((m) => _activeModel!.contains(m)) ||
-          _activeModel!.contains(provider.id);
+    final activeModel = _activeModel;
+    if (activeModel != null) {
+      final isActive = provider.defaultModels.any((m) => activeModel.contains(m)) ||
+          activeModel.contains(provider.id);
       if (isActive) return 'Active';
     }
     return 'Configured';
@@ -69,7 +70,9 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               children: [
-                if (_activeModel != null && _activeModel!.isNotEmpty) ...[
+              final activeModel = _activeModel;
+              if (activeModel != null && activeModel.isNotEmpty)
+                ...[
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -102,7 +105,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                _activeModel!,
+                                activeModel,
                                 style: theme.textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),

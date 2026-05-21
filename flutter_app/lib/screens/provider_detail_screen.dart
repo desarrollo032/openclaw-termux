@@ -30,7 +30,10 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
   bool _saving = false;
   bool _removing = false;
 
-  bool get _isConfigured => widget.existingApiKey != null && widget.existingApiKey!.isNotEmpty;
+  bool get _isConfigured {
+    final key = widget.existingApiKey;
+    return key != null && key.isNotEmpty;
+  }
   String get _effectiveModel =>
       _isCustomModel ? _customModelController.text.trim() : _selectedModel;
 

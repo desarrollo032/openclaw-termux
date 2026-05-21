@@ -85,20 +85,22 @@ class _TerminalScreenState extends State<TerminalScreen> {
         rows: _terminal.viewHeight,
       );
 
-      _pty = Pty.start(
-        config['executable']!,
+      final executable = config['executable'] as String;
+      final pty = Pty.start(
+        executable,
         arguments: args,
         environment: TerminalService.buildHostEnv(config),
         columns: _terminal.viewWidth,
         rows: _terminal.viewHeight,
       );
+      _pty = pty;
 
-      _pty!.output.cast<List<int>>().listen((data) {
+      pty.output.cast<List<int>>().listen((data) {
         final text = utf8.decode(data, allowMalformed: true);
         _terminal.write(text);
       });
 
-      _pty!.exitCode.then((code) {
+      pty.exitCode.then((code) {
         _terminal.write('\r\n[Process exited with code $code]\r\n');
       });
 
@@ -175,7 +177,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     for (final part in parts) {
       final match = _anyUrlRegex.firstMatch(part);
       if (match != null) {
-        final url = match.group(0)!;
+        final url = match.group(0) ?? '';
         if (best == null || url.length > best.length) {
           best = url;
         }
@@ -240,8 +242,9 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
   Future<void> _paste() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (data?.text != null && data!.text!.isNotEmpty) {
-      _pty?.write(utf8.encode(data.text!));
+    final text = data?.text;
+    if (text != null && text.isNotEmpty) {
+      _pty?.write(utf8.encode(text));
     }
   }
 
@@ -433,10 +436,9 @@ class _TerminalScreenState extends State<TerminalScreen> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
+              const SizedBox(height: 8),                      Text(
+                        _error ?? '',
+                        textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),

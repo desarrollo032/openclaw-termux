@@ -30,25 +30,28 @@ class FlashCapability extends CapabilityHandler {
 
   Future<CameraController> _getController() async {
     // Verify existing controller is still usable
-    if (_controller != null) {
-      if (_controller!.value.isInitialized && !_controller!.value.hasError) {
-        return _controller!;
+    final existing = _controller;
+    if (existing != null) {
+      if (existing.value.isInitialized && !existing.value.hasError) {
+        return existing;
       }
       // Controller is stale/errored — dispose and recreate
-      try { _controller!.dispose(); } catch (_) {}
+      try { existing.dispose(); } catch (_) {}
       _controller = null;
     }
 
     _cameras ??= await availableCameras();
-    if (_cameras!.isEmpty) throw Exception('No camera available');
+    final cameras = _cameras;
+    if (cameras == null || cameras.isEmpty) throw Exception('No camera available');
     // Use back camera for flash/torch
-    final backCamera = _cameras!.firstWhere(
+    final backCamera = cameras.firstWhere(
       (c) => c.lensDirection == CameraLensDirection.back,
-      orElse: () => _cameras!.first,
+      orElse: () => cameras.first,
     );
-    _controller = CameraController(backCamera, ResolutionPreset.low);
-    await _controller!.initialize();
-    return _controller!;
+    final controller = CameraController(backCamera, ResolutionPreset.low);
+    _controller = controller;
+    await controller.initialize();
+    return controller;
   }
 
   @override

@@ -26,7 +26,7 @@ class NodeWsService {
   bool get isStale =>
       _connected &&
       _lastActivity != null &&
-      DateTime.now().difference(_lastActivity!).inSeconds > 90;
+      DateTime.now().difference(_lastActivity).inSeconds > 90;
 
   Future<void> connect(String host, int port) async {
     _url = 'ws://$host:$port';
@@ -41,17 +41,19 @@ class NodeWsService {
   void resetReconnectAttempt() => _reconnectAttempt = 0;
 
   Future<void> _doConnect() async {
-    if (_url == null) return;
+    final url = _url;
+    if (url == null) return;
 
     try {
-      _channel = WebSocketChannel.connect(Uri.parse(_url!));
-      await _channel!.ready;
+      final channel = WebSocketChannel.connect(Uri.parse(url));
+      _channel = channel;
+      await channel.ready;
       _connected = true;
       _lastActivity = DateTime.now();
 
       _startPing();
 
-      _subscription = _channel!.stream.listen(
+      _subscription = channel.stream.listen(
         (data) {
           _lastActivity = DateTime.now();
           try {
@@ -78,9 +80,10 @@ class NodeWsService {
   void _startPing() {
     _pingTimer?.cancel();
     _pingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (_connected && _channel != null) {
+      final channel = _channel;
+      if (_connected && channel != null) {
         try {
-          _channel!.sink.add('ping');
+          channel.sink.add('ping');
         } catch (_) {
           _handleDisconnect();
         }
@@ -125,12 +128,17 @@ class NodeWsService {
 
   /// Send a request frame and wait for the matching response.
   Future<NodeFrame> sendRequest(NodeFrame request, {Duration? timeout}) async {
-    if (!_connected || _channel == null) {
+    final channel = _channel;
+    if (!_connected || channel == null) {
       throw StateError('WebSocket not connected');
     }
+    final requestId = request.id;
+    if (requestId == null) {
+      throw StateError('Request must have an id');
+    }
     final completer = Completer<NodeFrame>();
-    _pendingRequests[request.id!] = completer;
-    _channel!.sink.add(request.encode());
+    _pendingRequests[requestId] = completer;
+    channel.sink.add(request.encode());
 
     final effectiveTimeout = timeout ?? const Duration(seconds: 15);
     return completer.future.timeout(effectiveTimeout, onTimeout: () {
@@ -141,8 +149,9 @@ class NodeWsService {
 
   /// Send a frame without waiting for response.
   void send(NodeFrame frame) {
-    if (_connected && _channel != null) {
-      _channel!.sink.add(frame.encode());
+    final channel = _channel;
+    if (_connected && channel != null) {
+      channel.sink.add(frame.encode());
     }
   }
 

@@ -71,8 +71,8 @@ class OpenClawApp extends StatelessWidget {
         ChangeNotifierProxyProvider<GatewayProvider, NodeProvider>(
           create: (_) => NodeProvider(),
           update: (_, gatewayProvider, nodeProvider) {
-            nodeProvider!.onGatewayStateChanged(gatewayProvider.state);
-            return nodeProvider;
+            nodeProvider?.onGatewayStateChanged(gatewayProvider.state);
+            return nodeProvider ?? NodeProvider();
           },
         ),
       ],

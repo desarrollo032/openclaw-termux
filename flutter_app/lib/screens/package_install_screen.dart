@@ -99,19 +99,21 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
       cmdArgs.removeLast(); // remove '/bin/bash'
       cmdArgs.addAll(['/bin/bash', '-lc', command]);
 
-      _pty = Pty.start(
-        config['executable']!,
+      final executable = config['executable'] as String;
+      final pty = Pty.start(
+        executable,
         arguments: cmdArgs,
         environment: TerminalService.buildHostEnv(config),
         columns: _terminal.viewWidth,
         rows: _terminal.viewHeight,
       );
+      _pty = pty;
 
       final sentinel = widget.isUninstall
           ? widget.package.uninstallSentinel
           : widget.package.completionSentinel;
 
-      _pty!.output.cast<List<int>>().listen((data) {
+      pty.output.cast<List<int>>().listen((data) {
         final text = utf8.decode(data, allowMalformed: true);
         _terminal.write(text);
 
@@ -120,7 +122,7 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
         }
       });
 
-      _pty!.exitCode.then((code) {
+      pty.exitCode.then((code) {
         _terminal.write('\r\n[Process exited with code $code]\r\n');
         if (mounted && !_finished) {
           setState(() => _finished = true);
@@ -159,8 +161,9 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
 
   Future<void> _paste() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (data?.text != null && data!.text!.isNotEmpty) {
-      _pty?.write(utf8.encode(data.text!));
+    final text = data?.text;
+    if (text != null && text.isNotEmpty) {
+      _pty?.write(utf8.encode(text));
     }
   }
 
@@ -270,7 +273,7 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _error!,
+                        _error ?? '',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,

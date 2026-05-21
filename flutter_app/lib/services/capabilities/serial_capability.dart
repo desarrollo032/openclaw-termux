@@ -314,35 +314,41 @@ class _SerialConnection {
 
   _SerialConnection.ble(this.bleDevice, this.bleTxChar, this.bleRxChar)
       : usbPort = null {
-    if (bleTxChar != null) {
-      _bleSubscription = bleTxChar!.onValueReceived.listen((data) {
+    final txChar = bleTxChar;
+    if (txChar != null) {
+      _bleSubscription = txChar.onValueReceived.listen((data) {
         _bleBuffer.addAll(data);
       });
     }
   }
 
   Future<void> write(Uint8List data) async {
-    if (usbPort != null) {
-      await usbPort!.write(data);
-    } else if (bleRxChar != null) {
-      // BLE has MTU limits, send in chunks
-      const mtu = 20;
-      for (var i = 0; i < data.length; i += mtu) {
-        final end = (i + mtu < data.length) ? i + mtu : data.length;
-        await bleRxChar!.write(data.sublist(i, end), withoutResponse: true);
-      }
+    final usb = usbPort;
+    if (usb != null) {
+      await usb.write(data);
     } else {
-      throw Exception('No writable channel');
+      final rxChar = bleRxChar;
+      if (rxChar != null) {
+        // BLE has MTU limits, send in chunks
+        const mtu = 20;
+        for (var i = 0; i < data.length; i += mtu) {
+          final end = (i + mtu < data.length) ? i + mtu : data.length;
+          await rxChar.write(data.sublist(i, end), withoutResponse: true);
+        }
+      } else {
+        throw Exception('No writable channel');
+      }
     }
   }
 
   Future<Uint8List?> read(Duration timeout) async {
-    if (usbPort != null) {
+    final usb = usbPort;
+    if (usb != null) {
       // Read from USB input stream with timeout
       final completer = Completer<Uint8List?>();
       StreamSubscription? sub;
       Timer? timer;
-      sub = usbPort!.inputStream?.listen((data) {
+      sub = usb.inputStream?.listen((data) {
         timer?.cancel();
         sub?.cancel();
         completer.complete(Uint8List.fromList(data));
@@ -352,7 +358,9 @@ class _SerialConnection {
         completer.complete(null);
       });
       return completer.future;
-    } else if (bleTxChar != null) {
+    }
+    final txChar = bleTxChar;
+    if (txChar != null) {
       // Return buffered BLE data or wait
       if (_bleBuffer.isNotEmpty) {
         final data = Uint8List.fromList(_bleBuffer);
@@ -363,7 +371,7 @@ class _SerialConnection {
       final completer = Completer<Uint8List?>();
       late StreamSubscription sub;
       Timer? timer;
-      sub = bleTxChar!.onValueReceived.listen((data) {
+      sub = txChar.onValueReceived.listen((data) {
         timer?.cancel();
         sub.cancel();
         completer.complete(Uint8List.fromList(data));
@@ -379,11 +387,13 @@ class _SerialConnection {
 
   Future<void> close() async {
     _bleSubscription?.cancel();
-    if (usbPort != null) {
-      await usbPort!.close();
+    final usb = usbPort;
+    if (usb != null) {
+      await usb.close();
     }
-    if (bleDevice != null) {
-      await bleDevice!.disconnect();
+    final ble = bleDevice;
+    if (ble != null) {
+      await ble.disconnect();
     }
   }
 }
