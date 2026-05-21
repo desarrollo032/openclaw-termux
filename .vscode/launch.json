@@ -1,30 +1,197 @@
 {
-    // Use IntelliSense para saber los atributos posibles.
-    // Mantenga el puntero para ver las descripciones de los existentes atributos.
-    // Para más información, visite: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        
+	"version": "0.2.0",
+	"configurations": [
+		// ═══════════════════════════════════════════
+		//  📱 FLUTTER APP
+		// ═══════════════════════════════════════════
 
-        {
-            "name": "flutter_app",
-            "cwd": "flutter_app",
-            "request": "launch",
-            "type": "dart"
-        },
-        {
-            "name": "flutter_app (profile mode)",
-            "cwd": "flutter_app",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "profile"
-        },
-        {
-            "name": "flutter_app (release mode)",
-            "cwd": "flutter_app",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "release"
-        }
-    ]
+		{
+			"name": "🔵 Flutter - Debug",
+			"type": "dart",
+			"request": "launch",
+			"program": "flutter_app/lib/main.dart",
+			"args": [],
+			"flutterMode": "debug",
+			"flutterTrackWidgetCreation": true,
+			"preLaunchTask": "📱 Flutter - Analyze"
+		},
+		{
+			"name": "🟢 Flutter - Profile",
+			"type": "dart",
+			"request": "launch",
+			"program": "flutter_app/lib/main.dart",
+			"args": [],
+			"flutterMode": "profile",
+			"flutterTrackWidgetCreation": false
+		},
+		{
+			"name": "🔴 Flutter - Release",
+			"type": "dart",
+			"request": "launch",
+			"program": "flutter_app/lib/main.dart",
+			"args": [],
+			"flutterMode": "release",
+			"flutterTrackWidgetCreation": false
+		},
+
+		// ═══════════════════════════════════════════
+		//  📱 FLUTTER — DEVICE SELECTION
+		// ═══════════════════════════════════════════
+
+		{
+			"name": "📲 Flutter - Debug (SM-A715F)",
+			"type": "dart",
+			"request": "launch",
+			"program": "flutter_app/lib/main.dart",
+			"args": ["-d", "adb-R58N35PFBFN-vtDUOE._adb-tls-connect._tcp"],
+			"flutterMode": "debug",
+			"flutterTrackWidgetCreation": true,
+			"preLaunchTask": "📱 Flutter - Analyze"
+		},
+		{
+			"name": "📲 Flutter - Run (Web / Chrome)",
+			"type": "dart",
+			"request": "launch",
+			"program": "flutter_app/lib/main.dart",
+			"args": ["-d", "chrome"],
+			"flutterMode": "debug",
+			"flutterTrackWidgetCreation": true
+		},
+
+		// ═══════════════════════════════════════════
+		//  📱 FLUTTER — TESTS
+		// ═══════════════════════════════════════════
+
+		{
+			"name": "🧪 Flutter - All Tests",
+			"type": "dart",
+			"request": "launch",
+			"program": "flutter_app",
+			"args": ["test"]
+		},
+
+		// ═══════════════════════════════════════════
+		//  📦 NODE.JS CLI
+		// ═══════════════════════════════════════════
+
+		{
+			"name": "🔶 Node CLI - Setup",
+			"type": "node",
+			"request": "launch",
+			"program": "lib/index.js",
+			"args": ["setup"],
+			"cwd": "${workspaceFolder}",
+			"console": "integratedTerminal",
+			"env": {
+				"NODE_ENV": "development",
+				"DEBUG": "openclaw:*"
+			}
+		},
+		{
+			"name": "🔶 Node CLI - Status",
+			"type": "node",
+			"request": "launch",
+			"program": "lib/index.js",
+			"args": ["status"],
+			"cwd": "${workspaceFolder}",
+			"console": "integratedTerminal",
+			"env": {
+				"NODE_ENV": "development"
+			}
+		},
+		{
+			"name": "🔶 Node CLI - Start",
+			"type": "node",
+			"request": "launch",
+			"program": "lib/index.js",
+			"args": ["start"],
+			"cwd": "${workspaceFolder}",
+			"console": "integratedTerminal",
+			"env": {
+				"NODE_ENV": "production"
+			}
+		},
+		{
+			"name": "🔶 Node CLI - Shell",
+			"type": "node",
+			"request": "launch",
+			"program": "lib/index.js",
+			"args": ["shell"],
+			"cwd": "${workspaceFolder}",
+			"console": "integratedTerminal",
+			"env": {
+				"NODE_ENV": "development"
+			}
+		},
+		{
+			"name": "🔶 Node CLI - Doctor",
+			"type": "node",
+			"request": "launch",
+			"program": "lib/index.js",
+			"args": ["doctor"],
+			"cwd": "${workspaceFolder}",
+			"console": "integratedTerminal"
+		},
+		{
+			"name": "🔶 Node CLI - Onboarding",
+			"type": "node",
+			"request": "launch",
+			"program": "lib/index.js",
+			"args": ["onboarding"],
+			"cwd": "${workspaceFolder}",
+			"console": "integratedTerminal"
+		},
+
+		// ═══════════════════════════════════════════
+		//  📦 NODE.JS — TESTS
+		// ═══════════════════════════════════════════
+
+		{
+			"name": "🧪 Node - Tests",
+			"type": "node",
+			"request": "launch",
+			"program": "lib/test.js",
+			"cwd": "${workspaceFolder}",
+			"console": "integratedTerminal",
+			"env": {
+				"NODE_ENV": "test"
+			}
+		},
+
+		// ═══════════════════════════════════════════
+		//  🔗 ATTACH TO RUNNING PROCESSES
+		// ═══════════════════════════════════════════
+
+		{
+			"name": "🔗 Attach to Flutter (SM-A715F)",
+			"type": "dart",
+			"request": "attach",
+			"deviceId": "adb-R58N35PFBFN-vtDUOE._adb-tls-connect._tcp"
+		},
+		{
+			"name": "🔗 Attach to Node Process",
+			"type": "node",
+			"request": "attach",
+			"port": 9229,
+			"restart": true,
+			"localRoot": "${workspaceFolder}",
+			"remoteRoot": "${workspaceFolder}"
+		}
+	],
+
+	// ═══════════════════════════════════════════
+	//  🔄 COMPOUND LAUNCH CONFIGS
+	// ═══════════════════════════════════════════
+
+	"compounds": [
+		{
+			"name": "🔄 Full Dev - Flutter + CLI",
+			"configurations": ["🔵 Flutter - Debug", "🔶 Node CLI - Status"],
+			"preLaunchTask": "📱 Flutter - Get Dependencies"
+		},
+		{
+			"name": "🔄 Full Test Suite",
+			"configurations": ["🧪 Flutter - All Tests", "🧪 Node - Tests"]
+		}
+	]
 }

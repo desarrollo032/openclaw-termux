@@ -1,0 +1,77 @@
+{
+	"folders": [
+		{
+			"name": "📦 OpenClaw CLI (Node.js)",
+			"path": "."
+		},
+		{
+			"name": "📱 OpenClaw App (Flutter)",
+			"path": "flutter_app"
+		}
+	],
+	"settings": {
+		// ─── Global ───
+		"editor.formatOnSave": true,
+		"editor.defaultFormatter": "esbenp.prettier-vscode",
+		"editor.renderWhitespace": "boundary",
+		"editor.rulers": [80, 100],
+		"editor.bracketPairColorization.enabled": true,
+		"editor.guides.bracketPairs": true,
+		"files.trimTrailingWhitespace": true,
+		"files.insertFinalNewline": true,
+		"files.exclude": {
+			"**/.git": true,
+			"**/.DS_Store": true,
+			"**/node_modules": true
+		},
+
+		// ─── Dart / Flutter ───
+		"[dart]": {
+			"editor.defaultFormatter": "Dart-Code.dart-code",
+			"editor.formatOnSave": true,
+			"editor.rulers": [80]
+		},
+
+		// ─── JavaScript ───
+		"[javascript]": {
+			"editor.defaultFormatter": "esbenp.prettier-vscode"
+		},
+
+		// ─── JSON ───
+		"[json]": {
+			"editor.defaultFormatter": "esbenp.prettier-vscode"
+		},
+
+		// ─── Markdown ───
+		"[markdown]": {
+			"editor.defaultFormatter": "yzhang.markdown-all-in-one",
+			"editor.wordWrap": "on"
+		},
+
+		// ─── YAML ───
+		"[yaml]": {
+			"editor.insertSpaces": true,
+			"editor.tabSize": 2
+		},
+
+		// ─── HTML ───
+		"[html]": {
+			"editor.defaultFormatter": "esbenp.prettier-vscode"
+		},
+
+		// ─── Terminal ───
+		"terminal.integrated.defaultLocation": "editor",
+		"terminal.integrated.cursorBlinking": true,
+		"terminal.integrated.fontFamily": "Cascadia Code, JetBrains Mono, Fira Code, monospace",
+		"terminal.integrated.fontSize": 13,
+
+		// ─── Explorer ───
+		"explorer.compactFolders": false,
+		"explorer.sortOrder": "type",
+
+		// ─── Git ───
+		"git.enableSmartCommit": true,
+		"git.confirmSync": false,
+		"git.autofetch": true
+	}
+}

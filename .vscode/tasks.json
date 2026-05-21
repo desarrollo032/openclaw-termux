@@ -1,0 +1,117 @@
+{
+	"tasks": [
+		// ─── Flutter ───
+		{
+			"label": "📱 Flutter - Analyze",
+			"type": "shell",
+			"command": "flutter analyze --no-fatal-infos",
+			"options": {
+				"cwd": "${workspaceFolder}/flutter_app"
+			},
+			"problemMatcher": "$flutter",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
+			"label": "📱 Flutter - Get Dependencies",
+			"type": "shell",
+			"command": "flutter pub get",
+			"options": {
+				"cwd": "${workspaceFolder}/flutter_app"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "📱 Flutter - Build APK (Debug)",
+			"type": "shell",
+			"command": "flutter build apk --debug",
+			"options": {
+				"cwd": "${workspaceFolder}/flutter_app"
+			},
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "📱 Flutter - Build APK (Release)",
+			"type": "shell",
+			"command": "flutter build apk --release",
+			"options": {
+				"cwd": "${workspaceFolder}/flutter_app"
+			},
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "📱 Flutter - Run Tests",
+			"type": "shell",
+			"command": "flutter test",
+			"options": {
+				"cwd": "${workspaceFolder}/flutter_app"
+			},
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "📱 Flutter - Clean",
+			"type": "shell",
+			"command": "flutter clean",
+			"options": {
+				"cwd": "${workspaceFolder}/flutter_app"
+			},
+			"problemMatcher": []
+		},
+
+		// ─── Node.js ───
+		{
+			"label": "🔶 Node - Lint",
+			"type": "shell",
+			"command": "npm run lint",
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": ["$eslint-stylish"],
+			"group": "build"
+		},
+		{
+			"label": "🔶 Node - Lint (Fix)",
+			"type": "shell",
+			"command": "npm run lint:fix",
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": ["$eslint-stylish"]
+		},
+		{
+			"label": "🔶 Node - Test",
+			"type": "shell",
+			"command": "npm test",
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": [],
+			"group": "test"
+		},
+
+		// ─── Scripts ───
+		{
+			"label": "🔧 Fetch PRoot Binaries",
+			"type": "shell",
+			"command": "python scripts/fetch-proot-binaries.py",
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "🔧 Fetch PRoot Binaries (Linux)",
+			"type": "shell",
+			"command": "bash scripts/fetch-proot-binaries.sh",
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": []
+		}
+	]
+}
