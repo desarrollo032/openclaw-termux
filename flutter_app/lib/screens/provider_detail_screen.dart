@@ -3,7 +3,6 @@ import '../app.dart';
 import '../models/ai_provider.dart';
 import '../services/provider_config_service.dart';
 
-/// Form screen to configure API key and model for a single AI provider.
 class ProviderDetailScreen extends StatefulWidget {
   final AiProvider provider;
   final String? existingApiKey;
@@ -32,8 +31,6 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
   bool _removing = false;
 
   bool get _isConfigured => widget.existingApiKey != null && widget.existingApiKey!.isNotEmpty;
-
-  /// Returns the effective model name to save.
   String get _effectiveModel =>
       _isCustomModel ? _customModelController.text.trim() : _selectedModel;
 
@@ -47,7 +44,6 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
     if (widget.provider.defaultModels.contains(existing)) {
       _selectedModel = existing;
     } else {
-      // Existing model is not in the predefined list — treat as custom
       _selectedModel = _customModelSentinel;
       _isCustomModel = true;
       _customModelController.text = existing;
@@ -145,28 +141,27 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final iconBg = isDark ? AppColors.darkSurfaceAlt : const Color(0xFFF3F4F6);
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.provider.name)),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
           // Provider header
           Card(
+            margin: EdgeInsets.zero,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
                   Container(
-                    width: 48,
-                    height: 48,
+                    width: 52,
+                    height: 52,
                     decoration: BoxDecoration(
-                      color: iconBg,
-                      borderRadius: BorderRadius.circular(12),
+                      color: widget.provider.color.withAlpha(15),
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Icon(widget.provider.icon, color: widget.provider.color),
+                    child: Icon(widget.provider.icon, color: widget.provider.color, size: 26),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -176,7 +171,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
                         Text(
                           widget.provider.name,
                           style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -189,41 +184,79 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
                       ],
                     ),
                   ),
+                  if (_isConfigured)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.statusGreen.withAlpha(20),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        'Active',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppColors.statusGreen,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
 
-          // API Key
+          // API Key section
           Text(
             'API Key',
-            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: 8),
+          Text(
+            'Enter your ${widget.provider.name} API key.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
           TextField(
             controller: _apiKeyController,
             obscureText: _obscureKey,
             decoration: InputDecoration(
               hintText: widget.provider.apiKeyHint,
+              prefixIcon: const Icon(Icons.key),
               suffixIcon: IconButton(
-                icon: Icon(_obscureKey ? Icons.visibility_off : Icons.visibility),
+                icon: Icon(_obscureKey ? Icons.visibility_off_outlined : Icons.visibility_outlined),
                 onPressed: () => setState(() => _obscureKey = !_obscureKey),
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
 
-          // Model selection
+          // Model section
           Text(
             'Model',
-            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: 8),
+          Text(
+            'Select which model to use with this provider.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             value: _selectedModel,
             isExpanded: true,
-            decoration: const InputDecoration(),
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.model_training),
+            ),
             items: [
               ...widget.provider.defaultModels
                   .map((m) => DropdownMenuItem(value: m, child: Text(m))),
@@ -248,33 +281,40 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
               decoration: const InputDecoration(
                 hintText: 'e.g. meta/llama-3.3-70b-instruct',
                 labelText: 'Custom model name',
+                prefixIcon: Icon(Icons.edit_outlined),
               ),
             ),
           ],
           const SizedBox(height: 32),
 
           // Actions
-          FilledButton(
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : const Text('Save & Activate'),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _saving ? null : _save,
+              icon: _saving
+                  ? const SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.save_outlined, size: 18),
+              label: Text(_saving ? 'Saving...' : 'Save & Activate'),
+            ),
           ),
           if (_isConfigured) ...[
             const SizedBox(height: 12),
-            OutlinedButton(
-              onPressed: _removing ? null : _remove,
-              child: _removing
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Remove Configuration'),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _removing ? null : _remove,
+                icon: _removing
+                    ? const SizedBox(
+                        width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.delete_outline, size: 18),
+                label: Text(_removing ? 'Removing...' : 'Remove Configuration'),
+              ),
             ),
           ],
         ],

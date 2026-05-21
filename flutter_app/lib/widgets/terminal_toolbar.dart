@@ -5,10 +5,6 @@ import 'package:flutter_pty/flutter_pty.dart';
 import '../app.dart';
 
 /// Termux-style extra keys toolbar for terminal screens.
-/// Provides ESC, CTRL, ALT, TAB, arrows, and common special characters.
-///
-/// CTRL and ALT state is exposed via [ValueNotifier]s so the parent
-/// screen can intercept keyboard input and apply modifiers.
 class TerminalToolbar extends StatefulWidget {
   final Pty? pty;
   final ValueNotifier<bool> ctrlNotifier;
@@ -53,8 +49,6 @@ class _TerminalToolbarState extends State<TerminalToolbar> {
 
     if (_ctrlActive) {
       widget.ctrlNotifier.value = false;
-
-      // Ctrl+a-z → bytes 1-26
       if (data.length == 1) {
         final code = data.toLowerCase().codeUnitAt(0);
         if (code >= 97 && code <= 122) {
@@ -62,32 +56,26 @@ class _TerminalToolbarState extends State<TerminalToolbar> {
           return;
         }
       }
-
-      // Ctrl+escape sequences (arrows, Home, End, PgUp, PgDn)
       const ctrlSeqMap = <String, String>{
-        '\x1b[A': '\x1b[1;5A', // Up
-        '\x1b[B': '\x1b[1;5B', // Down
-        '\x1b[D': '\x1b[1;5D', // Left
-        '\x1b[C': '\x1b[1;5C', // Right
-        '\x1b[H': '\x1b[1;5H', // Home
-        '\x1b[F': '\x1b[1;5F', // End
-        '\x1b[5~': '\x1b[5;5~', // PgUp
-        '\x1b[6~': '\x1b[6;5~', // PgDn
+        '\x1b[A': '\x1b[1;5A',
+        '\x1b[B': '\x1b[1;5B',
+        '\x1b[D': '\x1b[1;5D',
+        '\x1b[C': '\x1b[1;5C',
+        '\x1b[H': '\x1b[1;5H',
+        '\x1b[F': '\x1b[1;5F',
+        '\x1b[5~': '\x1b[5;5~',
+        '\x1b[6~': '\x1b[6;5~',
       };
-
       final ctrlVariant = ctrlSeqMap[data];
       if (ctrlVariant != null) {
         pty.write(utf8.encode(ctrlVariant));
         return;
       }
-
-      // Unhandled combo: send raw data (TAB, ESC, symbols, etc.)
       pty.write(utf8.encode(data));
       return;
     }
 
     if (_altActive) {
-      // ALT+key: send ESC + key
       widget.altNotifier.value = false;
       pty.write(utf8.encode('\x1b$data'));
       return;
@@ -110,8 +98,9 @@ class _TerminalToolbarState extends State<TerminalToolbar> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final bgColor = isDark ? AppColors.darkBg : const Color(0xFFE0E0E0);
-    final btnColor = isDark ? AppColors.darkSurfaceAlt : const Color(0xFFEEEEEE);
+    final bgColor = isDark ? const Color(0xFF0D0D0D) : const Color(0xFFE8E8E8);
+    final btnColor = isDark ? AppColors.darkSurfaceAlt : const Color(0xFFF5F5F5);
+    final borderColor = isDark ? AppColors.darkBorder : const Color(0xFFD0D0D0);
     const activeColor = AppColors.accent;
     final textColor = isDark ? Colors.white70 : Colors.black87;
 
@@ -121,19 +110,28 @@ class _TerminalToolbarState extends State<TerminalToolbar> {
         child: Material(
           color: active ? activeColor : btnColor,
           borderRadius: BorderRadius.circular(6),
+          elevation: active ? 2 : 0,
+          shadowColor: active ? activeColor.withAlpha(80) : Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(6),
             onTap: onTap ?? () => _send(sendData ?? label),
             child: Container(
               width: width,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 34),
+              constraints: const BoxConstraints(minWidth: 34, minHeight: 32),
               alignment: Alignment.center,
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: active ? activeColor : borderColor.withAlpha(80),
+                  width: active ? 1.5 : 0.5,
+                ),
+              ),
               child: Text(
                 label,
                 style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
                   color: active ? Colors.white : textColor,
                   fontFamily: 'monospace',
                 ),
@@ -154,9 +152,16 @@ class _TerminalToolbarState extends State<TerminalToolbar> {
             borderRadius: BorderRadius.circular(6),
             onTap: () => _send(escSequence),
             child: Container(
-              constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               alignment: Alignment.center,
-              child: Icon(icon, size: 16, color: textColor),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: borderColor.withAlpha(80),
+                  width: 0.5,
+                ),
+              ),
+              child: Icon(icon, size: 15, color: textColor),
             ),
           ),
         ),
@@ -169,25 +174,25 @@ class _TerminalToolbarState extends State<TerminalToolbar> {
         top: false,
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
           child: Row(
             children: [
               keyButton('ESC', sendData: '\x1b'),
               keyButton('CTRL', onTap: _toggleCtrl, active: _ctrlActive),
               keyButton('ALT', onTap: _toggleAlt, active: _altActive),
               keyButton('TAB', sendData: '\t'),
-              keyButton('ENTER', sendData: '\r'),
-              const SizedBox(width: 4),
+              keyButton('⏎', sendData: '\r'),
+              const SizedBox(width: 6),
               arrowButton(Icons.arrow_upward, '\x1b[A'),
               arrowButton(Icons.arrow_downward, '\x1b[B'),
               arrowButton(Icons.arrow_back, '\x1b[D'),
               arrowButton(Icons.arrow_forward, '\x1b[C'),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
               keyButton('HOME', sendData: '\x1b[H'),
               keyButton('END', sendData: '\x1b[F'),
-              keyButton('PGUP', sendData: '\x1b[5~'),
-              keyButton('PGDN', sendData: '\x1b[6~'),
-              const SizedBox(width: 4),
+              keyButton('PG↑', sendData: '\x1b[5~'),
+              keyButton('PG↓', sendData: '\x1b[6~'),
+              const SizedBox(width: 6),
               keyButton('-', sendData: '-'),
               keyButton('/', sendData: '/'),
               keyButton('|', sendData: '|'),

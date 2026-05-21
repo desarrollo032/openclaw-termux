@@ -21,18 +21,26 @@ class _SplashScreenState extends State<SplashScreen>
   String _status = 'Loading...';
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
+  late final Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
     _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1000),
     );
     _fadeAnimation = CurvedAnimation(
       parent: _fadeController,
       curve: Curves.easeOut,
     );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.15),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOutCubic,
+    ));
     _fadeController.forward();
     _checkAndRoute();
   }
@@ -44,17 +52,14 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _checkAndRoute() async {
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 800));
 
     try {
-      setState(() => _status = 'Checking setup status...');
+      setState(() => _status = 'Checking setup...');
 
-      // Ensure directories and resolv.conf exist on every app open.
-      // Android may clear the files directory during update or reinstall (#40).
       try { await NativeBridge.setupDirs(); } catch (_) {}
       try { await NativeBridge.writeResolv(); } catch (_) {}
 
-      // Direct Dart fallback: create resolv.conf if native calls failed (#40).
       try {
         final filesDir = await NativeBridge.getFilesDir();
         const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
@@ -64,7 +69,6 @@ class _SplashScreenState extends State<SplashScreen>
           Directory(configDir).createSync(recursive: true);
           resolvFile.writeAsStringSync(resolvContent);
         }
-        // Also write into rootfs /etc/ so DNS works even if bind-mount fails
         final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
         if (!rootfsResolv.existsSync()) {
           rootfsResolv.parent.createSync(recursive: true);
@@ -75,7 +79,6 @@ class _SplashScreenState extends State<SplashScreen>
       final prefs = PreferencesService();
       await prefs.init();
 
-      // Auto-export snapshot when app version changes (#55)
       try {
         final oldVersion = prefs.lastAppVersion;
         if (oldVersion != null && oldVersion != AppConstants.version) {
@@ -115,8 +118,6 @@ class _SplashScreenState extends State<SplashScreen>
         setupComplete = false;
       }
 
-      // Auto-repair: if the rootfs and bash exist but other components are
-      // missing, try to repair them instead of forcing full re-setup (#70, #73, #97).
       if (!setupComplete) {
         try {
           final status = await NativeBridge.getBootstrapStatus();
@@ -126,15 +127,11 @@ class _SplashScreenState extends State<SplashScreen>
           final openclawOk = status['openclawInstalled'] == true;
           final bypassOk = status['bypassInstalled'] == true;
 
-          // Core rootfs must exist — can't repair without it
           if (rootfsOk && bashOk) {
-            // Regenerate bionic bypass if missing
             if (!bypassOk) {
-              setState(() => _status = 'Repairing bionic bypass...');
+              setState(() => _status = 'Repairing bypass...');
               await NativeBridge.installBionicBypass();
             }
-
-            // Reinstall node if binary is missing (#97)
             if (!nodeOk) {
               setState(() => _status = 'Reinstalling Node.js...');
               try {
@@ -147,8 +144,6 @@ class _SplashScreenState extends State<SplashScreen>
                 await NativeBridge.extractNodeTarball(nodeTarPath);
               } catch (_) {}
             }
-
-            // Reinstall openclaw if package.json is missing (#97)
             if (!openclawOk && nodeOk) {
               setState(() => _status = 'Reinstalling OpenClaw...');
               try {
@@ -162,7 +157,6 @@ class _SplashScreenState extends State<SplashScreen>
                 await NativeBridge.createBinWrappers('openclaw');
               } catch (_) {}
             }
-
             setupComplete = await NativeBridge.isBootstrapComplete();
           }
         } catch (_) {}
@@ -173,11 +167,21 @@ class _SplashScreenState extends State<SplashScreen>
       if (setupComplete) {
         prefs.setupComplete = true;
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => const DashboardScreen(),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
+            transitionDuration: const Duration(milliseconds: 400),
+          ),
         );
       } else {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const SetupWizardScreen()),
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => const SetupWizardScreen(),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
+            transitionDuration: const Duration(milliseconds: 400),
+          ),
         );
       }
     } catch (e) {
@@ -189,50 +193,88 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
       body: Center(
         child: FadeTransition(
           opacity: _fadeAnimation,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.asset(
-                'assets/ic_launcher.png',
-                width: 80,
-                height: 80,
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'OpenClaw',
-                style: GoogleFonts.inter(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                  color: Theme.of(context).colorScheme.onSurface,
+          child: SlideTransition(
+            position: _slideAnimation,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Logo with glow effect
+                Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withAlpha(15),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withAlpha(30),
+                        blurRadius: 30,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.bolt,
+                      size: 44,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'AI Gateway for Android',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                const SizedBox(height: 28),
+                Text(
+                  'OpenClaw',
+                  style: GoogleFonts.inter(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'by ${AppConstants.authorName} | ${AppConstants.orgName}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                const SizedBox(height: 8),
+                Text(
+                  'AI Gateway for Android',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 32),
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
-              Text(
-                _status,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  'by ${AppConstants.authorName} · ${AppConstants.orgName}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
+                  ),
+                ),
+                const SizedBox(height: 40),
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: Text(
+                    _status,
+                    key: ValueKey(_status),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

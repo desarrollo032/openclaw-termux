@@ -4,7 +4,6 @@ import '../app.dart';
 import '../services/ssh_service.dart';
 import 'packages_screen.dart';
 
-/// SSH server management screen — start/stop sshd, set password, show connection info.
 class SshScreen extends StatefulWidget {
   const SshScreen({super.key});
 
@@ -42,7 +41,6 @@ class _SshScreenState extends State<SshScreen> {
     List<String> ips = [];
     if (installed) {
       running = await SshService.isSshdRunning();
-      // Always fetch IPs so user can see them before starting
       ips = await SshService.getIpAddresses();
       if (running) {
         final port = await SshService.getPort();
@@ -64,12 +62,10 @@ class _SshScreenState extends State<SshScreen> {
     try {
       if (_running) {
         await SshService.stopSshd();
-        // Give the service a moment to stop
         await Future.delayed(const Duration(milliseconds: 500));
       } else {
         final port = int.tryParse(_portController.text.trim()) ?? 8022;
         await SshService.startSshd(port: port);
-        // Give the service a moment to start
         await Future.delayed(const Duration(seconds: 2));
       }
       await _refresh();
@@ -104,7 +100,7 @@ class _SshScreenState extends State<SshScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to set password: $e')),
+          SnackBar(content: Text('Failed: $e')),
         );
       }
     } finally {
@@ -141,8 +137,15 @@ class _SshScreenState extends State<SshScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.vpn_key, size: 64, color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.onSurfaceVariant.withAlpha(15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(Icons.vpn_key, size: 48, color: theme.colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 20),
             Text(
               'OpenSSH not installed',
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -163,7 +166,7 @@ class _SshScreenState extends State<SshScreen> {
                 );
                 _refresh();
               },
-              icon: const Icon(Icons.extension),
+              icon: const Icon(Icons.extension_outlined, size: 18),
               label: const Text('Open Packages'),
             ),
           ],
@@ -176,13 +179,10 @@ class _SshScreenState extends State<SshScreen> {
     final port = _portController.text.trim();
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       children: [
-        // Service control
-        _sectionHeader(theme, 'SERVICE CONTROL'),
-        const SizedBox(height: 8),
-        Card(
-          child: Padding(
+        _card(theme, [
+          Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,24 +190,30 @@ class _SshScreenState extends State<SshScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: (_running ? AppColors.statusGreen : AppColors.statusGrey)
-                            .withAlpha(25),
-                        borderRadius: BorderRadius.circular(8),
+                        color: (_running ? AppColors.statusGreen : AppColors.statusGrey).withAlpha(20),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
                         _running ? Icons.check_circle : Icons.cancel,
                         color: _running ? AppColors.statusGreen : AppColors.statusGrey,
-                        size: 20,
+                        size: 22,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Text(
-                      _running ? 'SSH server running' : 'SSH server stopped',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                    const SizedBox(width: 14),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _running ? 'SSH Server Running' : 'SSH Server Stopped',
+                          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          _running ? 'Accepting connections' : 'Click start to enable',
+                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -219,47 +225,42 @@ class _SshScreenState extends State<SshScreen> {
                     decoration: const InputDecoration(
                       labelText: 'Port',
                       hintText: '8022',
+                      prefixIcon: Icon(Icons.numbers),
                     ),
                   ),
                 if (!_running) const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: _running
-                      ? OutlinedButton(
+                      ? OutlinedButton.icon(
                           onPressed: _toggling ? null : _toggleSshd,
-                          child: _toggling
+                          icon: _toggling
                               ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
+                                  width: 18, height: 18,
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : const Text('Stop Server'),
+                              : const Icon(Icons.stop, size: 18),
+                          label: const Text('Stop Server'),
                         )
-                      : FilledButton(
+                      : FilledButton.icon(
                           onPressed: _toggling ? null : _toggleSshd,
-                          child: _toggling
+                          icon: _toggling
                               ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
+                                  width: 18, height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                 )
-                              : const Text('Start Server'),
+                              : const Icon(Icons.play_arrow, size: 18),
+                          label: const Text('Start Server'),
                         ),
                 ),
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 24),
+        ], title: 'Service Control', icon: Icons.power_outlined),
 
-        // Root password
-        _sectionHeader(theme, 'ROOT PASSWORD'),
-        const SizedBox(height: 8),
-        Card(
-          child: Padding(
+        const SizedBox(height: 16),
+        _card(theme, [
+          Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -277,37 +278,32 @@ class _SshScreenState extends State<SshScreen> {
                   decoration: const InputDecoration(
                     labelText: 'New password',
                     hintText: 'Enter password',
+                    prefixIcon: Icon(Icons.lock_outlined),
                   ),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
-                  child: FilledButton(
+                  child: FilledButton.icon(
                     onPressed: _settingPassword ? null : _setPassword,
-                    child: _settingPassword
+                    icon: _settingPassword
                         ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
+                            width: 18, height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
-                        : const Text('Set Password'),
+                        : const Icon(Icons.lock_outline, size: 18),
+                    label: const Text('Set Password'),
                   ),
                 ),
               ],
             ),
           ),
-        ),
+        ], title: 'Root Password', icon: Icons.lock_outlined),
 
-        // Connection info (when running)
         if (_running) ...[
-          const SizedBox(height: 24),
-          _sectionHeader(theme, 'CONNECTION INFO'),
-          const SizedBox(height: 8),
-          Card(
-            child: Padding(
+          const SizedBox(height: 16),
+          _card(theme, [
+            Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -336,23 +332,35 @@ class _SshScreenState extends State<SshScreen> {
                 ],
               ),
             ),
-          ),
+          ], title: 'Connection Info', icon: Icons.info_outline),
         ],
       ],
     );
   }
 
-  Widget _sectionHeader(ThemeData theme, String title) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: Text(
-        title,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1.2,
+  Widget _card(ThemeData theme, List<Widget> children, {required String title, required IconData icon}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Row(
+            children: [
+              Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+        Card(margin: EdgeInsets.zero, child: Column(children: children)),
+      ],
     );
   }
 
@@ -363,19 +371,9 @@ class _SshScreenState extends State<SshScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                label,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
+              Text(label, style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
               const SizedBox(height: 2),
-              Text(
-                value,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+              Text(value, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
             ],
           ),
         ),
@@ -390,21 +388,25 @@ class _SshScreenState extends State<SshScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
       ),
       child: Row(
         children: [
+          Icon(Icons.terminal, size: 14, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               command,
               style: theme.textTheme.bodySmall?.copyWith(
                 fontFamily: 'monospace',
                 fontWeight: FontWeight.w500,
+                fontSize: 12,
               ),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.copy, size: 18),
+            icon: const Icon(Icons.copy, size: 16),
             onPressed: () => _copyToClipboard(command),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),

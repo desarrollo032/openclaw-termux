@@ -4,7 +4,6 @@ import '../models/ai_provider.dart';
 import '../services/provider_config_service.dart';
 import 'provider_detail_screen.dart';
 
-/// Lists all AI providers with their configuration status.
 class ProvidersScreen extends StatefulWidget {
   const ProvidersScreen({super.key});
 
@@ -45,15 +44,12 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
         ),
       ),
     );
-    if (result == true) {
-      _refresh();
-    }
+    if (result == true) _refresh();
   }
 
   String _statusLabel(AiProvider provider) {
     final isConfigured = _providers.containsKey(provider.id);
     if (!isConfigured) return '';
-    // Check if the active model belongs to this provider
     if (_activeModel != null) {
       final isActive = provider.defaultModels.any((m) => _activeModel!.contains(m)) ||
           _activeModel!.contains(provider.id);
@@ -65,57 +61,56 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(title: const Text('AI Providers')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               children: [
-                // Active model card
                 if (_activeModel != null && _activeModel!.isNotEmpty) ...[
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppColors.statusGreen.withAlpha(25),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.check_circle,
-                              color: AppColors.statusGreen,
-                            ),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.statusGreen.withAlpha(12),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.statusGreen.withAlpha(30)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.statusGreen.withAlpha(25),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Active Model',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: AppColors.statusGreen,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                          child: const Icon(Icons.check_circle, color: AppColors.statusGreen, size: 22),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Active Model',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: AppColors.statusGreen,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _activeModel!,
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _activeModel!,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -128,33 +123,34 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                 ),
                 const SizedBox(height: 16),
                 for (final provider in AiProvider.all)
-                  _buildProviderCard(theme, provider, isDark),
+                  _buildProviderCard(theme, provider),
               ],
             ),
     );
   }
 
-  Widget _buildProviderCard(ThemeData theme, AiProvider provider, bool isDark) {
-    final iconBg = isDark ? AppColors.darkSurfaceAlt : const Color(0xFFF3F4F6);
+  Widget _buildProviderCard(ThemeData theme, AiProvider provider) {
+    final isConfigured = _providers.containsKey(provider.id);
     final status = _statusLabel(provider);
+    final statusColor = status == 'Active' ? AppColors.statusGreen : AppColors.statusAmber;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: () => _openProvider(provider),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 50,
+                height: 50,
                 decoration: BoxDecoration(
-                  color: iconBg,
-                  borderRadius: BorderRadius.circular(12),
+                  color: provider.color.withAlpha(15),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(provider.icon, color: provider.color),
+                child: Icon(provider.icon, color: provider.color, size: 24),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -172,24 +168,35 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                         if (status.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: (status == 'Active'
-                                      ? AppColors.statusGreen
-                                      : AppColors.statusAmber)
-                                  .withAlpha(25),
-                              borderRadius: BorderRadius.circular(12),
+                              color: statusColor.withAlpha(20),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
                               status,
                               style: theme.textTheme.labelSmall?.copyWith(
-                                color: status == 'Active'
-                                    ? AppColors.statusGreen
-                                    : AppColors.statusAmber,
-                                fontWeight: FontWeight.w600,
+                                color: statusColor,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (isConfigured && status.isEmpty) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.mutedText.withAlpha(20),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              'Configured',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: AppColors.mutedText,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
                               ),
                             ),
                           ),
@@ -206,7 +213,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right),
+              const Icon(Icons.chevron_right, size: 22, color: AppColors.mutedText),
             ],
           ),
         ),

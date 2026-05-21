@@ -28,20 +28,18 @@ class ProgressStep extends StatelessWidget {
 
     if (hasError) {
       circleColor = theme.colorScheme.error;
-      circleChild = const Icon(Icons.close, color: Colors.white, size: 16);
+      circleChild = const Icon(Icons.close, color: Colors.white, size: 14);
     } else if (isComplete) {
       circleColor = AppColors.statusGreen;
-      circleChild = const Icon(Icons.check, color: Colors.white, size: 16);
+      circleChild = const Icon(Icons.check, color: Colors.white, size: 14);
     } else if (isActive) {
       circleColor = theme.colorScheme.primary;
-      // Use indeterminate (spinning) when progress is 0 so the UI doesn't
-      // appear frozen during long-running steps (#83).
       final effectiveProgress = (progress != null && progress! > 0.0) ? progress : null;
       circleChild = SizedBox(
-        width: 16,
-        height: 16,
+        width: 14,
+        height: 14,
         child: CircularProgressIndicator(
-          strokeWidth: 2,
+          strokeWidth: 2.5,
           color: Colors.white,
           value: effectiveProgress,
         ),
@@ -52,57 +50,86 @@ class ProgressStep extends StatelessWidget {
         '$stepNumber',
         style: TextStyle(
           color: theme.colorScheme.onSurfaceVariant,
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.bold,
         ),
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+    final bgColor = isActive
+        ? theme.colorScheme.primary.withAlpha(8)
+        : Colors.transparent;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
         children: [
-          Container(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
             width: 32,
             height: 32,
             decoration: BoxDecoration(
               color: circleColor,
               shape: BoxShape.circle,
+              boxShadow: isActive || isComplete
+                  ? [
+                      BoxShadow(
+                        color: circleColor.withAlpha(60),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
             ),
             alignment: Alignment.center,
             child: circleChild,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 200),
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                    fontWeight: isActive
+                        ? FontWeight.w600
+                        : isComplete
+                            ? FontWeight.w500
+                            : FontWeight.normal,
                     color: isActive
                         ? theme.colorScheme.onSurface
-                        : theme.colorScheme.onSurfaceVariant,
+                        : isComplete
+                            ? theme.colorScheme.onSurface.withAlpha(200)
+                            : theme.colorScheme.onSurfaceVariant,
                   ),
+                  child: Text(label),
                 ),
                 if (isActive && progress != null) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
                     child: LinearProgressIndicator(
-                      // Show indeterminate animation when progress is 0 (#83)
                       value: progress! > 0.0 ? progress : null,
                       minHeight: 4,
-                      borderRadius: BorderRadius.circular(2),
+                      backgroundColor: theme.colorScheme.surfaceContainerHighest,
                     ),
                   ),
                   if (progress! > 0.0)
                     Padding(
-                      padding: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.only(top: 4),
                       child: Text(
                         '${(progress! * 100).toInt()}%',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),

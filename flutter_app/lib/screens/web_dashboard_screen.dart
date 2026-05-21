@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../app.dart';
 import '../constants.dart';
 import '../services/preferences_service.dart';
 
@@ -15,6 +16,7 @@ class WebDashboardScreen extends StatefulWidget {
 class _WebDashboardScreenState extends State<WebDashboardScreen> {
   late final WebViewController _controller;
   bool _loading = true;
+  double _loadingProgress = 0;
   String? _error;
 
   @override
@@ -24,8 +26,16 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
+          onProgress: (progress) {
+            if (mounted) setState(() => _loadingProgress = progress / 100.0);
+          },
           onPageStarted: (_) {
-            if (mounted) setState(() => _loading = true);
+            if (mounted) {
+              setState(() {
+                _loading = true;
+                _loadingProgress = 0;
+              });
+            }
           },
           onPageFinished: (_) {
             if (mounted) setState(() => _loading = false);
@@ -46,7 +56,6 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
   Future<void> _loadUrl() async {
     var url = widget.url;
     if (url == null || url.isEmpty) {
-      // Fallback: load saved token URL from preferences
       final prefs = PreferencesService();
       await prefs.init();
       url = prefs.dashboardUrl;
@@ -56,6 +65,8 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Web Dashboard'),
@@ -81,17 +92,34 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.wifi_off,
-                      size: 48,
-                      color: Theme.of(context).colorScheme.error,
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.error.withAlpha(15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Icon(
+                        Icons.wifi_off,
+                        size: 48,
+                        color: theme.colorScheme.error,
+                      ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Connection Error',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Text(
                       _error!,
                       textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     FilledButton.icon(
                       onPressed: () {
                         setState(() {
@@ -100,7 +128,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
                         });
                         _controller.reload();
                       },
-                      icon: const Icon(Icons.refresh),
+                      icon: const Icon(Icons.refresh, size: 18),
                       label: const Text('Retry'),
                     ),
                   ],
@@ -110,7 +138,15 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
           else
             WebViewWidget(controller: _controller),
           if (_loading)
-            const LinearProgressIndicator(),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: LinearProgressIndicator(
+                value: _loadingProgress > 0 ? _loadingProgress : null,
+                minHeight: 3,
+              ),
+            ),
         ],
       ),
     );

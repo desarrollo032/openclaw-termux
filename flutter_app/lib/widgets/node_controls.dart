@@ -24,51 +24,127 @@ class NodeControls extends StatelessWidget {
               children: [
                 Row(
                   children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.statusGreen.withAlpha(15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.devices_outlined,
+                        color: AppColors.statusGreen,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        'Node',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Node',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            'Device capabilities',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     _statusBadge(state.status, theme),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 if (state.isPaired) ...[
-                  Text(
-                    'Connected to ${state.gatewayHost}:${state.gatewayPort}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontFamily: 'monospace',
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.statusGreen.withAlpha(10),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AppColors.statusGreen.withAlpha(30),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.link, size: 16, color: AppColors.statusGreen),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Connected to ${state.gatewayHost}:${state.gatewayPort}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: AppColors.statusGreen,
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
                 if (state.pairingCode != null) ...[
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        'Pairing code: ',
-                        style: theme.textTheme.bodyMedium,
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.statusAmber.withAlpha(10),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AppColors.statusAmber.withAlpha(30),
                       ),
-                      SelectableText(
-                        state.pairingCode!,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontFamily: 'monospace',
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.primary,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.qr_code, size: 16, color: AppColors.statusAmber),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Pairing code: ',
+                          style: theme.textTheme.bodySmall,
                         ),
-                      ),
-                    ],
+                        SelectableText(
+                          state.pairingCode!,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.statusAmber,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
-                if (state.errorMessage != null)
-                  Text(
-                    state.errorMessage!,
-                    style: TextStyle(color: theme.colorScheme.error),
+                if (state.errorMessage != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.error.withAlpha(15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline,
+                            size: 16, color: theme.colorScheme.error),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            state.errorMessage!,
+                            style: TextStyle(
+                              color: theme.colorScheme.error,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                ],
                 const SizedBox(height: 16),
                 Wrap(
                   spacing: 8,
@@ -77,20 +153,20 @@ class NodeControls extends StatelessWidget {
                     if (state.isDisabled)
                       FilledButton.icon(
                         onPressed: () => provider.enable(),
-                        icon: const Icon(Icons.power_settings_new),
-                        label: const Text('Enable Node'),
+                        icon: const Icon(Icons.power_settings_new, size: 18),
+                        label: const Text('Enable'),
                       ),
                     if (!state.isDisabled) ...[
                       OutlinedButton.icon(
                         onPressed: () => provider.disable(),
-                        icon: const Icon(Icons.stop),
-                        label: const Text('Disable Node'),
+                        icon: const Icon(Icons.stop, size: 18),
+                        label: const Text('Disable'),
                       ),
                       if (state.status == NodeStatus.error ||
                           state.status == NodeStatus.disconnected)
                         OutlinedButton.icon(
                           onPressed: () => provider.reconnect(),
-                          icon: const Icon(Icons.refresh),
+                          icon: const Icon(Icons.refresh, size: 18),
                           label: const Text('Reconnect'),
                         ),
                     ],
@@ -98,7 +174,7 @@ class NodeControls extends StatelessWidget {
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const NodeScreen()),
                       ),
-                      icon: const Icon(Icons.settings),
+                      icon: const Icon(Icons.settings, size: 18),
                       label: const Text('Configure'),
                     ),
                   ],
@@ -120,7 +196,7 @@ class NodeControls extends StatelessWidget {
       case NodeStatus.paired:
         color = AppColors.statusGreen;
         label = 'Paired';
-        icon = Icons.check_circle_outline;
+        icon = Icons.check_circle;
       case NodeStatus.connecting:
       case NodeStatus.challenging:
       case NodeStatus.pairing:
@@ -137,16 +213,16 @@ class NodeControls extends StatelessWidget {
         icon = Icons.circle_outlined;
       case NodeStatus.disconnected:
         color = AppColors.statusGrey;
-        label = 'Disconnected';
+        label = 'Offline';
         icon = Icons.link_off;
     }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withAlpha(25),
+        color: color.withAlpha(20),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withAlpha(60)),
+        border: Border.all(color: color.withAlpha(50)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -157,7 +233,8 @@ class NodeControls extends StatelessWidget {
             label,
             style: theme.textTheme.labelSmall?.copyWith(
               color: color,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.3,
             ),
           ),
         ],

@@ -4,7 +4,6 @@ import '../models/optional_package.dart';
 import '../services/package_service.dart';
 import 'package_install_screen.dart';
 
-/// Lists all optional packages with install/uninstall actions.
 class PackagesScreen extends StatefulWidget {
   const PackagesScreen({super.key});
 
@@ -44,9 +43,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
         ),
       ),
     );
-    if (result == true) {
-      _refreshStatuses();
-    }
+    if (result == true) _refreshStatuses();
   }
 
   void _confirmUninstall(OptionalPackage package) {
@@ -54,9 +51,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Uninstall ${package.name}?'),
-        content: Text(
-          'This will remove ${package.name} from the environment.',
-        ),
+        content: Text('This will remove ${package.name} from the environment.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -77,14 +72,13 @@ class _PackagesScreenState extends State<PackagesScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Optional Packages')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               children: [
                 Text(
                   'Development tools you can install inside the Ubuntu environment.',
@@ -94,30 +88,29 @@ class _PackagesScreenState extends State<PackagesScreen> {
                 ),
                 const SizedBox(height: 16),
                 for (final pkg in OptionalPackage.all)
-                  _buildPackageCard(theme, pkg, isDark),
+                  _buildPackageCard(theme, pkg),
               ],
             ),
     );
   }
 
-  Widget _buildPackageCard(ThemeData theme, OptionalPackage package, bool isDark) {
+  Widget _buildPackageCard(ThemeData theme, OptionalPackage package) {
     final installed = _statuses[package.id] ?? false;
-    final iconBg = isDark ? AppColors.darkSurfaceAlt : const Color(0xFFF3F4F6);
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(12),
+                color: package.color.withAlpha(15),
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(package.icon, color: theme.colorScheme.onSurfaceVariant),
+              child: Icon(package.icon, color: package.color, size: 26),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -135,19 +128,17 @@ class _PackagesScreenState extends State<PackagesScreen> {
                       if (installed) ...[
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.statusGreen.withAlpha(25),
-                            borderRadius: BorderRadius.circular(12),
+                            color: AppColors.statusGreen.withAlpha(20),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             'Installed',
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: AppColors.statusGreen,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11,
                             ),
                           ),
                         ),
@@ -162,11 +153,19 @@ class _PackagesScreenState extends State<PackagesScreen> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    package.estimatedSize,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                  Row(
+                    children: [
+                      Icon(Icons.storage_outlined, size: 12,
+                          color: theme.colorScheme.onSurfaceVariant.withAlpha(120)),
+                      const SizedBox(width: 4),
+                      Text(
+                        package.estimatedSize,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -175,7 +174,11 @@ class _PackagesScreenState extends State<PackagesScreen> {
             installed
                 ? OutlinedButton(
                     onPressed: () => _confirmUninstall(package),
-                    child: const Text('Uninstall'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.statusAmber,
+                      side: const BorderSide(color: AppColors.statusAmber),
+                    ),
+                    child: const Text('Remove'),
                   )
                 : FilledButton(
                     onPressed: () => _navigateToInstall(package),
