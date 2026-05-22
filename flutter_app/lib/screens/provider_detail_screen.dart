@@ -64,14 +64,14 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
     final apiKey = _apiKeyController.text.trim();
     if (apiKey.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('API key cannot be empty')),
+        const SnackBar(content: Text('La clave API no puede estar vacía')),
       );
       return;
     }
     final model = _effectiveModel;
     if (model.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Model name cannot be empty')),
+        const SnackBar(content: Text('El nombre del modelo no puede estar vacío')),
       );
       return;
     }
@@ -85,14 +85,14 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${widget.provider.name} configured and activated')),
+          SnackBar(content: Text('${widget.provider.name} configurado y activado')),
         );
         Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save: $e')),
+          SnackBar(content: Text('Error al guardar: $e')),
         );
       }
     } finally {
@@ -104,16 +104,16 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Remove ${widget.provider.name}?'),
-        content: const Text('This will delete the API key and deactivate the model.'),
+        title: Text('¿Eliminar ${widget.provider.name}?'),
+        content: const Text('Esto eliminará la clave API y desactivará el modelo.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: const Text('Cancelar'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Remove'),
+            child: const Text('Eliminar'),
           ),
         ],
       ),
@@ -126,14 +126,14 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
       await ProviderConfigService.removeProviderConfig(provider: widget.provider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${widget.provider.name} removed')),
+          SnackBar(content: Text('${widget.provider.name} eliminado')),
         );
         Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to remove: $e')),
+          SnackBar(content: Text('Error al eliminar: $e')),
         );
       }
     } finally {
@@ -195,7 +195,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        'Active',
+                        'Activo',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: AppColors.statusGreen,
                           fontWeight: FontWeight.w700,
@@ -210,7 +210,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
 
           // API Key section
           Text(
-            'API Key',
+            'Clave API',
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w700,
               color: theme.colorScheme.onSurface,
@@ -218,7 +218,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Enter your ${widget.provider.name} API key.',
+            'Ingresa tu clave de API de ${widget.provider.name}.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -240,7 +240,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
 
           // Model section
           Text(
-            'Model',
+            'Modelo',
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w700,
               color: theme.colorScheme.onSurface,
@@ -248,7 +248,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Select which model to use with this provider.',
+            'Selecciona qué modelo usar con este proveedor.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -265,7 +265,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
                   .map((m) => DropdownMenuItem(value: m, child: Text(m))),
               const DropdownMenuItem(
                 value: _customModelSentinel,
-                child: Text('Custom...'),
+                child: Text('Personalizado...'),
               ),
             ],
             onChanged: (value) {
@@ -282,8 +282,8 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
             TextField(
               controller: _customModelController,
               decoration: const InputDecoration(
-                hintText: 'e.g. meta/llama-3.3-70b-instruct',
-                labelText: 'Custom model name',
+                hintText: 'ej. meta/llama-3.3-70b-instruct',
+                labelText: 'Nombre del modelo personalizado',
                 prefixIcon: Icon(Icons.edit_outlined),
               ),
             ),
@@ -301,7 +301,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
                   : const Icon(Icons.save_outlined, size: 18),
-              label: Text(_saving ? 'Saving...' : 'Save & Activate'),
+              label: Text(_saving ? 'Guardando...' : 'Guardar y Activar'),
             ),
           ),
           if (_isConfigured) ...[
@@ -316,7 +316,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.delete_outline, size: 18),
-                label: Text(_removing ? 'Removing...' : 'Remove Configuration'),
+                label: Text(_removing ? 'Eliminando...' : 'Eliminar Configuración'),
               ),
             ),
           ],

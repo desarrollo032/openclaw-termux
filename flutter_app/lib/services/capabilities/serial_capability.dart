@@ -156,7 +156,7 @@ class SerialCapability extends CapabilityHandler {
       } else if (deviceId.startsWith('ble:')) {
         final remoteId = deviceId.substring(4);
         final device = BluetoothDevice.fromId(remoteId);
-        await device.connect(timeout: const Duration(seconds: 10));
+        await device.connect(license: License.free, timeout: const Duration(seconds: 10));
         final services = await device.discoverServices();
 
         BluetoothCharacteristic? txChar;

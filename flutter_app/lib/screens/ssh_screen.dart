@@ -84,7 +84,7 @@ class _SshScreenState extends State<SshScreen> {
     final password = _passwordController.text;
     if (password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password cannot be empty')),
+        const SnackBar(content: Text('La contraseña no puede estar vacía')),
       );
       return;
     }
@@ -94,13 +94,13 @@ class _SshScreenState extends State<SshScreen> {
       if (mounted) {
         _passwordController.clear();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Root password updated')),
+          const SnackBar(content: Text('Contraseña root actualizada')),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $e')),
+          SnackBar(content: Text('Error: $e')),
         );
       }
     } finally {
@@ -111,7 +111,7 @@ class _SshScreenState extends State<SshScreen> {
   void _copyToClipboard(String text) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Copied to clipboard')),
+      const SnackBar(content: Text('Copiado al portapapeles')),
     );
   }
 
@@ -121,7 +121,7 @@ class _SshScreenState extends State<SshScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('SSH Access')),
+      appBar: AppBar(title: const Text('Acceso SSH')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _installed
@@ -147,12 +147,12 @@ class _SshScreenState extends State<SshScreen> {
             ),
             const SizedBox(height: 20),
             Text(
-              'OpenSSH not installed',
+              'OpenSSH no instalado',
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
-              'Install the OpenSSH package first from the Packages screen.',
+              'Instala el paquete OpenSSH desde la pantalla de Paquetes.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -167,7 +167,7 @@ class _SshScreenState extends State<SshScreen> {
                 _refresh();
               },
               icon: const Icon(Icons.extension_outlined, size: 18),
-              label: const Text('Open Packages'),
+              label: const Text('Abrir Paquetes'),
             ),
           ],
         ),
@@ -206,11 +206,11 @@ class _SshScreenState extends State<SshScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _running ? 'SSH Server Running' : 'SSH Server Stopped',
+                          _running ? 'Servidor SSH Activo' : 'Servidor SSH Detenido',
                           style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         Text(
-                          _running ? 'Accepting connections' : 'Click start to enable',
+                          _running ? 'Aceptando conexiones' : 'Presiona Iniciar para habilitar',
                           style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                         ),
                       ],
@@ -223,7 +223,7 @@ class _SshScreenState extends State<SshScreen> {
                     controller: _portController,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                      labelText: 'Port',
+                      labelText: 'Puerto',
                       hintText: '8022',
                       prefixIcon: Icon(Icons.numbers),
                     ),
@@ -240,7 +240,7 @@ class _SshScreenState extends State<SshScreen> {
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Icon(Icons.stop, size: 18),
-                          label: const Text('Stop Server'),
+                          label: const Text('Detener Servidor'),
                         )
                       : FilledButton.icon(
                           onPressed: _toggling ? null : _toggleSshd,
@@ -250,13 +250,13 @@ class _SshScreenState extends State<SshScreen> {
                                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                 )
                               : const Icon(Icons.play_arrow, size: 18),
-                          label: const Text('Start Server'),
+                          label: const Text('Iniciar Servidor'),
                         ),
                 ),
               ],
             ),
           ),
-        ], title: 'Service Control', icon: Icons.power_outlined),
+        ], title: 'Control del Servicio', icon: Icons.power_outlined),
 
         const SizedBox(height: 16),
         _card(theme, [
@@ -266,7 +266,7 @@ class _SshScreenState extends State<SshScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Set the root password for SSH login.',
+                  'Establece la contraseña root para el acceso SSH.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -276,8 +276,8 @@ class _SshScreenState extends State<SshScreen> {
                   controller: _passwordController,
                   obscureText: true,
                   decoration: const InputDecoration(
-                    labelText: 'New password',
-                    hintText: 'Enter password',
+                    labelText: 'Nueva contraseña',
+                    hintText: 'Ingresa contraseña',
                     prefixIcon: Icon(Icons.lock_outlined),
                   ),
                 ),
@@ -292,13 +292,13 @@ class _SshScreenState extends State<SshScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
                         : const Icon(Icons.lock_outline, size: 18),
-                    label: const Text('Set Password'),
+                    label: const Text('Establecer Contraseña'),
                   ),
                 ),
               ],
             ),
           ),
-        ], title: 'Root Password', icon: Icons.lock_outlined),
+        ], title: 'Contraseña Root', icon: Icons.lock_outlined),
 
         if (_running) ...[
           const SizedBox(height: 16),
@@ -308,16 +308,16 @@ class _SshScreenState extends State<SshScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _infoRow(theme, 'User', 'root'),
+                  _infoRow(theme, 'Usuario', 'root'),
                   const Divider(height: 24),
-                  _infoRow(theme, 'Port', port),
+                  _infoRow(theme, 'Puerto', port),
                   if (_ips.isNotEmpty) ...[
                     const Divider(height: 24),
-                    _infoRow(theme, 'IP Addresses', _ips.join(', ')),
+                    _infoRow(theme, 'Direcciones IP', _ips.join(', ')),
                   ],
                   const Divider(height: 24),
                   Text(
-                    'Connect from another device:',
+                    'Conéctate desde otro dispositivo:',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -332,7 +332,7 @@ class _SshScreenState extends State<SshScreen> {
                 ],
               ),
             ),
-          ], title: 'Connection Info', icon: Icons.info_outline),
+          ], title: 'Información de Conexión', icon: Icons.info_outline),
         ],
       ],
     );
@@ -373,7 +373,10 @@ class _SshScreenState extends State<SshScreen> {
             children: [
               Text(label, style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
               const SizedBox(height: 2),
-              Text(value, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+              SelectableText(
+                value,
+                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+              ),
             ],
           ),
         ),

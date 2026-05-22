@@ -54,9 +54,9 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
     if (activeModel != null) {
       final isActive = provider.defaultModels.any((m) => activeModel.contains(m)) ||
           activeModel.contains(provider.id);
-      if (isActive) return 'Active';
+      if (isActive) return 'Activo';
     }
-    return 'Configured';
+    return 'Configurado';
   }
 
   @override
@@ -65,7 +65,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
     final activeModel = _activeModel;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('AI Providers')),
+      appBar: AppBar(title: const Text('Proveedores IA')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -96,7 +96,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Active Model',
+                                'Modelo Activo',
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   color: AppColors.statusGreen,
                                   fontWeight: FontWeight.w700,
@@ -104,12 +104,14 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                                 ),
                               ),
                               const SizedBox(height: 2),
-                              Text(
-                                activeModel,
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            Text(
+                              activeModel,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
                               ),
+                            ),
                             ],
                           ),
                         ),
@@ -119,7 +121,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                   const SizedBox(height: 16),
                 ],
                 Text(
-                  'Select a provider to configure its API key and model.',
+                  'Selecciona un proveedor para configurar su clave API y modelo.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -135,7 +137,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
   Widget _buildProviderCard(ThemeData theme, AiProvider provider) {
     final isConfigured = _providers.containsKey(provider.id);
     final status = _statusLabel(provider);
-    final statusColor = status == 'Active' ? AppColors.statusGreen : AppColors.statusAmber;
+    final statusColor = status == 'Activo' ? AppColors.statusGreen : AppColors.statusAmber;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -195,7 +197,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
-                              'Configured',
+                              'Configurado',
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: AppColors.mutedText,
                                 fontWeight: FontWeight.w700,

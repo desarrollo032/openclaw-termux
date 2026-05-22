@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -26,6 +27,8 @@ class _TerminalScreenState extends State<TerminalScreen> {
   final _ctrlNotifier = ValueNotifier<bool>(false);
   final _altNotifier = ValueNotifier<bool>(false);
   final _screenshotKey = GlobalKey();
+  final _outputBuffer = StringBuffer();
+  Timer? _batchTimer;
   static final _anyUrlRegex = RegExp(r'https?://[^\s<>\[\]"' "'" r'\)]+');
   /// Box-drawing and other TUI characters that break URLs when copied
   static final _boxDrawing = RegExp(r'[│┤├┬┴┼╮╯╰╭─╌╴╶┌┐└┘◇◆]+');
@@ -33,19 +36,15 @@ class _TerminalScreenState extends State<TerminalScreen> {
   static const _fontFallback = [
     'monospace',
     'Noto Sans Mono',
-    'Noto Sans Mono CJK SC',
-    'Noto Sans Mono CJK TC',
-    'Noto Sans Mono CJK JP',
     'Noto Color Emoji',
     'Noto Sans Symbols',
-    'Noto Sans Symbols 2',
     'sans-serif',
   ];
 
   @override
   void initState() {
     super.initState();
-    _terminal = Terminal(maxLines: 10000);
+    _terminal = Terminal(maxLines: 2000);
     _controller = TerminalController();
     NativeBridge.startTerminalService();
     // Defer PTY start until after the first frame so TerminalView has been
@@ -97,7 +96,18 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
       pty.output.cast<List<int>>().listen((data) {
         final text = utf8.decode(data, allowMalformed: true);
-        _terminal.write(text);
+        _outputBuffer.write(text);
+        // Batch writes to avoid triggering a repaint per chunk.
+        // Flush at most once per ~16ms (60fps) instead of per-chunk.
+        _batchTimer ??= Timer(const Duration(milliseconds: 16), () {
+          if (!mounted) return;
+          final flushed = _outputBuffer.toString();
+          _outputBuffer.clear();
+          if (flushed.isNotEmpty) {
+            _terminal.write(flushed);
+          }
+          _batchTimer = null;
+        });
       });
 
       pty.exitCode.then((code) {
@@ -142,6 +152,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     _ctrlNotifier.dispose();
     _altNotifier.dispose();
     _controller.dispose();
+    _batchTimer?.cancel();
     _pty?.kill();
     NativeBridge.stopTerminalService();
     super.dispose();
@@ -197,10 +208,10 @@ class _TerminalScreenState extends State<TerminalScreen> {
     if (url != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Copied to clipboard'),
+          content: const Text('Copiado al portapapeles'),
           duration: const Duration(seconds: 3),
           action: SnackBarAction(
-            label: 'Open',
+            label: 'Abrir',
             onPressed: () {
               final uri = Uri.tryParse(url);
               if (uri != null) {
@@ -213,7 +224,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Copied to clipboard'),
+          content: Text('Copiado al portapapeles'),
           duration: Duration(seconds: 1),
         ),
       );
@@ -234,7 +245,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('No URL found in selection'),
+        content: Text('No se encontró URL en la selección'),
         duration: Duration(seconds: 1),
       ),
     );
@@ -300,29 +311,29 @@ class _TerminalScreenState extends State<TerminalScreen> {
     final shouldOpen = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Open Link'),
+        title: const Text('Abrir Enlace'),
         content: Text(url),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: const Text('Cancelar'),
           ),
           TextButton(
             onPressed: () {
               Clipboard.setData(ClipboardData(text: url));
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Link copied'),
+                  content: Text('Enlace copiado'),
                   duration: Duration(seconds: 1),
                 ),
               );
               Navigator.pop(ctx, false);
             },
-            child: const Text('Copy'),
+            child: const Text('Copiar'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Open'),
+            child: const Text('Abrir'),
           ),
         ],
       ),
@@ -341,28 +352,31 @@ class _TerminalScreenState extends State<TerminalScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.camera_alt_outlined),
-            tooltip: 'Screenshot',
+            tooltip: 'Captura',
             onPressed: _takeScreenshot,
           ),
           IconButton(
             icon: const Icon(Icons.copy),
-            tooltip: 'Copy',
+            tooltip: 'Copiar',
             onPressed: _copySelection,
           ),
           IconButton(
             icon: const Icon(Icons.open_in_browser),
-            tooltip: 'Open URL',
+            tooltip: 'Abrir URL',
             onPressed: _openSelection,
           ),
           IconButton(
             icon: const Icon(Icons.paste),
-            tooltip: 'Paste',
+            tooltip: 'Pegar',
             onPressed: _paste,
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Restart',
+            tooltip: 'Reiniciar',
             onPressed: () {
+              _batchTimer?.cancel();
+              _batchTimer = null;
+              _outputBuffer.clear();
               _pty?.kill();
               setState(() {
                 _loading = true;
@@ -378,6 +392,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
   }
 
   Widget _buildBody() {
+    final theme = Theme.of(context);
     if (_loading) {
       return Center(
         child: Column(
@@ -386,7 +401,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withAlpha(15),
+                color: theme.colorScheme.primary.withAlpha(15),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: SizedBox(
@@ -394,15 +409,15 @@ class _TerminalScreenState extends State<TerminalScreen> {
                 height: 28,
                 child: CircularProgressIndicator(
                   strokeWidth: 3,
-                  color: Theme.of(context).colorScheme.primary,
+                  color: theme.colorScheme.primary,
                 ),
               ),
             ),
             const SizedBox(height: 20),
             Text(
-              'Starting terminal...',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              'Iniciando terminal...',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -420,27 +435,27 @@ class _TerminalScreenState extends State<TerminalScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.error.withAlpha(15),
+                  color: theme.colorScheme.error.withAlpha(15),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Icon(
                   Icons.error_outline,
                   size: 48,
-                  color: Theme.of(context).colorScheme.error,
+                  color: theme.colorScheme.error,
                 ),
               ),
               const SizedBox(height: 20),
               Text(
-                'Failed to start',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                'Error al iniciar',
+                style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 8),                      Text(
                         _error ?? '',
                         textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 24),
@@ -453,7 +468,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
                   _startPty();
                 },
                 icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('Retry'),
+                label: const Text('Reintentar'),
               ),
             ],
           ),

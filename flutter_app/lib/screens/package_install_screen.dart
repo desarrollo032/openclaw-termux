@@ -8,6 +8,7 @@ import '../models/optional_package.dart';
 import '../services/native_bridge.dart';
 import '../services/screenshot_service.dart';
 import '../services/terminal_service.dart';
+import '../app.dart';
 import '../widgets/terminal_toolbar.dart';
 
 /// Runs an install or uninstall command for an [OptionalPackage] inside proot.
@@ -40,19 +41,15 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
   static const _fontFallback = [
     'monospace',
     'Noto Sans Mono',
-    'Noto Sans Mono CJK SC',
-    'Noto Sans Mono CJK TC',
-    'Noto Sans Mono CJK JP',
     'Noto Color Emoji',
     'Noto Sans Symbols',
-    'Noto Sans Symbols 2',
     'sans-serif',
   ];
 
   @override
   void initState() {
     super.initState();
-    _terminal = Terminal(maxLines: 10000);
+    _terminal = Terminal(maxLines: 2000);
     _controller = TerminalController();
     NativeBridge.startTerminalService();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -191,21 +188,37 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final action = widget.isUninstall ? 'Uninstall' : 'Install';
+    final theme = Theme.of(context);
+    final action = widget.isUninstall ? 'Desinstalar' : 'Instalar';
+    final pkgColor = widget.isUninstall ? AppColors.statusAmber : widget.package.color;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('$action ${widget.package.name}'),
+        title: Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: pkgColor.withAlpha(20),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(widget.package.icon, size: 16, color: pkgColor),
+            ),
+            const SizedBox(width: 10),
+            Text('$action ${widget.package.name}'),
+          ],
+        ),
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.camera_alt_outlined),
-            tooltip: 'Screenshot',
+            tooltip: 'Captura',
             onPressed: _takeScreenshot,
           ),
           IconButton(
             icon: const Icon(Icons.paste),
-            tooltip: 'Paste',
+            tooltip: 'Pegar',
             onPressed: _paste,
           ),
         ],
@@ -218,26 +231,32 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withAlpha(15),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: SizedBox(
-                        width: 28,
-                        height: 28,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
+                    // Animated icon
+                    _AnimatedPulseIcon(
+                      icon: widget.package.icon,
+                      color: pkgColor,
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Iniciando $action…',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 8),
                     Text(
-                      'Starting...',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      'Preparando el entorno Ubuntu',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        color: pkgColor,
                       ),
                     ),
                   ],
@@ -255,19 +274,19 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.error.withAlpha(15),
+                          color: theme.colorScheme.error.withAlpha(15),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Icon(
                           Icons.error_outline,
                           size: 48,
-                          color: Theme.of(context).colorScheme.error,
+                          color: theme.colorScheme.error,
                         ),
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'Failed to start',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        'Error al iniciar',
+                        style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -275,8 +294,8 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
                       Text(
                         _error ?? '',
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -290,7 +309,7 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
                           _startProcess();
                         },
                         icon: const Icon(Icons.refresh, size: 18),
-                        label: const Text('Retry'),
+                        label: const Text('Reintentar'),
                       ),
                     ],
                   ),
@@ -298,6 +317,7 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
               ),
             )
           else ...[
+            // Terminal with subtle border
             Expanded(
               child: RepaintBoundary(
                 key: _screenshotKey,
@@ -320,19 +340,113 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
             ),
           ],
           if (_finished)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  icon: const Icon(Icons.check, size: 18),
-                  label: const Text('Done'),
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: theme.dividerTheme.color ?? theme.colorScheme.outline.withAlpha(40)),
                 ),
+              ),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Row(
+                children: [
+                  Icon(
+                    widget.isUninstall ? Icons.delete_outline : Icons.check_circle_outline,
+                    color: widget.isUninstall ? AppColors.statusAmber : AppColors.statusGreen,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '${widget.isUninstall ? 'Desinstalación' : 'Instalación'} completada',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    icon: const Icon(Icons.check, size: 18),
+                    label: const Text('Listo'),
+                  ),
+                ],
               ),
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Animated icon that pulses during loading.
+class _AnimatedPulseIcon extends StatefulWidget {
+  final IconData icon;
+  final Color color;
+
+  const _AnimatedPulseIcon({
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  State<_AnimatedPulseIcon> createState() => _AnimatedPulseIconState();
+}
+
+class _AnimatedPulseIconState extends State<_AnimatedPulseIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnimation;
+  late final Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+    _opacityAnimation = Tween<double>(begin: 0.7, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _opacityAnimation.value,
+          child: Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: widget.color.withAlpha(15),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.color.withAlpha(25),
+                    blurRadius: 24,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Icon(widget.icon, size: 34, color: widget.color),
+            ),
+          ),
+        );
+      },
     );
   }
 }

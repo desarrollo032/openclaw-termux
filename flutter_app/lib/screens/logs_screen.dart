@@ -32,21 +32,21 @@ class _LogsScreenState extends State<LogsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gateway Logs'),
+        title: const Text('Registros del Gateway'),
         actions: [
           IconButton(
             icon: const Icon(Icons.camera_alt_outlined),
-            tooltip: 'Screenshot',
+            tooltip: 'Captura',
             onPressed: _takeScreenshot,
           ),
           IconButton(
             icon: Icon(_autoScroll ? Icons.vertical_align_bottom : Icons.vertical_align_top),
-            tooltip: _autoScroll ? 'Auto-scroll on' : 'Auto-scroll off',
+            tooltip: _autoScroll ? 'Auto-desplazamiento' : 'Desplazamiento manual',
             onPressed: () => setState(() => _autoScroll = !_autoScroll),
           ),
           IconButton(
             icon: const Icon(Icons.copy),
-            tooltip: 'Copy all logs',
+            tooltip: 'Copiar registros',
             onPressed: () => _copyLogs(context),
           ),
         ],
@@ -58,7 +58,7 @@ class _LogsScreenState extends State<LogsScreen> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search logs...',
+                hintText: 'Buscar registros...',
                 prefixIcon: const Icon(Icons.search, size: 20),
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -98,7 +98,7 @@ class _LogsScreenState extends State<LogsScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            logs.isEmpty ? 'No logs yet. Start the gateway.' : 'No matching logs.',
+                            logs.isEmpty ? 'Sin registros aún. Inicia el gateway.' : 'Sin registros coincidentes.',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -202,7 +202,7 @@ class _LogsScreenState extends State<LogsScreen> {
     final text = provider.state.logs.join('\n');
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Logs copied to clipboard')),
+      const SnackBar(content: Text('Registros copiados al portapapeles')),
     );
   }
 }

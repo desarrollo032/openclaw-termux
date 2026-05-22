@@ -64,10 +64,13 @@ class LocationCapability extends CapabilityHandler {
         });
       }
 
+      const settings = LocationSettings(
+        accuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 10),
+      );
       try {
         final position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 10),
+          locationSettings: settings,
         );
         return _positionToFrame(position);
       } on TimeoutException {

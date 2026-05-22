@@ -35,19 +35,15 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
   static const _fontFallback = [
     'monospace',
     'Noto Sans Mono',
-    'Noto Sans Mono CJK SC',
-    'Noto Sans Mono CJK TC',
-    'Noto Sans Mono CJK JP',
     'Noto Color Emoji',
     'Noto Sans Symbols',
-    'Noto Sans Symbols 2',
     'sans-serif',
   ];
 
   @override
   void initState() {
     super.initState();
-    _terminal = Terminal(maxLines: 10000);
+    _terminal = Terminal(maxLines: 2000);
     _controller = TerminalController();
     NativeBridge.startTerminalService();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -201,7 +197,7 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
     if (url != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Copied to clipboard'),
+          content: const Text('Copiado al portapapeles'),
           duration: const Duration(seconds: 3),
           action: SnackBarAction(
             label: 'Open',
@@ -266,9 +262,10 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('OpenClaw Configure'),
+        title: const Text('Configurar Gateway'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
@@ -277,22 +274,22 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.camera_alt_outlined),
-            tooltip: 'Screenshot',
+            tooltip: 'Captura',
             onPressed: _takeScreenshot,
           ),
           IconButton(
             icon: const Icon(Icons.copy),
-            tooltip: 'Copy',
+            tooltip: 'Copiar',
             onPressed: _copySelection,
           ),
           IconButton(
             icon: const Icon(Icons.open_in_browser),
-            tooltip: 'Open URL',
+            tooltip: 'Abrir URL',
             onPressed: _openSelection,
           ),
           IconButton(
             icon: const Icon(Icons.paste),
-            tooltip: 'Paste',
+            tooltip: 'Pegar',
             onPressed: _paste,
           ),
         ],
@@ -308,7 +305,7 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withAlpha(15),
+                        color: theme.colorScheme.primary.withAlpha(15),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: SizedBox(
@@ -316,15 +313,15 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
                         height: 28,
                         child: CircularProgressIndicator(
                           strokeWidth: 3,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: theme.colorScheme.primary,
                         ),
                       ),
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Starting configure...',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      'Iniciando configuración…',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -342,19 +339,19 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.error.withAlpha(15),
+                          color: theme.colorScheme.error.withAlpha(15),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Icon(
                           Icons.error_outline,
                           size: 48,
-                          color: Theme.of(context).colorScheme.error,
+                          color: theme.colorScheme.error,
                         ),
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'Failed to start',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        'Error al iniciar',
+                        style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -362,8 +359,8 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
                       Text(
                         _error ?? '',
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -377,7 +374,7 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
                           _startConfigure();
                         },
                         icon: const Icon(Icons.refresh, size: 18),
-                        label: const Text('Retry'),
+                        label: const Text('Reintentar'),
                       ),
                     ],
                   ),
@@ -414,7 +411,7 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
                 child: FilledButton.icon(
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.check, size: 18),
-                  label: const Text('Done'),
+                  label: const Text('Listo'),
                 ),
               ),
             ),

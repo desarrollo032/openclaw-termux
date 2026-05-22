@@ -48,7 +48,7 @@ class NodeControls extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            'Device capabilities',
+                            'Capacidades del dispositivo',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -76,7 +76,7 @@ class NodeControls extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Connected to ${state.gatewayHost}:${state.gatewayPort}',
+                            'Conectado a ${state.gatewayHost}:${state.gatewayPort}',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: AppColors.statusGreen,
                               fontFamily: 'monospace',
@@ -104,7 +104,7 @@ class NodeControls extends StatelessWidget {
                         const Icon(Icons.qr_code, size: 16, color: AppColors.statusAmber),
                         const SizedBox(width: 8),
                         Text(
-                          'Pairing code: ',
+                          'Código de vinculación: ',
                           style: theme.textTheme.bodySmall,
                         ),
                         SelectableText(
@@ -154,20 +154,20 @@ class NodeControls extends StatelessWidget {
                       FilledButton.icon(
                         onPressed: () => provider.enable(),
                         icon: const Icon(Icons.power_settings_new, size: 18),
-                        label: const Text('Enable'),
+                        label: const Text('Habilitar'),
                       ),
                     if (!state.isDisabled) ...[
                       OutlinedButton.icon(
                         onPressed: () => provider.disable(),
                         icon: const Icon(Icons.stop, size: 18),
-                        label: const Text('Disable'),
+                        label: const Text('Deshabilitar'),
                       ),
                       if (state.status == NodeStatus.error ||
                           state.status == NodeStatus.disconnected)
                         OutlinedButton.icon(
                           onPressed: () => provider.reconnect(),
                           icon: const Icon(Icons.refresh, size: 18),
-                          label: const Text('Reconnect'),
+                          label: const Text('Reconectar'),
                         ),
                     ],
                     OutlinedButton.icon(
@@ -175,7 +175,7 @@ class NodeControls extends StatelessWidget {
                         MaterialPageRoute(builder: (_) => const NodeScreen()),
                       ),
                       icon: const Icon(Icons.settings, size: 18),
-                      label: const Text('Configure'),
+                      label: const Text('Configurar'),
                     ),
                   ],
                 ),
@@ -195,13 +195,13 @@ class NodeControls extends StatelessWidget {
     switch (status) {
       case NodeStatus.paired:
         color = AppColors.statusGreen;
-        label = 'Paired';
+        label = 'Vinculado';
         icon = Icons.check_circle;
       case NodeStatus.connecting:
       case NodeStatus.challenging:
       case NodeStatus.pairing:
         color = AppColors.statusAmber;
-        label = 'Connecting';
+        label = 'Conectando';
         icon = Icons.hourglass_top;
       case NodeStatus.error:
         color = AppColors.statusRed;
@@ -209,11 +209,11 @@ class NodeControls extends StatelessWidget {
         icon = Icons.error_outline;
       case NodeStatus.disabled:
         color = AppColors.statusGrey;
-        label = 'Disabled';
+        label = 'Deshabilitado';
         icon = Icons.circle_outlined;
       case NodeStatus.disconnected:
         color = AppColors.statusGrey;
-        label = 'Offline';
+        label = 'Sin conexión';
         icon = Icons.link_off;
     }
 

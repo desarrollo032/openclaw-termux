@@ -24,16 +24,17 @@ class NodeProvider extends ChangeNotifier with WidgetsBindingObserver {
   GatewayState? _lastGatewayState;
   Timer? _watchdog;
 
-  // Capabilities
-  final _cameraCapability = CameraCapability();
-  final _canvasCapability = CanvasCapability();
-  final _batteryCapability = BatteryCapability();
-  final _flashCapability = FlashCapability();
-  final _locationCapability = LocationCapability();
-  final _screenCapability = ScreenCapability();
-  final _sensorCapability = SensorCapability();
-  final _serialCapability = SerialCapability();
-  final _vibrationCapability = VibrationCapability();
+  // Capabilities — lazily initialized only when node is enabled
+  CameraCapability? _cameraCapability;
+  CanvasCapability? _canvasCapability;
+  BatteryCapability? _batteryCapability;
+  FlashCapability? _flashCapability;
+  LocationCapability? _locationCapability;
+  ScreenCapability? _screenCapability;
+  SensorCapability? _sensorCapability;
+  SerialCapability? _serialCapability;
+  VibrationCapability? _vibrationCapability;
+  bool _capabilitiesReady = false;
 
   NodeState get state => _state;
 
@@ -44,8 +45,23 @@ class NodeProvider extends ChangeNotifier with WidgetsBindingObserver {
       _updateServiceNotification(state);
       notifyListeners();
     });
-    _registerCapabilities();
+    // Capabilities are created lazily inside _init() if node is enabled
     _init();
+  }
+
+  void _ensureCapabilities() {
+    if (_capabilitiesReady) return;
+    _capabilitiesReady = true;
+    _cameraCapability = CameraCapability();
+    _canvasCapability = CanvasCapability();
+    _batteryCapability = BatteryCapability();
+    _flashCapability = FlashCapability();
+    _locationCapability = LocationCapability();
+    _screenCapability = ScreenCapability();
+    _sensorCapability = SensorCapability();
+    _serialCapability = SerialCapability();
+    _vibrationCapability = VibrationCapability();
+    _registerCapabilities();
   }
 
   /// Keep the foreground notification text in sync with the node status.
@@ -128,49 +144,49 @@ class NodeProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   void _registerCapabilities() {
     _nodeService.registerCapability(
-      _cameraCapability.name,
-      _cameraCapability.commands.map((c) => '${_cameraCapability.name}.$c').toList(),
-      (cmd, params) => _cameraCapability.handleWithPermission(cmd, params),
+      _cameraCapability!.name,
+      _cameraCapability!.commands.map((c) => '${_cameraCapability!.name}.$c').toList(),
+      (cmd, params) => _cameraCapability!.handleWithPermission(cmd, params),
     );
     _nodeService.registerCapability(
-      _canvasCapability.name,
-      _canvasCapability.commands.map((c) => '${_canvasCapability.name}.$c').toList(),
-      (cmd, params) => _canvasCapability.handle(cmd, params),
+      _canvasCapability!.name,
+      _canvasCapability!.commands.map((c) => '${_canvasCapability!.name}.$c').toList(),
+      (cmd, params) => _canvasCapability!.handle(cmd, params),
     );
     _nodeService.registerCapability(
-      _batteryCapability.name,
-      _batteryCapability.commands.map((c) => '${_batteryCapability.name}.$c').toList(),
-      (cmd, params) => _batteryCapability.handle(cmd, params),
+      _batteryCapability!.name,
+      _batteryCapability!.commands.map((c) => '${_batteryCapability!.name}.$c').toList(),
+      (cmd, params) => _batteryCapability!.handle(cmd, params),
     );
     _nodeService.registerCapability(
-      _locationCapability.name,
-      _locationCapability.commands.map((c) => '${_locationCapability.name}.$c').toList(),
-      (cmd, params) => _locationCapability.handleWithPermission(cmd, params),
+      _locationCapability!.name,
+      _locationCapability!.commands.map((c) => '${_locationCapability!.name}.$c').toList(),
+      (cmd, params) => _locationCapability!.handleWithPermission(cmd, params),
     );
     _nodeService.registerCapability(
-      _screenCapability.name,
-      _screenCapability.commands.map((c) => '${_screenCapability.name}.$c').toList(),
-      (cmd, params) => _screenCapability.handle(cmd, params),
+      _screenCapability!.name,
+      _screenCapability!.commands.map((c) => '${_screenCapability!.name}.$c').toList(),
+      (cmd, params) => _screenCapability!.handle(cmd, params),
     );
     _nodeService.registerCapability(
-      _flashCapability.name,
-      _flashCapability.commands.map((c) => '${_flashCapability.name}.$c').toList(),
-      (cmd, params) => _flashCapability.handleWithPermission(cmd, params),
+      _flashCapability!.name,
+      _flashCapability!.commands.map((c) => '${_flashCapability!.name}.$c').toList(),
+      (cmd, params) => _flashCapability!.handleWithPermission(cmd, params),
     );
     _nodeService.registerCapability(
-      _vibrationCapability.name,
-      _vibrationCapability.commands.map((c) => '${_vibrationCapability.name}.$c').toList(),
-      (cmd, params) => _vibrationCapability.handle(cmd, params),
+      _vibrationCapability!.name,
+      _vibrationCapability!.commands.map((c) => '${_vibrationCapability!.name}.$c').toList(),
+      (cmd, params) => _vibrationCapability!.handle(cmd, params),
     );
     _nodeService.registerCapability(
-      _sensorCapability.name,
-      _sensorCapability.commands.map((c) => '${_sensorCapability.name}.$c').toList(),
-      (cmd, params) => _sensorCapability.handleWithPermission(cmd, params),
+      _sensorCapability!.name,
+      _sensorCapability!.commands.map((c) => '${_sensorCapability!.name}.$c').toList(),
+      (cmd, params) => _sensorCapability!.handleWithPermission(cmd, params),
     );
     _nodeService.registerCapability(
-      _serialCapability.name,
-      _serialCapability.commands.map((c) => '${_serialCapability.name}.$c').toList(),
-      (cmd, params) => _serialCapability.handleWithPermission(cmd, params),
+      _serialCapability!.name,
+      _serialCapability!.commands.map((c) => '${_serialCapability!.name}.$c').toList(),
+      (cmd, params) => _serialCapability!.handleWithPermission(cmd, params),
     );
   }
 
@@ -179,6 +195,7 @@ class NodeProvider extends ChangeNotifier with WidgetsBindingObserver {
     final prefs = PreferencesService();
     await prefs.init();
     if (prefs.nodeEnabled) {
+      _ensureCapabilities();
       await _requestNodePermissions();
       await _requestBatteryOptimization();
       await NativeBridge.startNodeService();
@@ -244,18 +261,23 @@ class NodeProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// Periodic watchdog that detects stale/dropped connections and forces
-  /// reconnect. Runs every 45s. Handles two cases:
+  /// reconnect. Runs every 45s only while node is enabled. Handles two cases:
   /// 1. Node should be connected but isn't (dropped in background)
   /// 2. Node appears paired but WebSocket is stale (no data for 90s+)
   void _startWatchdog() {
     _watchdog?.cancel();
     _watchdog = Timer.periodic(const Duration(seconds: 45), (_) async {
-      if (_state.isDisabled) return;
+      // If node was disabled after this timer was created, cancel it entirely
+      if (_state.isDisabled) {
+        _watchdog?.cancel();
+        _watchdog = null;
+        return;
+      }
 
       // Also verify foreground service is still alive
       try {
         final running = await NativeBridge.isNodeServiceRunning();
-        if (!running && !_state.isDisabled) {
+        if (!running) {
           await NativeBridge.startNodeService();
         }
       } catch (_) {}
@@ -279,6 +301,7 @@ class NodeProvider extends ChangeNotifier with WidgetsBindingObserver {
     final prefs = PreferencesService();
     await prefs.init();
     prefs.nodeEnabled = true;
+    _ensureCapabilities();
     await _requestNodePermissions();
     await _requestBatteryOptimization();
     await NativeBridge.startNodeService();
@@ -302,6 +325,7 @@ class NodeProvider extends ChangeNotifier with WidgetsBindingObserver {
     prefs.nodeGatewayPort = port;
     prefs.nodeGatewayToken = token;
     prefs.nodeEnabled = true;
+    _ensureCapabilities();
     // Clear cached token so it re-reads on next connect
     _nodeService.clearCachedToken();
     await _requestNodePermissions();
@@ -322,9 +346,10 @@ class NodeProvider extends ChangeNotifier with WidgetsBindingObserver {
     _stopWatchdog();
     _subscription?.cancel();
     _nodeService.dispose();
-    _cameraCapability.dispose();
-    _flashCapability.dispose();
-    _serialCapability.dispose();
+    // Only dispose capabilities that were actually created
+    _cameraCapability?.dispose();
+    _flashCapability?.dispose();
+    _serialCapability?.dispose();
     NativeBridge.stopNodeService();
     super.dispose();
   }

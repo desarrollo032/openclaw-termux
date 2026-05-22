@@ -43,7 +43,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
             if (mounted) {
               setState(() {
                 _loading = false;
-                _error = 'Failed to load dashboard: ${error.description}';
+                _error = 'Error al cargar el panel: ${error.description}';
               });
             }
           },
@@ -68,7 +68,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Web Dashboard'),
+        title: const Text('Panel Web'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -105,7 +105,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Connection Error',
+                      'Error de Conexión',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -128,7 +128,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
                         _controller.reload();
                       },
                       icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Retry'),
+                      label: const Text('Reintentar'),
                     ),
                   ],
                 ),

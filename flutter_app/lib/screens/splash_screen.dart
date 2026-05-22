@@ -18,10 +18,12 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
-  String _status = 'Loading...';
+  String _status = 'Cargando…';
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
   late final Animation<Offset> _slideAnimation;
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnimation;
 
   @override
   void initState() {
@@ -42,12 +44,23 @@ class _SplashScreenState extends State<SplashScreen>
       curve: Curves.easeOutCubic,
     ));
     _fadeController.forward();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
+    _pulseAnimation = Tween<double>(begin: 0.92, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _pulseController,
+        curve: Curves.easeInOut,
+      ),
+    );
     _checkAndRoute();
   }
 
   @override
   void dispose() {
     _fadeController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -55,7 +68,7 @@ class _SplashScreenState extends State<SplashScreen>
     await Future.delayed(const Duration(milliseconds: 800));
 
     try {
-      setState(() => _status = 'Checking setup...');
+      setState(() => _status = 'Verificando configuración…');
 
       try { await NativeBridge.setupDirs(); } catch (_) {}
       try { await NativeBridge.writeResolv(); } catch (_) {}
@@ -129,11 +142,11 @@ class _SplashScreenState extends State<SplashScreen>
 
           if (rootfsOk && bashOk) {
             if (!bypassOk) {
-              setState(() => _status = 'Repairing bypass...');
+              setState(() => _status = 'Reparando bypass…');
               await NativeBridge.installBionicBypass();
             }
             if (!nodeOk) {
-              setState(() => _status = 'Reinstalling Node.js...');
+              setState(() => _status = 'Reinstalando Node.js…');
               try {
                 final arch = await NativeBridge.getArch();
                 final nodeTarUrl = AppConstants.getNodeTarballUrl(arch);
@@ -145,7 +158,7 @@ class _SplashScreenState extends State<SplashScreen>
               } catch (_) {}
             }
             if (!openclawOk && nodeOk) {
-              setState(() => _status = 'Reinstalling OpenClaw...');
+              setState(() => _status = 'Reinstalando OpenClaw…');
               try {
                 const wrapper = '/root/.openclaw/node-wrapper.js';
                 const nodeRun = 'node $wrapper';
@@ -204,28 +217,36 @@ class _SplashScreenState extends State<SplashScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo with glow effect
-                Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withAlpha(15),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: theme.colorScheme.primary.withAlpha(30),
-                        blurRadius: 30,
-                        offset: const Offset(0, 8),
+                // Logo with pulse and glow effect
+                AnimatedBuilder(
+                  animation: _pulseAnimation,
+                  builder: (context, child) {
+                    return Transform.scale(
+                      scale: _pulseAnimation.value,
+                      child: Container(
+                        width: 96,
+                        height: 96,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withAlpha(15),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: theme.colorScheme.primary.withAlpha(30),
+                              blurRadius: 30,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.bolt,
+                            size: 44,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
                       ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Icon(
-                      Icons.bolt,
-                      size: 44,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 28),
                 Text(
@@ -239,7 +260,7 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'AI Gateway for Android',
+                  'Puerta de enlace IA para Android',
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w400,
@@ -247,7 +268,7 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'by ${AppConstants.authorName} · ${AppConstants.orgName}',
+                  'por ${AppConstants.authorName} · ${AppConstants.orgName}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
                   ),

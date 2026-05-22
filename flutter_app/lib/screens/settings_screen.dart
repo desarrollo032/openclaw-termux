@@ -81,7 +81,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: const Text('Ajustes')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -91,8 +91,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _switchTile(
                     theme,
                     Icons.power_outlined,
-                    'Auto-start gateway',
-                    'Start the gateway when the app opens',
+                    'Inicio automático',
+                    'Iniciar el gateway al abrir la app',
                     _autoStart,
                     AppColors.statusGreen,
                     (value) {
@@ -103,10 +103,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _listTile(
                     theme,
                     Icons.battery_alert_outlined,
-                    'Battery Optimization',
+                    'Optimización de Batería',
                     _batteryOptimized
-                        ? 'Optimized — may kill background sessions'
-                        : 'Unrestricted — recommended',
+                        ? 'Optimizado — puede cerrar sesiones en segundo plano'
+                        : 'Sin restricciones — recomendado',
                     trailing: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -115,7 +115,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        _batteryOptimized ? 'Optimized' : 'Unrestricted',
+                        _batteryOptimized ? 'Optimizado' : 'Sin restricciones',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: _batteryOptimized ? AppColors.statusAmber : AppColors.statusGreen,
                           fontWeight: FontWeight.w600,
@@ -131,10 +131,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _listTile(
                     theme,
                     Icons.sd_storage_outlined,
-                    'Storage Access',
+                    'Acceso a Almacenamiento',
                     _storageGranted
-                        ? 'Granted — proot can access /sdcard'
-                        : 'Not granted — recommended for security',
+                        ? 'Concedido — proot puede acceder a /sdcard'
+                        : 'No concedido — recomendado por seguridad',
                     trailing: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -143,7 +143,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        _storageGranted ? 'Granted' : 'Restricted',
+                        _storageGranted ? 'Concedido' : 'Restringido',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: _storageGranted ? AppColors.statusAmber : AppColors.statusGreen,
                           fontWeight: FontWeight.w600,
@@ -163,8 +163,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _switchTile(
                     theme,
                     Icons.devices_outlined,
-                    'Enable Node',
-                    'Provide device capabilities to the gateway',
+                    'Activar Nodo',
+                    'Proporcionar capacidades del dispositivo al gateway',
                     _nodeEnabled,
                     AppColors.statusGreen,
                     (value) {
@@ -181,52 +181,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _listTile(
                     theme,
                     Icons.tune_outlined,
-                    'Node Configuration',
-                    'Connection, pairing, and capabilities',
+                    'Configuración del Nodo',
+                    'Conexión, emparejamiento y capacidades',
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const NodeScreen()),
                     ),
                   ),
-                ], title: 'Node', icon: Icons.devices_outlined),
+                ], title: 'Nodo', icon: Icons.devices_outlined),
 
                 const SizedBox(height: 16),
                 _settingsCard(theme, [
-                  _infoRow(theme, 'Architecture', _arch, Icons.memory_outlined),
-                  _infoRow(theme, 'PRoot path', _prootPath, Icons.folder_outlined),
-                  _infoRow(theme, 'Rootfs', _status['rootfsExists'] == true ? 'Installed' : 'Not installed', Icons.storage_outlined),
-                  _infoRow(theme, 'Node.js', _status['nodeInstalled'] == true ? 'Installed' : 'Not installed', Icons.code_outlined),
-                  _infoRow(theme, 'OpenClaw', _status['openclawInstalled'] == true ? 'Installed' : 'Not installed', Icons.cloud_outlined),
-                  _infoRow(theme, 'Go (Golang)', _goInstalled ? 'Installed' : 'Not installed', Icons.integration_instructions_outlined),
-                  _infoRow(theme, 'Homebrew', _brewInstalled ? 'Installed' : 'Not installed', Icons.science_outlined),
-                  _infoRow(theme, 'OpenSSH', _sshInstalled ? 'Installed' : 'Not installed', Icons.vpn_key_outlined),
-                ], title: 'System Info', icon: Icons.monitor_outlined),
+                  _infoRow(theme, 'Arquitectura', _arch, Icons.memory_outlined),
+                  _infoRow(theme, 'Ruta PRoot', _prootPath, Icons.folder_outlined),
+                  _infoRow(theme, 'Rootfs', _status['rootfsExists'] == true ? 'Instalado' : 'No instalado', Icons.storage_outlined),
+                  _infoRow(theme, 'Node.js', _status['nodeInstalled'] == true ? 'Instalado' : 'No instalado', Icons.code_outlined),
+                  _infoRow(theme, 'OpenClaw', _status['openclawInstalled'] == true ? 'Instalado' : 'No instalado', Icons.cloud_outlined),
+                  _infoRow(theme, 'Go (Golang)', _goInstalled ? 'Instalado' : 'No instalado', Icons.integration_instructions_outlined),
+                  _infoRow(theme, 'Homebrew', _brewInstalled ? 'Instalado' : 'No instalado', Icons.science_outlined),
+                  _infoRow(theme, 'OpenSSH', _sshInstalled ? 'Instalado' : 'No instalado', Icons.vpn_key_outlined),
+                ], title: 'Info del Sistema', icon: Icons.monitor_outlined),
 
                 const SizedBox(height: 16),
                 _settingsCard(theme, [
                   _listTile(
                     theme,
                     Icons.upload_file_outlined,
-                    'Export Snapshot',
-                    'Backup config to Downloads',
+                    'Exportar Respaldo',
+                    'Respaldar configuración en Descargas',
                     onTap: _exportSnapshot,
                   ),
                   _listTile(
                     theme,
                     Icons.download_outlined,
-                    'Import Snapshot',
-                    'Restore config from backup',
+                    'Importar Respaldo',
+                    'Restaurar configuración desde respaldo',
                     onTap: _importSnapshot,
                   ),
                   _listTile(
                     theme,
                     Icons.build_outlined,
-                    'Re-run Setup',
-                    'Reinstall or repair the environment',
+                    'Re-ejecutar Instalación',
+                    'Reinstalar o reparar el entorno',
                     onTap: () => Navigator.of(context).pushReplacement(
                       MaterialPageRoute(builder: (_) => const SetupWizardScreen()),
                     ),
                   ),
-                ], title: 'Maintenance', icon: Icons.build_outlined),
+                ], title: 'Mantenimiento', icon: Icons.build_outlined),
 
                 const SizedBox(height: 16),
                 _settingsCard(theme, [
@@ -234,8 +234,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _listTile(
                     theme,
                     Icons.system_update_outlined,
-                    'Check for Updates',
-                    'Check GitHub for a newer release',
+                    'Buscar Actualizaciones',
+                    'Verificar GitHub para nueva versión',
                     trailing: _checkingUpdate
                         ? const SizedBox(
                             width: 20,
@@ -248,7 +248,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _listTile(
                     theme,
                     Icons.person_outlined,
-                    'Developer',
+                    'Desarrollador',
                     AppConstants.authorName,
                   ),
                   _listTile(

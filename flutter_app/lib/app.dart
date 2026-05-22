@@ -6,29 +6,30 @@ import 'providers/gateway_provider.dart';
 import 'providers/node_provider.dart';
 import 'screens/splash_screen.dart';
 
-/// Centralized color palette for the entire app.
+/// Paleta de colores centralizada — diseño moderno y minimalista.
 class AppColors {
   AppColors._();
 
-  // Brand accent
-  static const Color accent = Color(0xFFDC2626);
-  static const Color accentLight = Color(0xFFFEE2E2);
-  static const Color accentDark = Color(0xFF7F1D1D);
+  // Marca — acento violeta-azulado moderno
+  static const Color accent = Color(0xFF6C63FF);
+  static const Color accentLight = Color(0xFFEEF0FF);
+  static const Color accentDark = Color(0xFF3F37C9);
+  static const Color accentSubtle = Color(0xFFA29BFE);
 
-  // Dark mode
-  static const Color darkBg = Color(0xFF0A0A0A);
-  static const Color darkSurface = Color(0xFF121212);
-  static const Color darkSurfaceAlt = Color(0xFF1A1A1A);
-  static const Color darkSurfaceElevated = Color(0xFF222222);
-  static const Color darkBorder = Color(0xFF2A2A2A);
+  // Dark mode — fondo más profundo con superficie cálida
+  static const Color darkBg = Color(0xFF0D0D12);
+  static const Color darkSurface = Color(0xFF16161E);
+  static const Color darkSurfaceAlt = Color(0xFF1E1E2A);
+  static const Color darkSurfaceElevated = Color(0xFF28283A);
+  static const Color darkBorder = Color(0xFF2A2A3E);
 
   // Light mode
-  static const Color lightBg = Color(0xFFFFFFFF);
-  static const Color lightSurface = Color(0xFFF9F9F9);
-  static const Color lightSurfaceAlt = Color(0xFFF3F4F6);
-  static const Color lightBorder = Color(0xFFE5E5E5);
+  static const Color lightBg = Color(0xFFF8F9FE);
+  static const Color lightSurface = Color(0xFFFFFFFF);
+  static const Color lightSurfaceAlt = Color(0xFFF0F1FA);
+  static const Color lightBorder = Color(0xFFE4E5F0);
 
-  // Status
+  // Estados
   static const Color statusGreen = Color(0xFF22C55E);
   static const Color statusGreenBg = Color(0xFF052E16);
   static const Color statusAmber = Color(0xFFF59E0B);
@@ -37,24 +38,24 @@ class AppColors {
   static const Color statusRedBg = Color(0xFF450A0A);
   static const Color statusGrey = Color(0xFF6B7280);
 
-  // Text
+  // Texto
   static const Color mutedText = Color(0xFF6B7280);
   static const Color darkMutedText = Color(0xFF9CA3AF);
 
-  // Shadows
+  // Sombras modernas y difusas
   static List<BoxShadow> cardShadow(bool isDark) => [
     BoxShadow(
-      color: isDark ? Colors.black.withAlpha(80) : Colors.black.withAlpha(12),
-      blurRadius: 8,
-      offset: const Offset(0, 2),
+      color: isDark ? Colors.black.withAlpha(100) : const Color(0xFF6C63FF).withAlpha(10),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
     ),
   ];
 
   static List<BoxShadow> cardShadowElevated(bool isDark) => [
     BoxShadow(
-      color: isDark ? Colors.black.withAlpha(120) : Colors.black.withAlpha(20),
-      blurRadius: 16,
-      offset: const Offset(0, 4),
+      color: isDark ? Colors.black.withAlpha(150) : const Color(0xFF6C63FF).withAlpha(16),
+      blurRadius: 24,
+      offset: const Offset(0, 8),
     ),
   ];
 }
@@ -84,6 +85,29 @@ class OpenClawApp extends StatelessWidget {
         themeMode: ThemeMode.system,
         home: const SplashScreen(),
       ),
+    );
+  }
+
+  // Transición de ruta personalizada — deslizamiento hacia arriba con fade
+  static Route<T> fadeUpRoute<T>(Widget page) {
+    return PageRouteBuilder(
+      pageBuilder: (_, __, ___) => page,
+      transitionsBuilder: (_, animation, __, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.03),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            )),
+            child: child,
+          ),
+        );
+      },
+      transitionDuration: const Duration(milliseconds: 350),
     );
   }
 

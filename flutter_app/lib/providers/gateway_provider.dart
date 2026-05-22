@@ -12,6 +12,12 @@ class GatewayProvider extends ChangeNotifier {
 
   GatewayProvider() {
     _subscription = _gatewayService.stateStream.listen((state) {
+      // Skip notifyListeners if nothing meaningful changed
+      if (state.status == _state.status &&
+          state.dashboardUrl == _state.dashboardUrl &&
+          state.errorMessage == _state.errorMessage) {
+        return;
+      }
       _state = state;
       notifyListeners();
     });

@@ -9,23 +9,29 @@ FLUTTER_DIR="$PROJECT_DIR/flutter_app"
 echo "=== OpenClaw APK Build ==="
 echo ""
 
-# Step 1: Fetch proot binaries if not present
+# Step 1: Sync local plugin patches (KGP → Kotlin built-in)
+echo "[1/4] Syncing local plugin patches..."
+cd "$FLUTTER_DIR"
+dart run "$SCRIPT_DIR/sync_local_plugins.dart" --skip-pub-get
+echo ""
+
+# Step 2: Fetch proot binaries if not present
 if [ ! -f "$FLUTTER_DIR/android/app/jniLibs/arm64-v8a/libproot.so" ]; then
-    echo "[1/3] Fetching PRoot binaries..."
+    echo "[2/4] Fetching PRoot binaries..."
     bash "$SCRIPT_DIR/fetch-proot-binaries.sh"
 else
-    echo "[1/3] PRoot binaries already present"
+    echo "[2/4] PRoot binaries already present"
 fi
 echo ""
 
-# Step 2: Get Flutter dependencies
-echo "[2/3] Getting Flutter dependencies..."
+# Step 3: Get Flutter dependencies
+echo "[3/4] Getting Flutter dependencies..."
 cd "$FLUTTER_DIR"
 flutter pub get
 echo ""
 
-# Step 3: Build APK
-echo "[3/3] Building release APK..."
+# Step 4: Build APK
+echo "[4/4] Building release APK..."
 flutter build apk --release
 echo ""
 

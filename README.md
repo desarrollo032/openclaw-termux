@@ -105,9 +105,45 @@ O compila desde la fuente:
 
 ```bash
 git clone https://github.com/mithun50/openclaw-termux.git
-cd openclaw-termux/flutter_app
+cd openclaw-termux
+bash scripts/build-apk.sh
+```
+
+---
+
+### 🔧 Desarrollo
+
+#### Plugins locales con Kotlin Built-in
+
+Algunos plugins de Flutter aún aplican el **Kotlin Gradle Plugin (KGP)** de forma tradicional, lo cual será incompatible con futuras versiones de AGP. Para evitarlo, estos plugins se mantienen como **copias locales parcheadas** en `flutter_app/local_plugins/` con KGP eliminado y migrados a Kotlin built-in (`kotlin { compilerOptions { ... } }`).
+
+Los plugins parcheados actualmente:
+
+- `camera_android_camerax`
+- `package_info_plus`
+- `shared_preferences_android`
+- `url_launcher_android`
+- `webview_flutter_android`
+
+> `local_plugins/` está en `.gitignore` — las copias se regeneran automáticamente al ejecutar `build-apk.sh`.
+
+**Si compilas manualmente con `flutter build`:**
+
+```bash
+cd flutter_app
+dart run ../scripts/sync_local_plugins.dart
+flutter pub get
 flutter build apk --release
 ```
+
+**Para refrescar después de `flutter pub upgrade`:**
+
+```bash
+cd flutter_app
+dart run ../scripts/sync_local_plugins.dart
+```
+
+Esto copia la nueva versión desde la caché de pub y re-aplica los parches automáticamente. Los parches están definidos en `scripts/sync_local_plugins.dart`.
 
 ### 💻 CLI de Termux
 

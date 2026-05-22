@@ -51,7 +51,7 @@ class GatewayControls extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            'AI Gateway Server',
+                            'Servidor Gateway IA',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -103,22 +103,22 @@ class GatewayControls extends StatelessWidget {
                         _iconButton(
                           context,
                           Icons.copy,
-                          'Copy URL',
-                          () {
-                            final url = state.dashboardUrl ?? AppConstants.gatewayUrl;
-                            Clipboard.setData(ClipboardData(text: url));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('URL copied'),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                          },
-                        ),
-                        _iconButton(
-                          context,
-                          Icons.open_in_new,
-                          'Open',
+              'Copiar URL',
+              () {
+                final url = state.dashboardUrl ?? AppConstants.gatewayUrl;
+                Clipboard.setData(ClipboardData(text: url));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('URL copiada'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+            _iconButton(
+              context,
+              Icons.open_in_new,
+              'Abrir',
                           () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
@@ -168,20 +168,20 @@ class GatewayControls extends StatelessWidget {
                       FilledButton.icon(
                         onPressed: () => provider.start(),
                         icon: const Icon(Icons.play_arrow, size: 18),
-                        label: const Text('Start'),
+                        label: const Text('Iniciar'),
                       ),
                     if (state.isRunning || state.status == GatewayStatus.starting)
                       OutlinedButton.icon(
                         onPressed: () => provider.stop(),
                         icon: const Icon(Icons.stop, size: 18),
-                        label: const Text('Stop'),
+                        label: const Text('Detener'),
                       ),
                     OutlinedButton.icon(
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const LogsScreen()),
                       ),
                       icon: const Icon(Icons.article_outlined, size: 18),
-                      label: const Text('Logs'),
+                      label: const Text('Registros'),
                     ),
                   ],
                 ),
@@ -194,6 +194,7 @@ class GatewayControls extends StatelessWidget {
   }
 
   Widget _iconButton(BuildContext context, IconData icon, String tooltip, VoidCallback onPressed) {
+    final theme = Theme.of(context);
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -201,7 +202,7 @@ class GatewayControls extends StatelessWidget {
         onTap: onPressed,
         child: Padding(
           padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          child: Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
         ),
       ),
     );
@@ -215,11 +216,11 @@ class GatewayControls extends StatelessWidget {
     switch (status) {
       case GatewayStatus.running:
         color = AppColors.statusGreen;
-        label = 'Running';
+        label = 'Activo';
         icon = Icons.check_circle;
       case GatewayStatus.starting:
         color = AppColors.statusAmber;
-        label = 'Starting';
+        label = 'Iniciando';
         icon = Icons.hourglass_top;
       case GatewayStatus.error:
         color = AppColors.statusRed;
@@ -227,7 +228,7 @@ class GatewayControls extends StatelessWidget {
         icon = Icons.error_outline;
       case GatewayStatus.stopped:
         color = AppColors.statusGrey;
-        label = 'Stopped';
+        label = 'Detenido';
         icon = Icons.circle_outlined;
     }
 

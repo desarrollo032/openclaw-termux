@@ -44,7 +44,7 @@ class DashboardScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Settings',
+            tooltip: 'Ajustes',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const SettingsScreen()),
             ),
@@ -59,11 +59,11 @@ class DashboardScreen extends StatelessWidget {
           const SizedBox(height: 24),
 
           // Tools section
-          _sectionHeader(theme, Icons.build_outlined, 'TOOLS'),
+          _sectionHeader(theme, Icons.build_outlined, 'HERRAMIENTAS'),
           const SizedBox(height: 4),
           StatusCard(
             title: 'Terminal',
-            subtitle: 'Ubuntu shell with OpenClaw environment',
+            subtitle: 'Shell Ubuntu con entorno OpenClaw',
             icon: Icons.terminal,
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => Navigator.of(context).push(
@@ -83,7 +83,7 @@ class DashboardScreen extends StatelessWidget {
                   : 'Start gateway first';
 
               return StatusCard(
-                title: 'Web Dashboard',
+                title: 'Panel Web',
                 subtitle: subtitle,
                 icon: Icons.dashboard,
                 trailing: Row(
@@ -96,7 +96,7 @@ class DashboardScreen extends StatelessWidget {
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: url!));
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Dashboard URL copied')),
+                            const SnackBar(content: Text('URL del panel copiada')),
                           );
                         },
                       ),
@@ -114,8 +114,8 @@ class DashboardScreen extends StatelessWidget {
             },
           ),
           StatusCard(
-            title: 'Onboarding',
-            subtitle: 'Configure API keys and binding',
+            title: 'Configuración Inicial',
+            subtitle: 'Configurar claves API y enlace',
             icon: Icons.vpn_key_outlined,
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => Navigator.of(context).push(
@@ -125,11 +125,11 @@ class DashboardScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Configuration section
-          _sectionHeader(theme, Icons.tune_outlined, 'CONFIGURATION'),
+          _sectionHeader(theme, Icons.tune_outlined, 'CONFIGURACIÓN'),
           const SizedBox(height: 4),
           StatusCard(
-            title: 'Gateway Settings',
-            subtitle: 'Manage gateway configuration',
+            title: 'Ajustes del Gateway',
+            subtitle: 'Administrar configuración del gateway',
             icon: Icons.tune,
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => Navigator.of(context).push(
@@ -137,8 +137,8 @@ class DashboardScreen extends StatelessWidget {
             ),
           ),
           StatusCard(
-            title: 'AI Providers',
-            subtitle: 'Configure models and API keys',
+            title: 'Proveedores IA',
+            subtitle: 'Configurar modelos y claves API',
             icon: Icons.model_training,
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => Navigator.of(context).push(
@@ -146,8 +146,8 @@ class DashboardScreen extends StatelessWidget {
             ),
           ),
           StatusCard(
-            title: 'Packages',
-            subtitle: 'Install Go, Homebrew, SSH and more',
+            title: 'Paquetes',
+            subtitle: 'Instalar Go, Homebrew, SSH y más',
             icon: Icons.extension_outlined,
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => Navigator.of(context).push(
@@ -155,8 +155,8 @@ class DashboardScreen extends StatelessWidget {
             ),
           ),
           StatusCard(
-            title: 'SSH Access',
-            subtitle: 'Remote terminal access via SSH',
+            title: 'Acceso SSH',
+            subtitle: 'Acceso remoto por terminal SSH',
             icon: Icons.terminal,
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => Navigator.of(context).push(
@@ -166,11 +166,11 @@ class DashboardScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // System section
-          _sectionHeader(theme, Icons.monitor_outlined, 'SYSTEM'),
+          _sectionHeader(theme, Icons.monitor_outlined, 'SISTEMA'),
           const SizedBox(height: 4),
           StatusCard(
-            title: 'Logs',
-            subtitle: 'View gateway output and errors',
+            title: 'Registros',
+            subtitle: 'Ver salida y errores del gateway',
             icon: Icons.article_outlined,
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => Navigator.of(context).push(
@@ -178,8 +178,8 @@ class DashboardScreen extends StatelessWidget {
             ),
           ),
           StatusCard(
-            title: 'Backup & Restore',
-            subtitle: 'Export or import configuration snapshots',
+            title: 'Respaldo y Restauración',
+            subtitle: 'Exportar o importar configuración',
             icon: Icons.backup_outlined,
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => Navigator.of(context).push(
@@ -190,11 +190,11 @@ class DashboardScreen extends StatelessWidget {
             builder: (context, nodeProvider, _) {
               final nodeState = nodeProvider.state;
               return StatusCard(
-                title: 'Device Node',
+                title: 'Nodo del Dispositivo',
                 subtitle: nodeState.isPaired
-                    ? 'Connected to gateway'
+                    ? 'Conectado al gateway'
                     : nodeState.isDisabled
-                        ? 'Device capabilities for AI'
+                        ? 'Capacidades del dispositivo para IA'
                         : nodeState.statusText,
                 icon: Icons.devices_outlined,
                 trailing: const Icon(Icons.chevron_right, size: 20),
@@ -217,7 +217,7 @@ class DashboardScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    'v${AppConstants.version}',
+                    'Versión ${AppConstants.version}',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w500,
@@ -226,7 +226,7 @@ class DashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'by ${AppConstants.authorName} · ${AppConstants.orgName}',
+                  'por ${AppConstants.authorName} · ${AppConstants.orgName}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
                   ),

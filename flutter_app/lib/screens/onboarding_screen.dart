@@ -53,19 +53,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   static const _fontFallback = [
     'monospace',
     'Noto Sans Mono',
-    'Noto Sans Mono CJK SC',
-    'Noto Sans Mono CJK TC',
-    'Noto Sans Mono CJK JP',
     'Noto Color Emoji',
     'Noto Sans Symbols',
-    'Noto Sans Symbols 2',
     'sans-serif',
   ];
 
   @override
   void initState() {
     super.initState();
-    _terminal = Terminal(maxLines: 10000);
+    _terminal = Terminal(maxLines: 2000);
     _controller = TerminalController();
     NativeBridge.startTerminalService();
     // Defer PTY start until after the first frame so TerminalView has been
@@ -272,7 +268,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (url != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Copied to clipboard'),
+          content: const Text('Copiado al portapapeles'),
           duration: const Duration(seconds: 3),
           action: SnackBarAction(
             label: 'Open',
@@ -376,29 +372,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final shouldOpen = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Open Link'),
+        title: const Text('Abrir Enlace'),
         content: Text(url),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: const Text('Cancelar'),
           ),
           TextButton(
             onPressed: () {
               Clipboard.setData(ClipboardData(text: url));
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Link copied'),
+                  content: Text('Enlace copiado'),
                   duration: Duration(seconds: 1),
                 ),
               );
               Navigator.pop(ctx, false);
             },
-            child: const Text('Copy'),
+            child: const Text('Copiar'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Open'),
+            child: const Text('Abrir'),
           ),
         ],
       ),
@@ -425,9 +421,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('OpenClaw Onboarding'),
+        title: const Text('Configuración Inicial'),
         leading: widget.isFirstRun
             ? null // no back button during first-run
             : IconButton(
@@ -438,22 +435,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.camera_alt_outlined),
-            tooltip: 'Screenshot',
+            tooltip: 'Captura de pantalla',
             onPressed: _takeScreenshot,
           ),
           IconButton(
             icon: const Icon(Icons.copy),
-            tooltip: 'Copy',
+            tooltip: 'Copiar',
             onPressed: _copySelection,
           ),
           IconButton(
             icon: const Icon(Icons.open_in_browser),
-            tooltip: 'Open URL',
+            tooltip: 'Abrir URL',
             onPressed: _openSelection,
           ),
           IconButton(
             icon: const Icon(Icons.paste),
-            tooltip: 'Paste',
+            tooltip: 'Pegar',
             onPressed: _paste,
           ),
         ],
@@ -470,7 +467,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color:
-                            Theme.of(context).colorScheme.primary.withAlpha(15),
+                            theme.colorScheme.primary.withAlpha(15),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: const SizedBox(
@@ -483,10 +480,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Starting onboarding...',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      'Iniciando configuración…',
+                      style: theme.textTheme.bodyMedium?.copyWith(
                             color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
+                                theme.colorScheme.onSurfaceVariant,
                           ),
                     ),
                   ],
@@ -505,20 +502,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
                           color:
-                              Theme.of(context).colorScheme.error.withAlpha(15),
+                              theme.colorScheme.error.withAlpha(15),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Icon(
                           Icons.error_outline,
                           size: 48,
-                          color: Theme.of(context).colorScheme.error,
+                          color: theme.colorScheme.error,
                         ),
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'Failed to start',
+                        'Error al iniciar',
                         style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                            theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),
                       ),
@@ -526,10 +523,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       Text(
                         _error ?? '',
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
                       ),
                       const SizedBox(height: 24),
@@ -543,7 +538,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           _startOnboarding();
                         },
                         icon: const Icon(Icons.refresh, size: 18),
-                        label: const Text('Retry'),
+                        label: const Text('Reintentar'),
                       ),
                     ],
                   ),
@@ -585,7 +580,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   icon: Icon(
                       widget.isFirstRun ? Icons.arrow_forward : Icons.check,
                       size: 18),
-                  label: Text(widget.isFirstRun ? 'Go to Dashboard' : 'Done'),
+                  label: Text(widget.isFirstRun ? 'Ir al Panel' : 'Listo'),
                 ),
               ),
             ),

@@ -53,7 +53,7 @@ class _NodeScreenState extends State<NodeScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Node Configuration')),
+      appBar: AppBar(title: const Text('Configuración del Nodo')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Consumer<NodeProvider>(
@@ -67,7 +67,7 @@ class _NodeScreenState extends State<NodeScreen> {
                     const SizedBox(height: 24),
 
                     // Gateway Connection
-                    _sectionHeader(theme, Icons.link_outlined, 'GATEWAY CONNECTION'),
+                    _sectionHeader(theme, Icons.link_outlined, 'CONEXIÓN DEL GATEWAY'),
                     const SizedBox(height: 4),
                     Card(
                       margin: EdgeInsets.zero,
@@ -83,16 +83,16 @@ class _NodeScreenState extends State<NodeScreen> {
                 children: [
                   ListTile(
                     leading: const Radio<bool>(value: true),
-                    title: const Text('Local Gateway', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                    subtitle: const Text('Auto-pair with gateway on this device'),
+                    title: const Text('Gateway Local', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                    subtitle: const Text('Emparejar automáticamente con el gateway en este dispositivo'),
                     contentPadding: EdgeInsets.zero,
                     onTap: () => setState(() => _isLocal = true),
                     dense: true,
                   ),
                   ListTile(
                     leading: const Radio<bool>(value: false),
-                    title: const Text('Remote Gateway', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                    subtitle: const Text('Connect to a gateway on another device'),
+                    title: const Text('Gateway Remoto', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                    subtitle: const Text('Conectar a un gateway en otro dispositivo'),
                     contentPadding: EdgeInsets.zero,
                     onTap: () => setState(() => _isLocal = false),
                     dense: true,
@@ -105,7 +105,7 @@ class _NodeScreenState extends State<NodeScreen> {
                               TextField(
                                 controller: _hostController,
                                 decoration: const InputDecoration(
-                                  labelText: 'Gateway Host',
+                                  labelText: 'Host del Gateway',
                                   hintText: '192.168.1.100',
                                   prefixIcon: Icon(Icons.computer),
                                 ),
@@ -114,7 +114,7 @@ class _NodeScreenState extends State<NodeScreen> {
                               TextField(
                                 controller: _portController,
                                 decoration: const InputDecoration(
-                                  labelText: 'Gateway Port',
+                                  labelText: 'Puerto del Gateway',
                                   hintText: '18789',
                                   prefixIcon: Icon(Icons.numbers),
                                 ),
@@ -124,9 +124,9 @@ class _NodeScreenState extends State<NodeScreen> {
                               TextField(
                                 controller: _tokenController,
                                 decoration: const InputDecoration(
-                                  labelText: 'Gateway Token',
-                                  hintText: 'Paste token from dashboard URL',
-                                  helperText: 'Found after #token= in dashboard URL',
+                                  labelText: 'Token del Gateway',
+                                  hintText: 'Pega el token de la URL del panel',
+                                  helperText: 'Se encuentra después de #token= en la URL del panel',
                                   prefixIcon: Icon(Icons.key),
                                 ),
                                 obscureText: true,
@@ -145,7 +145,7 @@ class _NodeScreenState extends State<NodeScreen> {
                                     }
                                   },
                                   icon: const Icon(Icons.link, size: 18),
-                                  label: const Text('Connect'),
+                                  label: const Text('Conectar'),
                                 ),
                               ),
                             ],
@@ -157,7 +157,7 @@ class _NodeScreenState extends State<NodeScreen> {
 
                     // Pairing Status
                     if (state.pairingCode != null) ...[
-                      _sectionHeader(theme, Icons.qr_code, 'PAIRING'),
+                      _sectionHeader(theme, Icons.qr_code, 'EMPAREJAMIENTO'),
                       const SizedBox(height: 4),
                       Card(
                         margin: EdgeInsets.zero,
@@ -175,7 +175,7 @@ class _NodeScreenState extends State<NodeScreen> {
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                'Approve this code on the gateway:',
+                                'Aprueba este código en el gateway:',
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
@@ -208,27 +208,27 @@ class _NodeScreenState extends State<NodeScreen> {
                     ],
 
                     // Capabilities
-                    _sectionHeader(theme, Icons.devices_outlined, 'CAPABILITIES'),
+                    _sectionHeader(theme, Icons.devices_outlined, 'CAPACIDADES'),
                     const SizedBox(height: 4),
                     Card(
                       margin: EdgeInsets.zero,
                       child: Column(
                         children: [
-                          _capabilityTile(theme, 'Camera', 'Capture photos and video clips', Icons.camera_alt),
+                          _capabilityTile(theme, 'Cámara', 'Capturar fotos y videos', Icons.camera_alt),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Canvas', 'Not available on mobile', Icons.web, available: false),
+                          _capabilityTile(theme, 'Canvas', 'No disponible en móvil', Icons.web, available: false),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Location', 'Get device GPS coordinates', Icons.location_on),
+                          _capabilityTile(theme, 'Ubicación', 'Obtener coordenadas GPS', Icons.location_on),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Screen Recording', 'Record device screen (requires consent)', Icons.screen_share),
+                          _capabilityTile(theme, 'Grabación de Pantalla', 'Grabar pantalla (requiere consentimiento)', Icons.screen_share),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Flashlight', 'Toggle device torch on/off', Icons.flashlight_on),
+                          _capabilityTile(theme, 'Linterna', 'Encender/apagar el flash', Icons.flashlight_on),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Vibration', 'Trigger haptic feedback', Icons.vibration),
+                          _capabilityTile(theme, 'Vibración', 'Activar respuesta háptica', Icons.vibration),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Sensors', 'Accelerometer, gyroscope, magnetometer', Icons.sensors),
+                          _capabilityTile(theme, 'Sensores', 'Acelerómetro, giroscopio, magnetómetro', Icons.sensors),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Serial', 'Bluetooth and USB serial', Icons.usb),
+                          _capabilityTile(theme, 'Serial', 'Bluetooth y USB serie', Icons.usb),
                         ],
                       ),
                     ),
@@ -236,7 +236,7 @@ class _NodeScreenState extends State<NodeScreen> {
 
                     // Device Info
                     if (state.deviceId != null) ...[
-                      _sectionHeader(theme, Icons.fingerprint, 'DEVICE INFO'),
+                      _sectionHeader(theme, Icons.fingerprint, 'INFORMACIÓN DEL DISPOSITIVO'),
                       const SizedBox(height: 4),
                       Card(
                         margin: EdgeInsets.zero,
@@ -249,7 +249,7 @@ class _NodeScreenState extends State<NodeScreen> {
                             ),
                             child: Icon(Icons.fingerprint, size: 20, color: theme.colorScheme.primary),
                           ),
-                          title: const Text('Device ID', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                          title: const Text('ID del Dispositivo', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
                           subtitle: SelectableText(
                             state.deviceId!,
                             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
@@ -260,7 +260,7 @@ class _NodeScreenState extends State<NodeScreen> {
                     ],
 
                     // Logs
-                    _sectionHeader(theme, Icons.article_outlined, 'NODE LOGS'),
+                    _sectionHeader(theme, Icons.article_outlined, 'REGISTROS DEL NODO'),
                     const SizedBox(height: 4),
                     Card(
                       margin: EdgeInsets.zero,
@@ -276,7 +276,7 @@ class _NodeScreenState extends State<NodeScreen> {
                                         color: theme.colorScheme.onSurfaceVariant.withAlpha(80)),
                                     const SizedBox(height: 8),
                                     Text(
-                                      'No logs yet',
+                                      'Sin registros aún',
                                       style: theme.textTheme.bodySmall?.copyWith(
                                         color: theme.colorScheme.onSurfaceVariant,
                                       ),
