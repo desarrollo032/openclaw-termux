@@ -33,22 +33,6 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
 
-# These local plugin copies are gitignored; they are regenerated automatically
-# by scripts/sync_local_plugins.dart (integrated into scripts/build-apk.sh).
-# Run `cd flutter_app && dart run ../scripts/sync_local_plugins.dart`
-# before `flutter pub get` if building manually.
-dependency_overrides:
-  camera_android_camerax:
-    path: local_plugins/camera_android_camerax
-  package_info_plus:
-    path: local_plugins/package_info_plus
-  shared_preferences_android:
-    path: local_plugins/shared_preferences_android
-  url_launcher_android:
-    path: local_plugins/url_launcher_android
-  webview_flutter_android:
-    path: local_plugins/webview_flutter_android
-
 flutter:
   uses-material-design: true
   assets:
