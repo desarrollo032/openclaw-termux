@@ -35,13 +35,20 @@ class DashboardScreen extends StatelessWidget {
                 color: theme.colorScheme.primary.withAlpha(20),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(Icons.bolt, size: 18, color: theme.colorScheme.primary),
+              child: Icon(Icons.auto_awesome_rounded, size: 18, color: theme.colorScheme.primary),
             ),
             const SizedBox(width: 10),
             const Text('OpenClaw'),
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Actualizar estado',
+            onPressed: () {
+              context.read<GatewayProvider>().checkHealth();
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Ajustes',
@@ -51,7 +58,9 @@ class DashboardScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
+      body: Semantics(
+        label: 'Panel principal de OpenClaw',
+        child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
           // Gateway controls
@@ -59,12 +68,12 @@ class DashboardScreen extends StatelessWidget {
           const SizedBox(height: 24),
 
           // Tools section
-          _sectionHeader(theme, Icons.build_outlined, 'HERRAMIENTAS'),
+          _sectionHeader(theme, Icons.widgets_rounded, 'HERRAMIENTAS'),
           const SizedBox(height: 4),
           StatusCard(
             title: 'Terminal',
             subtitle: 'Shell Ubuntu con entorno OpenClaw',
-            icon: Icons.terminal,
+            icon: Icons.code_rounded,
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const TerminalScreen()),
@@ -85,7 +94,7 @@ class DashboardScreen extends StatelessWidget {
               return StatusCard(
                 title: 'Panel Web',
                 subtitle: subtitle,
-                icon: Icons.dashboard,
+                icon: Icons.travel_explore_rounded,
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -116,7 +125,7 @@ class DashboardScreen extends StatelessWidget {
           StatusCard(
             title: 'Configuración Inicial',
             subtitle: 'Configurar claves API y enlace',
-            icon: Icons.vpn_key_outlined,
+            icon: Icons.rocket_launch_rounded,
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const OnboardingScreen()),
@@ -125,12 +134,12 @@ class DashboardScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Configuration section
-          _sectionHeader(theme, Icons.tune_outlined, 'CONFIGURACIÓN'),
+          _sectionHeader(theme, Icons.tune_rounded, 'CONFIGURACIÓN'),
           const SizedBox(height: 4),
           StatusCard(
             title: 'Ajustes del Gateway',
             subtitle: 'Administrar configuración del gateway',
-            icon: Icons.tune,
+            icon: Icons.hub_rounded,
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const ConfigureScreen()),
@@ -139,7 +148,7 @@ class DashboardScreen extends StatelessWidget {
           StatusCard(
             title: 'Proveedores IA',
             subtitle: 'Configurar modelos y claves API',
-            icon: Icons.model_training,
+            icon: Icons.psychology_alt_rounded,
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const ProvidersScreen()),
@@ -148,7 +157,7 @@ class DashboardScreen extends StatelessWidget {
           StatusCard(
             title: 'Paquetes',
             subtitle: 'Instalar Go, Homebrew, SSH y más',
-            icon: Icons.extension_outlined,
+            icon: Icons.inventory_2_rounded,
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const PackagesScreen()),
@@ -157,7 +166,7 @@ class DashboardScreen extends StatelessWidget {
           StatusCard(
             title: 'Acceso SSH',
             subtitle: 'Acceso remoto por terminal SSH',
-            icon: Icons.terminal,
+            icon: Icons.lan_rounded,
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const SshScreen()),
@@ -166,12 +175,12 @@ class DashboardScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // System section
-          _sectionHeader(theme, Icons.monitor_outlined, 'SISTEMA'),
+          _sectionHeader(theme, Icons.memory_rounded, 'SISTEMA'),
           const SizedBox(height: 4),
           StatusCard(
             title: 'Registros',
             subtitle: 'Ver salida y errores del gateway',
-            icon: Icons.article_outlined,
+            icon: Icons.receipt_long_rounded,
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const LogsScreen()),
@@ -180,7 +189,7 @@ class DashboardScreen extends StatelessWidget {
           StatusCard(
             title: 'Respaldo y Restauración',
             subtitle: 'Exportar o importar configuración',
-            icon: Icons.backup_outlined,
+            icon: Icons.restore_page_rounded,
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const SettingsScreen()),
@@ -196,7 +205,7 @@ class DashboardScreen extends StatelessWidget {
                     : nodeState.isDisabled
                         ? 'Capacidades del dispositivo para IA'
                         : nodeState.statusText,
-                icon: Icons.devices_outlined,
+                icon: Icons.developer_board_rounded,
                 trailing: const Icon(Icons.chevron_right, size: 20),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const NodeScreen()),
@@ -236,6 +245,7 @@ class DashboardScreen extends StatelessWidget {
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -255,6 +265,7 @@ class DashboardScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
