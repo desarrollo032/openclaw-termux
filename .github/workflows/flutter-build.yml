@@ -101,6 +101,18 @@ jobs:
             done
           done
 
+      - name: Prime Flutter dependencies (without local overrides)
+        working-directory: flutter_app
+        run: |
+          mkdir -p local_plugins
+          cp pubspec.yaml pubspec.yaml.bak
+          awk 'BEGIN{skip=0} /^dependency_overrides:/{skip=1} !skip{print}' pubspec.yaml.bak > pubspec.yaml
+          flutter pub get
+          mv pubspec.yaml.bak pubspec.yaml
+
+      - name: Sync patched local plugins
+        run: dart run scripts/sync_local_plugins.dart --skip-pub-get
+
       - name: Get Flutter dependencies
         working-directory: flutter_app
         run: flutter pub get
