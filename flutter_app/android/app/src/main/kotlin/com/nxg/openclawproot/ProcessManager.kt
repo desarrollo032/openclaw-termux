@@ -67,9 +67,9 @@ class ProcessManager(
 
         // Primary: host-side file used by --bind mount
         try {
+            File(configDir).mkdirs()
             val resolvFile = File(configDir, "resolv.conf")
             if (!resolvFile.exists() || resolvFile.length() == 0L) {
-                resolvFile.parentFile?.mkdirs()
                 resolvFile.writeText(content)
             }
         } catch (_: Exception) {}
@@ -94,6 +94,15 @@ class ProcessManager(
         val procFakes = "$configDir/proc_fakes"
         val sysFakes = "$configDir/sys_fakes"
 
+        val stdioBinds = listOf(
+            0 to "/dev/stdin",
+            1 to "/dev/stdout",
+            2 to "/dev/stderr",
+        ).mapNotNull { (fd, target) ->
+            val source = File("/proc/self/fd/$fd")
+            if (source.exists()) "--bind=/proc/self/fd/$fd:$target" else null
+        }
+
         return listOf(
             prootPath,
             "--link2symlink",
@@ -106,9 +115,6 @@ class ProcessManager(
             "--bind=/dev/urandom:/dev/random",
             "--bind=/proc",
             "--bind=/proc/self/fd:/dev/fd",
-            "--bind=/proc/self/fd/0:/dev/stdin",
-            "--bind=/proc/self/fd/1:/dev/stdout",
-            "--bind=/proc/self/fd/2:/dev/stderr",
             "--bind=/sys",
             // Fake /proc entries — Android restricts most /proc access.
             // proot-distro's run_proot_cmd() binds these unconditionally.
@@ -126,6 +132,7 @@ class ProcessManager(
             // SELinux override — empty dir disables SELinux checks
             "--bind=$sysFakes/empty:/sys/fs/selinux",
             // App-specific binds
+            *stdioBinds.toTypedArray(),
             "--bind=$configDir/resolv.conf:/etc/resolv.conf",
             "--bind=$homeDir:/root/home",
         ).let { flags ->
