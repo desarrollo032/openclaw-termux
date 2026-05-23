@@ -262,6 +262,88 @@ class _TerminalScreenState extends State<TerminalScreen> {
     }
   }
 
+
+
+  String _getTerminalBufferText({int maxLines = 400}) {
+    final total = _terminal.buffer.lines.length;
+    final start = (total - maxLines).clamp(0, total);
+    final sb = StringBuffer();
+    for (int row = start; row < total; row++) {
+      final line = _getLineText(row).trimRight();
+      if (line.isNotEmpty) sb.writeln(line);
+    }
+    return sb.toString().trim();
+  }
+
+  Future<void> _searchSelectedTextWeb() async {
+    final text = _getSelectedText();
+    if (text == null) return;
+    final q = Uri.encodeQueryComponent(text);
+    final uri = Uri.parse('https://www.google.com/search?q=$q');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _showAdvancedSelectionTools() async {
+    final selected = _getSelectedText();
+    final hasSelection = selected != null && selected.isNotEmpty;
+    final url = hasSelection ? _extractUrl(selected!) : null;
+
+    await HapticFeedback.mediumImpact();
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.touch_app_outlined),
+                title: const Text('Selección avanzada'),
+                subtitle: Text(hasSelection
+                    ? 'Texto seleccionado: ${selected!.length} caracteres'
+                    : 'Mantén presionado en la terminal para seleccionar texto'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.copy_all_outlined),
+                title: const Text('Copiar selección'),
+                enabled: hasSelection,
+                onTap: hasSelection ? () { Navigator.pop(ctx); _copySelection(); } : null,
+              ),
+              ListTile(
+                leading: const Icon(Icons.open_in_browser_outlined),
+                title: const Text('Abrir URL seleccionada'),
+                enabled: hasSelection && url != null,
+                onTap: hasSelection && url != null ? () { Navigator.pop(ctx); _openSelection(); } : null,
+              ),
+              ListTile(
+                leading: const Icon(Icons.search),
+                title: const Text('Buscar selección en web'),
+                enabled: hasSelection,
+                onTap: hasSelection ? () { Navigator.pop(ctx); _searchSelectedTextWeb(); } : null,
+              ),
+              ListTile(
+                leading: const Icon(Icons.copy_outlined),
+                title: const Text('Copiar últimas 400 líneas'),
+                onTap: () {
+                  final allText = _getTerminalBufferText();
+                  Navigator.pop(ctx);
+                  if (allText.isEmpty) return;
+                  Clipboard.setData(ClipboardData(text: allText));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Historial reciente copiado')),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _takeScreenshot() async {
     final path = await ScreenshotService.capture(_screenshotKey);
     if (!mounted) return;
@@ -367,6 +449,11 @@ class _TerminalScreenState extends State<TerminalScreen> {
             icon: const Icon(Icons.open_in_browser),
             tooltip: 'Abrir URL',
             onPressed: _openSelection,
+          ),
+          IconButton(
+            icon: const Icon(Icons.text_select_end),
+            tooltip: 'Selección avanzada',
+            onPressed: _showAdvancedSelectionTools,
           ),
           IconButton(
             icon: const Icon(Icons.paste),
