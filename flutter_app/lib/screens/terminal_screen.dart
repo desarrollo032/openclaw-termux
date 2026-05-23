@@ -451,7 +451,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
             onPressed: _openSelection,
           ),
           IconButton(
-            icon: const Icon(Icons.text_select_end),
+            icon: const Icon(Icons.select_all),
             tooltip: 'Selección avanzada',
             onPressed: _showAdvancedSelectionTools,
           ),
