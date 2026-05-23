@@ -1,13 +1,9 @@
 import 'dart:io';
-import 'package:flutter/services.dart';
-import '../constants.dart';
 import 'native_bridge.dart';
 
 /// Provides proot shell configuration for the terminal and onboarding screens.
 /// Must match ProcessManager.kt's gateway mode (command_login) exactly.
 class TerminalService {
-  static const _channel = MethodChannel(AppConstants.channelName);
-
   static const _fakeKernelRelease = '6.17.0-PRoot-Distro';
   static const _fakeKernelVersion =
       '#1 SMP PREEMPT_DYNAMIC Fri, 10 Oct 2025 00:00:00 +0000';
@@ -21,11 +17,10 @@ class TerminalService {
   /// this method, so it's the single place to guarantee the files exist.
   static Future<Map<String, String>> getProotShellConfig() async {
     // Ensure dirs + resolv.conf exist before any proot operation (#40).
-    try { await NativeBridge.setupDirs(); } catch (_) {}
-    try { await NativeBridge.writeResolv(); } catch (_) {}
+    try { await NativeBridge.ensureReady(); } catch (_) {}
 
-    final filesDir = await _channel.invokeMethod<String>('getFilesDir') ?? '';
-    final nativeLibDir = await _channel.invokeMethod<String>('getNativeLibDir') ?? '';
+    final filesDir = await NativeBridge.getFilesDir();
+    final nativeLibDir = await NativeBridge.getNativeLibDir();
 
     final rootfsDir = '$filesDir/rootfs/ubuntu';
     final tmpDir = '$filesDir/tmp';
