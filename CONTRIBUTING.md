@@ -32,7 +32,7 @@ Hay muchas formas de contribuir, no solo escribiendo código:
 
 ### 🐛 Reportar Bugs
 
-1. **Verifica** que el bug no haya sido reportado ya en [Issues](https://github.com/mithun50/openclaw-termux/issues)
+1. **Verifica** que el bug no haya sido reportado ya en [Issues](https://github.com/desarrollo032/openclaw-termux/issues)
 2. **Abre un issue** usando la plantilla de bug report
 3. **Incluye**:
    - Versión de OpenClaw (app + CLI)
@@ -117,7 +117,7 @@ openclaw-termux/
 ### 1. Clonar el Repositorio
 
 ```bash
-git clone https://github.com/mithun50/openclaw-termux.git
+git clone https://github.com/desarrollo032/openclaw-termux.git
 cd openclaw-termux
 ```
 
@@ -410,6 +410,6 @@ Usa las plantillas de GitHub para cada tipo de issue:
 
 **¡Gracias por contribuir!** 💙
 
-[Código de Conducta](CODE_OF_CONDUCT.md) · [Reportar Bug](https://github.com/mithun50/openclaw-termux/issues) · [GitHub](https://github.com/mithun50/openclaw-termux)
+[Código de Conducta](CODE_OF_CONDUCT.md) · [Reportar Bug](https://github.com/desarrollo032/openclaw-termux/issues) · [GitHub](https://github.com/desarrollo032/openclaw-termux)
 
 </div>
