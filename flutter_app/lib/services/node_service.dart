@@ -15,6 +15,9 @@ class NodeService {
   StreamSubscription? _frameSubscription;
 
   NodeState _state = const NodeState();
+  final List<String> _logBuffer = [];
+  final List<String> _pendingLogs = [];
+  Timer? _logFlushTimer;
   final Map<String, Future<NodeFrame> Function(String, Map<String, dynamic>)>
       _capabilityHandlers = {};
   String? _gatewayAuthToken;
@@ -36,11 +39,25 @@ class NodeService {
   }
 
   void _log(String message) {
-    final logs = [..._state.logs, message];
-    if (logs.length > 500) {
-      logs.removeRange(0, logs.length - 500);
+    _pendingLogs.add(message);
+    _logFlushTimer ??= Timer(const Duration(milliseconds: 180), _flushPendingLogs);
+  }
+
+  void _flushPendingLogs() {
+    _logFlushTimer?.cancel();
+    _logFlushTimer = null;
+    if (_pendingLogs.isEmpty) {
+      return;
     }
-    _updateState(_state.copyWith(logs: logs));
+
+    _logBuffer.addAll(_pendingLogs);
+    _pendingLogs.clear();
+
+    if (_logBuffer.length > 500) {
+      _logBuffer.removeRange(0, _logBuffer.length - 500);
+    }
+
+    _updateState(_state.copyWith(logs: List<String>.unmodifiable(_logBuffer)));
   }
 
   void registerCapability(
@@ -55,6 +72,9 @@ class NodeService {
 
   Future<void> init() async {
     await _identity.init();
+    _logBuffer
+      ..clear()
+      ..addAll(_state.logs);
     _updateState(_state.copyWith(deviceId: _identity.deviceId));
     _log('[NODE] Device ID: ${_identity.deviceId.substring(0, 12)}...');
   }
@@ -482,6 +502,8 @@ class NodeService {
   }
 
   void dispose() {
+    _flushPendingLogs();
+    _logFlushTimer?.cancel();
     _frameSubscription?.cancel();
     _ws.dispose();
     _stateController.close();
