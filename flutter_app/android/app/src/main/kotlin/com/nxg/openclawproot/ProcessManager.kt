@@ -88,6 +88,7 @@ class ProcessManager(
     private fun commonProotFlags(): List<String> {
         // Guarantee resolv.conf exists before building the bind-mount list
         ensureResolvConf()
+        ensureAndroidSupplementalGroups()
 
         val prootPath = getProotPath()
         val procFakes = "$configDir/proc_fakes"
@@ -163,6 +164,52 @@ class ProcessManager(
         }
     }
 
+
+    private fun guestPath(): String {
+        val base = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        val brewBin = File(rootfsDir, "home/linuxbrew/.linuxbrew/bin")
+        val brewSbin = File(rootfsDir, "home/linuxbrew/.linuxbrew/sbin")
+        return if (brewBin.exists()) {
+            "/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$base"
+        } else {
+            base
+        }
+    }
+
+    private fun ensureAndroidSupplementalGroups() {
+        val groupsFile = File("/proc/self/status")
+        if (!groupsFile.exists()) return
+
+        val groupsLine = groupsFile.readLines().firstOrNull { it.startsWith("Groups:") } ?: return
+        val gids = groupsLine.removePrefix("Groups:").trim().split(Regex("\\s+"))
+            .mapNotNull { it.toIntOrNull() }
+            .filter { it > 0 }
+            .distinct()
+
+        if (gids.isEmpty()) return
+
+        val group = File("$rootfsDir/etc/group")
+        if (group.exists()) {
+            val content = group.readText()
+            for (gid in gids) {
+                if (!Regex("^.+:x:$gid:", RegexOption.MULTILINE).containsMatchIn(content)) {
+                    group.appendText("aid_gid_$gid:x:$gid:root\n")
+                }
+            }
+        }
+
+        val gshadow = File("$rootfsDir/etc/gshadow")
+        if (gshadow.exists()) {
+            val content = gshadow.readText()
+            for (gid in gids) {
+                val name = "aid_gid_$gid"
+                if (!Regex("^$name:", RegexOption.MULTILINE).containsMatchIn(content)) {
+                    gshadow.appendText("$name:*::root\n")
+                }
+            }
+        }
+    }
+
     // ================================================================
     // INSTALL MODE — matches proot-distro's run_proot_cmd()
     // Used for: apt-get, dpkg, npm install, chmod, etc.
@@ -183,7 +230,7 @@ class ProcessManager(
             "/usr/bin/env", "-i",
             "HOME=/root",
             "LANG=C.UTF-8",
-            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "PATH=${guestPath()}",
             "TERM=xterm-256color",
             "TMPDIR=/tmp",
             "DEBIAN_FRONTEND=noninteractive",
@@ -228,7 +275,7 @@ class ProcessManager(
             "HOME=/root",
             "USER=root",
             "LANG=C.UTF-8",
-            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "PATH=${guestPath()}",
             "TERM=xterm-256color",
             "TMPDIR=/tmp",
             "NODE_OPTIONS=$nodeOptions",
