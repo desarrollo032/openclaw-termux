@@ -226,7 +226,7 @@ class DashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'por ${AppConstants.authorName} · ${AppConstants.orgName}',
+                  '${AppConstants.orgName}/openclaw-termux',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
                   ),

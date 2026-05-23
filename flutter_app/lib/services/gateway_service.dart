@@ -374,9 +374,10 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
 
   void _startHealthCheck() {
     _cancelAllTimers();
-    // Delay the first health check by 30s — Node.js inside proot needs time to start.
+    // Delay the first health check by 15s — reduced from 30s for faster detection.
+    // Node.js inside proot typically starts within 5-10s on modern devices.
     // Use a Timer (not Future.delayed) so it can be cancelled on stop().
-    _initialDelayTimer = Timer(const Duration(seconds: 30), () {
+    _initialDelayTimer = Timer(const Duration(seconds: 15), () {
       _initialDelayTimer = null;
       if (_state.status == GatewayStatus.stopped) return;
       _checkHealth();
@@ -419,11 +420,11 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
       // Still starting or temporarily unreachable
       final isRunning = await NativeBridge.isGatewayRunning();
       if (!isRunning && _state.status != GatewayStatus.stopped) {
-        // Grace period: if we're still within 120s of startup, don't declare dead.
+        // Grace period: if we're still within 90s of startup, don't declare dead.
         // proot + Node.js can take a long time on first boot.
         if (_startingAt != null &&
             _state.status == GatewayStatus.starting &&
-            DateTime.now().difference(_startingAt!).inSeconds < 120) {
+            DateTime.now().difference(_startingAt!).inSeconds < 90) {
           _updateState(_state.copyWith(
             logs: [..._state.logs, _ts('[INFO] Starting, waiting for gateway...')],
           ));

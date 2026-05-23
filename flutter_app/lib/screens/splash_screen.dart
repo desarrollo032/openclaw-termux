@@ -70,8 +70,7 @@ class _SplashScreenState extends State<SplashScreen>
     try {
       setState(() => _status = 'Verificando configuración…');
 
-      try { await NativeBridge.setupDirs(); } catch (_) {}
-      try { await NativeBridge.writeResolv(); } catch (_) {}
+      await NativeBridge.ensureReady();
 
       try {
         final filesDir = await NativeBridge.getFilesDir();
@@ -268,7 +267,7 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'por ${AppConstants.authorName} · ${AppConstants.orgName}',
+                  '${AppConstants.orgName}/openclaw-termux',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
                   ),

@@ -200,8 +200,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
                       const SizedBox(height: 8),
                       // Footer
                       Center(
-                        child: Text(
-                          'por ${AppConstants.authorName} · ${AppConstants.orgName}',
+                        child:                        Text(
+                          '${AppConstants.orgName}/openclaw-termux',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
                           ),

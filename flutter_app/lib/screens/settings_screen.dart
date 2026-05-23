@@ -249,13 +249,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     theme,
                     Icons.person_outlined,
                     'Desarrollador',
-                    AppConstants.authorName,
+                    AppConstants.orgName,
                   ),
                   _listTile(
                     theme,
                     Icons.code_outlined,
                     'GitHub',
-                    'mithun50/openclaw-termux',
+                    'desarrollo032/openclaw-termux',
                     onTap: () => launchUrl(
                       Uri.parse(AppConstants.githubUrl),
                       mode: LaunchMode.externalApplication,
@@ -264,62 +264,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _listTile(
                     theme,
                     Icons.email_outlined,
-                    'Contact',
-                    AppConstants.authorEmail,
-                    onTap: () => launchUrl(
-                      Uri.parse('mailto:${AppConstants.authorEmail}'),
-                    ),
-                  ),
-                  _listTile(
-                    theme,
-                    Icons.description_outlined,
-                    'License',
-                    AppConstants.license,
-                  ),
-                ], title: 'About', icon: Icons.info_outline),
-
-                const SizedBox(height: 16),
-                _settingsCard(theme, [
-                  _listTile(
-                    theme,
-                    Icons.camera_alt_outlined,
-                    'Instagram',
-                    '@nexgenxplorer_nxg',
-                    onTap: () => launchUrl(
-                      Uri.parse(AppConstants.instagramUrl),
-                      mode: LaunchMode.externalApplication,
-                    ),
-                  ),
-                  _listTile(
-                    theme,
-                    Icons.play_circle_outline,
-                    'YouTube',
-                    '@nexgenxplorer',
-                    onTap: () => launchUrl(
-                      Uri.parse(AppConstants.youtubeUrl),
-                      mode: LaunchMode.externalApplication,
-                    ),
-                  ),
-                  _listTile(
-                    theme,
-                    Icons.shop_outlined,
-                    'Play Store',
-                    'NextGenX Apps',
-                    onTap: () => launchUrl(
-                      Uri.parse(AppConstants.playStoreUrl),
-                      mode: LaunchMode.externalApplication,
-                    ),
-                  ),
-                  _listTile(
-                    theme,
-                    Icons.email_outlined,
-                    'Email',
+                    'Contacto',
                     AppConstants.orgEmail,
                     onTap: () => launchUrl(
                       Uri.parse('mailto:${AppConstants.orgEmail}'),
                     ),
                   ),
-                ], title: AppConstants.orgName, icon: Icons.link_outlined),
+                  _listTile(
+                    theme,
+                    Icons.description_outlined,
+                    'Licencia',
+                    AppConstants.license,
+                    onTap: () => launchUrl(
+                      Uri.parse(AppConstants.licenseUrl),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                  ),
+                ], title: 'Acerca de', icon: Icons.info_outline),
               ],
             ),
     );
@@ -390,10 +351,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return ListTile(
       leading: Icon(icon, size: 22, color: theme.colorScheme.onSurfaceVariant),
       title: Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-      trailing: Text(value, style: theme.textTheme.bodySmall?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant,
-        fontWeight: FontWeight.w500,
-      )),
+      trailing: Text(
+        value,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w500,
+        ),
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
+      ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
     );
   }

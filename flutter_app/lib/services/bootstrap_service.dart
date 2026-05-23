@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:async';
 import 'package:dio/dio.dart';
 import '../constants.dart';
 import '../models/setup_state.dart';
@@ -58,31 +58,18 @@ class BootstrapService {
         message: 'Setting up directories...',
       ));
       _updateSetupNotification('Setting up directories...', progress: 2);
-      try { await NativeBridge.setupDirs(); } catch (_) {}
-      try { await NativeBridge.writeResolv(); } catch (_) {}
+      // NativeBridge.ensureReady() is cached — only does real work once per 30s.
+      await NativeBridge.ensureReady();
 
-      // Step 1: Download rootfs
+      // Step 1: Get arch + filesDir (now cached in NativeBridge)
       final arch = await NativeBridge.getArch();
-      final rootfsUrl = AppConstants.getRootfsUrl(arch);
       final filesDir = await NativeBridge.getFilesDir();
-
-      // Direct Dart fallback: ensure config dir + resolv.conf exist (#40).
-      const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
-      try {
-        final configDir = '$filesDir/config';
-        final resolvFile = File('$configDir/resolv.conf');
-        if (!resolvFile.existsSync()) {
-          Directory(configDir).createSync(recursive: true);
-          resolvFile.writeAsStringSync(resolvContent);
-        }
-        // Also write into rootfs /etc/ so DNS works even if bind-mount fails
-        final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
-        if (!rootfsResolv.existsSync()) {
-          rootfsResolv.parent.createSync(recursive: true);
-          rootfsResolv.writeAsStringSync(resolvContent);
-        }
-      } catch (_) {}
       final tarPath = '$filesDir/tmp/ubuntu-rootfs.tar.gz';
+      final nodeTarPath = '$filesDir/tmp/nodejs.tar.xz';
+
+      // Step 2: Download rootfs AND Node.js in parallel — independent operations
+      final rootfsUrl = AppConstants.getRootfsUrl(arch);
+      final nodeTarUrl = AppConstants.getNodeTarballUrl(arch);
 
       _updateSetupNotification('Downloading Ubuntu rootfs...', progress: 5);
       onProgress(const SetupState(
@@ -91,28 +78,50 @@ class BootstrapService {
         message: 'Downloading Ubuntu rootfs...',
       ));
 
-      await _dio.download(
-        rootfsUrl,
-        tarPath,
-        onReceiveProgress: (received, total) {
-          if (total > 0) {
-            final progress = received / total;
-            final mb = (received / 1024 / 1024).toStringAsFixed(1);
-            final totalMb = (total / 1024 / 1024).toStringAsFixed(1);
-            // Map download to 5-30% of overall progress
-            final notifProgress = 5 + (progress * 25).round();
-            _updateSetupNotification('Downloading rootfs: $mb / $totalMb MB', progress: notifProgress);
-            onProgress(SetupState(
-              step: SetupStep.downloadingRootfs,
-              progress: progress,
-              message: 'Downloading: $mb MB / $totalMb MB',
-            ));
-          }
-        },
-      );
+      // Run both downloads concurrently
+      await Future.wait([
+        _dio.download(
+          rootfsUrl,
+          tarPath,
+          onReceiveProgress: (received, total) {
+            if (total > 0) {
+              final pct = received / total;
+              final mb = (received / 1024 / 1024).toStringAsFixed(1);
+              final totalMb = (total / 1024 / 1024).toStringAsFixed(1);
+              // Map download to 5-25% of overall progress
+              final notifProgress = 5 + (pct * 20).round();
+              _updateSetupNotification('Downloading rootfs: $mb / $totalMb MB', progress: notifProgress);
+              onProgress(SetupState(
+                step: SetupStep.downloadingRootfs,
+                progress: pct,
+                message: 'Downloading rootfs: $mb MB / $totalMb MB',
+              ));
+            }
+          },
+        ),
+        _dio.download(
+          nodeTarUrl,
+          nodeTarPath,
+          onReceiveProgress: (received, total) {
+            if (total > 0) {
+              final mb = (received / 1024 / 1024).toStringAsFixed(1);
+              _updateSetupNotification(
+                'Downloading: rootfs ($mb MB Node.js)',
+                progress: 30,
+              );
+            }
+          },
+        ),
+      ]);
 
-      // Step 2: Extract rootfs (30-45%)
-      _updateSetupNotification('Extracting rootfs...', progress: 30);
+      onProgress(const SetupState(
+        step: SetupStep.downloadingRootfs,
+        progress: 1.0,
+        message: 'Downloads complete',
+      ));
+
+      // Step 3: Extract rootfs (30-45%)
+      _updateSetupNotification('Extracting rootfs...', progress: 32);
       onProgress(const SetupState(
         step: SetupStep.extractingRootfs,
         progress: 0.0,
@@ -129,7 +138,7 @@ class BootstrapService {
       // The wrapper patches process.cwd() which returns ENOSYS in proot.
       await NativeBridge.installBionicBypass();
 
-      // Step 3: Install Node.js (45-80%)
+      // Step 4: Install Node.js (45-80%)
       // Fix permissions inside proot (Java extraction may miss execute bits)
       _updateSetupNotification('Fixing rootfs permissions...', progress: 45);
       onProgress(const SetupState(
@@ -137,10 +146,8 @@ class BootstrapService {
         progress: 0.0,
         message: 'Fixing rootfs permissions...',
       ));
-      // Blanket recursive chmod on all bin/lib directories.
-      // Java tar extraction loses execute bits; dpkg needs tar, xz,
-      // gzip, rm, mv, etc. — easier to fix everything than enumerate.
-      await NativeBridge.runInProot(
+      // Use timeout to prevent blocking indefinitely
+      await _runInProotWithTimeout(
         'chmod -R 755 /usr/bin /usr/sbin /bin /sbin '
         '/usr/local/bin /usr/local/sbin 2>/dev/null; '
         'chmod -R +x /usr/lib/apt/ /usr/lib/dpkg/ /usr/libexec/ '
@@ -148,19 +155,23 @@ class BootstrapService {
         'chmod 755 /lib/*/ld-linux-*.so* /usr/lib/*/ld-linux-*.so* 2>/dev/null; '
         'mkdir -p /var/lib/dpkg/updates /var/lib/dpkg/triggers; '
         'echo permissions_fixed',
+        timeoutSeconds: 120,
       );
 
       // --- Install base packages via apt-get (like Termux proot-distro) ---
-      // Now that our proot matches Termux exactly (env -i, clean host env,
-      // proper flags), dpkg works normally. No need for Java-side deb
-      // extraction — let dpkg+tar handle it inside proot like Termux does.
       _updateSetupNotification('Updating package lists...', progress: 48);
       onProgress(const SetupState(
         step: SetupStep.installingNode,
         progress: 0.1,
         message: 'Updating package lists...',
       ));
-      await NativeBridge.runInProot('apt-get update -y');
+      try {
+        await _runInProotWithTimeout('apt-get update -y', timeoutSeconds: 600);
+      } catch (e) {
+        _updateSetupNotification('Updating packages (retrying)...', progress: 48);
+        // Retry once in case of transient network failure
+        await _runInProotWithTimeout('apt-get update -y', timeoutSeconds: 600);
+      }
 
       _updateSetupNotification('Installing base packages...', progress: 52);
       onProgress(const SetupState(
@@ -168,73 +179,30 @@ class BootstrapService {
         progress: 0.15,
         message: 'Installing base packages...',
       ));
-      // ca-certificates: HTTPS for npm/git
-      // git: openclaw has git deps (@whiskeysockets/libsignal-node)
-      // python3, make, g++: node-gyp needs these to compile native addons
-      //   (npm's bundled node-gyp runs as a JS module, not a spawned process,
-      //    so proot-compat.js spawn mock can't intercept it)
-      // dpkg extracts via tar inside proot — permissions are correct.
-      // Post-install scripts (update-ca-certificates) run automatically.
-      // Pre-configure tzdata to avoid interactive continent/timezone prompt
-      // (tzdata is a dependency of python3 and ignores DEBIAN_FRONTEND on
-      // first install if no timezone is pre-set).
-      await NativeBridge.runInProot(
+      // Pre-configure tzdata to avoid interactive prompts
+      await _runInProotWithTimeout(
         'ln -sf /usr/share/zoneinfo/Etc/UTC /etc/localtime && '
         'echo "Etc/UTC" > /etc/timezone',
+        timeoutSeconds: 30,
       );
-      await NativeBridge.runInProot(
+      await _runInProotWithTimeout(
         'apt-get install -y --no-install-recommends '
         'ca-certificates git python3 make g++ curl wget',
+        timeoutSeconds: 900,
       );
-
-      // Git config (.gitconfig) is written by installBionicBypass() on the
-      // Java side — directly to $rootfsDir/root/.gitconfig — rewrites
-      // SSH→HTTPS for npm git deps (no SSH keys in proot).
-
-      // --- Install Node.js via binary tarball ---
-      // Download directly from nodejs.org (bypasses curl/gpg/NodeSource
-      // which fail inside proot). Includes node + npm + corepack.
-      final nodeTarUrl = AppConstants.getNodeTarballUrl(arch);
-      final nodeTarPath = '$filesDir/tmp/nodejs.tar.xz';
 
       onProgress(const SetupState(
         step: SetupStep.installingNode,
-        progress: 0.3,
-        message: 'Downloading Node.js ${AppConstants.nodeVersion}...',
-      ));
-      _updateSetupNotification('Downloading Node.js...', progress: 55);
-      await _dio.download(
-        nodeTarUrl,
-        nodeTarPath,
-        onReceiveProgress: (received, total) {
-          if (total > 0) {
-            final progress = 0.3 + (received / total) * 0.4;
-            final mb = (received / 1024 / 1024).toStringAsFixed(1);
-            final totalMb = (total / 1024 / 1024).toStringAsFixed(1);
-            // Map Node download to 55-70% of overall
-            final notifProgress = 55 + ((received / total) * 15).round();
-            _updateSetupNotification('Downloading Node.js: $mb / $totalMb MB', progress: notifProgress);
-            onProgress(SetupState(
-              step: SetupStep.installingNode,
-              progress: progress,
-              message: 'Downloading Node.js: $mb MB / $totalMb MB',
-            ));
-          }
-        },
-      );
-
-      _updateSetupNotification('Extracting Node.js...', progress: 72);
-      onProgress(const SetupState(
-        step: SetupStep.installingNode,
-        progress: 0.75,
+        progress: 0.5,
         message: 'Extracting Node.js...',
       ));
+      _updateSetupNotification('Extracting Node.js...', progress: 70);
       await NativeBridge.extractNodeTarball(nodeTarPath);
 
       _updateSetupNotification('Verifying Node.js...', progress: 78);
       onProgress(const SetupState(
         step: SetupStep.installingNode,
-        progress: 0.9,
+        progress: 0.75,
         message: 'Verifying Node.js...',
       ));
       // node-wrapper.js patches broken proot syscalls before loading npm.
@@ -317,5 +285,20 @@ class BootstrapService {
         error: 'Setup failed: $e',
       ));
     }
+  }
+
+  /// Run a command in proot with a Dart-side timeout to prevent hanging.
+  /// If the native call times out, throws an exception caught by runFullSetup.
+  Future<String> _runInProotWithTimeout(
+    String command, {
+    int timeoutSeconds = 300,
+  }) async {
+    return NativeBridge.runInProot(command, timeout: timeoutSeconds)
+        .timeout(
+          Duration(seconds: timeoutSeconds + 30),
+          onTimeout: () => throw TimeoutException(
+            'Command timed out after ${timeoutSeconds}s: ${command.substring(0, command.length.clamp(0, 80))}',
+          ),
+        );
   }
 }

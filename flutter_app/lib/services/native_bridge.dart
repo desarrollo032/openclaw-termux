@@ -5,20 +5,60 @@ class NativeBridge {
   static const _channel = MethodChannel(AppConstants.channelName);
   static const _eventChannel = EventChannel(AppConstants.eventChannelName);
 
+  // Cache for immutable OS-level values (never change during app lifetime).
+  // Avoids redundant MethodChannel IPC (~5-15ms per call).
+  static String? _cachedFilesDir;
+  static String? _cachedNativeLibDir;
+  static String? _cachedArch;
+  static String? _cachedProotPath;
+  static bool _envReady = false;
+
+  /// Ensure environment directories and resolv.conf exist.
+  /// Cached: only performs real work once (one-shot). Android may clear
+  /// filesDir during APK updates but that is handled by the Kotlin services
+  /// on each gateway/terminal start anyway.
+  static Future<void> ensureReady() async {
+    if (_envReady) return;
+    try {
+      await _channel.invokeMethod('setupDirs');
+      await _channel.invokeMethod('writeResolv');
+      _envReady = true;
+    } catch (_) {
+      // Non-fatal: Kotlin services also call setupDirectories on start
+    }
+  }
+
   static Future<String> getProotPath() async {
-    return await _channel.invokeMethod('getProotPath');
+    if (_cachedProotPath != null) return _cachedProotPath!;
+    _cachedProotPath = await _channel.invokeMethod('getProotPath');
+    return _cachedProotPath!;
   }
 
   static Future<String> getArch() async {
-    return await _channel.invokeMethod('getArch');
+    if (_cachedArch != null) return _cachedArch!;
+    _cachedArch = await _channel.invokeMethod('getArch');
+    return _cachedArch!;
   }
 
   static Future<String> getFilesDir() async {
-    return await _channel.invokeMethod('getFilesDir');
+    if (_cachedFilesDir != null) return _cachedFilesDir!;
+    _cachedFilesDir = await _channel.invokeMethod('getFilesDir');
+    return _cachedFilesDir!;
   }
 
   static Future<String> getNativeLibDir() async {
-    return await _channel.invokeMethod('getNativeLibDir');
+    if (_cachedNativeLibDir != null) return _cachedNativeLibDir!;
+    _cachedNativeLibDir = await _channel.invokeMethod('getNativeLibDir');
+    return _cachedNativeLibDir!;
+  }
+
+  /// Clear all caches (useful for testing or after reconfiguration).
+  static void clearCache() {
+    _cachedFilesDir = null;
+    _cachedNativeLibDir = null;
+    _cachedArch = null;
+    _cachedProotPath = null;
+    _envReady = false;
   }
 
   static Future<bool> isBootstrapComplete() async {

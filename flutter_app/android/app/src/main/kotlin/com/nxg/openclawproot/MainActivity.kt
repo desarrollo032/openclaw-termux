@@ -32,6 +32,8 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import java.util.concurrent.Executors
+import java.util.concurrent.ExecutorService
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.nxg.openclawproot/native"
@@ -42,6 +44,12 @@ class MainActivity : FlutterActivity() {
     private var screenCaptureResult: MethodChannel.Result? = null
     private var screenCaptureDurationMs: Long = 5000L
     private var setupDone = false
+    private val executor = Executors.newCachedThreadPool()
+
+    override fun onDestroy() {
+        executor.shutdownNow()
+        super.onDestroy()
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -56,10 +64,10 @@ class MainActivity : FlutterActivity() {
         // Android may clear filesDir during APK update (#40).
         if (!setupDone) {
             setupDone = true
-            Thread {
+            executor.execute {
                 try { bootstrapManager.setupDirectories() } catch (_: Exception) {}
                 try { bootstrapManager.writeResolvConf() } catch (_: Exception) {}
-            }.start()
+            }
         }
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
@@ -85,14 +93,14 @@ class MainActivity : FlutterActivity() {
                 "extractRootfs" -> {
                     val tarPath = call.argument<String>("tarPath")
                     if (tarPath != null) {
-                        Thread {
+                        executor.execute {
                             try {
                                 bootstrapManager.extractRootfs(tarPath)
                                 runOnUiThread { result.success(true) }
                             } catch (e: Exception) {
                                 runOnUiThread { result.error("EXTRACT_ERROR", e.message, null) }
                             }
-                        }.start()
+                        }
                     } else {
                         result.error("INVALID_ARGS", "tarPath required", null)
                     }
@@ -101,14 +109,14 @@ class MainActivity : FlutterActivity() {
                     val command = call.argument<String>("command")
                     val timeout = call.argument<Int>("timeout")?.toLong() ?: 900L
                     if (command != null) {
-                        Thread {
+                        executor.execute {
                             try {
                                 val output = processManager.runInProotSync(command, timeout)
                                 runOnUiThread { result.success(output) }
                             } catch (e: Exception) {
                                 runOnUiThread { result.error("PROOT_ERROR", e.message, null) }
                             }
-                        }.start()
+                        }
                     } else {
                         result.error("INVALID_ARGS", "command required", null)
                     }
@@ -204,7 +212,7 @@ class MainActivity : FlutterActivity() {
                 "setRootPassword" -> {
                     val password = call.argument<String>("password")
                     if (password != null) {
-                        Thread {
+                        executor.execute {
                             try {
                                 val escaped = password.replace("'", "'\\''")
                                 processManager.runInProotSync(
@@ -214,7 +222,7 @@ class MainActivity : FlutterActivity() {
                             } catch (e: Exception) {
                                 runOnUiThread { result.error("SSH_ERROR", e.message, null) }
                             }
-                        }.start()
+                        }
                     } else {
                         result.error("INVALID_ARGS", "password required", null)
                     }
@@ -289,56 +297,56 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 "setupDirs" -> {
-                    Thread {
+                    executor.execute {
                         try {
                             bootstrapManager.setupDirectories()
                             runOnUiThread { result.success(true) }
                         } catch (e: Exception) {
                             runOnUiThread { result.error("SETUP_ERROR", e.message, null) }
                         }
-                    }.start()
+                    }
                 }
                 "installBionicBypass" -> {
-                    Thread {
+                    executor.execute {
                         try {
                             bootstrapManager.installBionicBypass()
                             runOnUiThread { result.success(true) }
                         } catch (e: Exception) {
                             runOnUiThread { result.error("BYPASS_ERROR", e.message, null) }
                         }
-                    }.start()
+                    }
                 }
                 "writeResolv" -> {
-                    Thread {
+                    executor.execute {
                         try {
                             bootstrapManager.writeResolvConf()
                             runOnUiThread { result.success(true) }
                         } catch (e: Exception) {
                             runOnUiThread { result.error("RESOLV_ERROR", e.message, null) }
                         }
-                    }.start()
+                    }
                 }
                 "extractDebPackages" -> {
-                    Thread {
+                    executor.execute {
                         try {
                             val count = bootstrapManager.extractDebPackages()
                             runOnUiThread { result.success(count) }
                         } catch (e: Exception) {
                             runOnUiThread { result.error("DEB_EXTRACT_ERROR", e.message, null) }
                         }
-                    }.start()
+                    }
                 }
                 "extractNodeTarball" -> {
                     val tarPath = call.argument<String>("tarPath")
                     if (tarPath != null) {
-                        Thread {
+                        executor.execute {
                             try {
                                 bootstrapManager.extractNodeTarball(tarPath)
                                 runOnUiThread { result.success(true) }
                             } catch (e: Exception) {
                                 runOnUiThread { result.error("NODE_EXTRACT_ERROR", e.message, null) }
                             }
-                        }.start()
+                        }
                     } else {
                         result.error("INVALID_ARGS", "tarPath required", null)
                     }
@@ -346,14 +354,14 @@ class MainActivity : FlutterActivity() {
                 "createBinWrappers" -> {
                     val packageName = call.argument<String>("packageName")
                     if (packageName != null) {
-                        Thread {
+                        executor.execute {
                             try {
                                 bootstrapManager.createBinWrappers(packageName)
                                 runOnUiThread { result.success(true) }
                             } catch (e: Exception) {
                                 runOnUiThread { result.error("BIN_WRAPPER_ERROR", e.message, null) }
                             }
-                        }.start()
+                        }
                     } else {
                         result.error("INVALID_ARGS", "packageName required", null)
                     }
@@ -489,14 +497,14 @@ class MainActivity : FlutterActivity() {
                 "readRootfsFile" -> {
                     val path = call.argument<String>("path")
                     if (path != null) {
-                        Thread {
+                        executor.execute {
                             try {
                                 val content = bootstrapManager.readRootfsFile(path)
                                 runOnUiThread { result.success(content) }
                             } catch (e: Exception) {
                                 runOnUiThread { result.error("ROOTFS_READ_ERROR", e.message, null) }
                             }
-                        }.start()
+                        }
                     } else {
                         result.error("INVALID_ARGS", "path required", null)
                     }
@@ -505,14 +513,14 @@ class MainActivity : FlutterActivity() {
                     val path = call.argument<String>("path")
                     val content = call.argument<String>("content")
                     if (path != null && content != null) {
-                        Thread {
+                        executor.execute {
                             try {
                                 bootstrapManager.writeRootfsFile(path, content)
                                 runOnUiThread { result.success(true) }
                             } catch (e: Exception) {
                                 runOnUiThread { result.error("ROOTFS_WRITE_ERROR", e.message, null) }
                             }
-                        }.start()
+                        }
                     } else {
                         result.error("INVALID_ARGS", "path and content required", null)
                     }
@@ -530,7 +538,7 @@ class MainActivity : FlutterActivity() {
                 }
                 "readSensor" -> {
                     val sensorType = call.argument<String>("sensor") ?: "accelerometer"
-                    Thread {
+                    executor.execute {
                         try {
                             val sensorManager =
                                 getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -546,7 +554,7 @@ class MainActivity : FlutterActivity() {
                                 runOnUiThread {
                                     result.error("SENSOR_ERROR", "Sensor $sensorType not available", null)
                                 }
-                                return@Thread
+                                return@execute
                             }
                             var received = false
                             val listener = object : SensorEventListener {
@@ -587,7 +595,7 @@ class MainActivity : FlutterActivity() {
                         } catch (e: Exception) {
                             runOnUiThread { result.error("SENSOR_ERROR", e.message, null) }
                         }
-                    }.start()
+                    }
                 }
                 else -> {
                     result.notImplemented()
@@ -686,7 +694,7 @@ class MainActivity : FlutterActivity() {
                     startService(intent)
                 }
                 // Poll for result
-                Thread {
+                executor.execute {
                     val startTime = System.currentTimeMillis()
                     val timeout = screenCaptureDurationMs + 5000L
                     while (ScreenCaptureService.resultPath == null &&
@@ -699,7 +707,7 @@ class MainActivity : FlutterActivity() {
                         screenCaptureResult?.success(path)
                         screenCaptureResult = null
                     }
-                }.start()
+                }
             } else {
                 screenCaptureResult?.success(null)
                 screenCaptureResult = null

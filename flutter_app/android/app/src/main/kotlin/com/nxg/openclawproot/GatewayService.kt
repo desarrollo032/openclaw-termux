@@ -316,8 +316,8 @@ class GatewayService : Service() {
         watchdogThread?.interrupt()
         watchdogThread = Thread {
             try {
-                // Wait 45s before first check — give the process time to start
-                Thread.sleep(45_000)
+                // Wait 25s before first check — reduced from 45s for faster detection
+                Thread.sleep(25_000)
                 while (!Thread.interrupted() && isRunning && !stopping) {
                     val proc = gatewayProcess
                     if (proc != null && !proc.isAlive) {
