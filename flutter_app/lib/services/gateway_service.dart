@@ -45,26 +45,7 @@ class GatewayService {
     await prefs.init();
     final savedUrl = prefs.dashboardUrl;
 
-    // Always ensure directories and resolv.conf exist on app open.
-    // Android may clear the files directory during an app update (#40).
-    try { await NativeBridge.setupDirs(); } catch (_) {}
-    try { await NativeBridge.writeResolv(); } catch (_) {}
-    // Dart dart:io fallback if native calls failed (#40).
-    try {
-      final filesDir = await NativeBridge.getFilesDir();
-      const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
-      final resolvFile = File('$filesDir/config/resolv.conf');
-      if (!resolvFile.existsSync()) {
-        Directory('$filesDir/config').createSync(recursive: true);
-        resolvFile.writeAsStringSync(resolvContent);
-      }
-      // Also write into rootfs /etc/ so DNS works even if bind-mount fails
-      final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
-      if (!rootfsResolv.existsSync()) {
-        rootfsResolv.parent.createSync(recursive: true);
-        rootfsResolv.writeAsStringSync(resolvContent);
-      }
-    } catch (_) {}
+    await _ensureEnvFiles();
 
     // Repair corrupted config before gateway start (#88).
     // This fixes the "Invalid input: expected object, received string" crash loop.
@@ -96,6 +77,26 @@ class GatewayService {
       ));
       await start();
     }
+  }
+
+
+  Future<void> _ensureEnvFiles() async {
+    // One-shot native setup + cached directory lookups for lower startup latency.
+    try { await NativeBridge.ensureReady(); } catch (_) {}
+    try {
+      final filesDir = await NativeBridge.getFilesDir();
+      const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
+      final resolvFile = File('$filesDir/config/resolv.conf');
+      if (!resolvFile.existsSync()) {
+        Directory('$filesDir/config').createSync(recursive: true);
+        resolvFile.writeAsStringSync(resolvContent);
+      }
+      final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
+      if (!rootfsResolv.existsSync()) {
+        rootfsResolv.parent.createSync(recursive: true);
+        rootfsResolv.writeAsStringSync(resolvContent);
+      }
+    } catch (_) {}
   }
 
   void _subscribeLogs() {
@@ -309,26 +310,7 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
     ));
 
     try {
-      // Ensure directories exist — Android may have cleared them (#40).
-      // Non-fatal: the GatewayService foreground service also creates them.
-      try { await NativeBridge.setupDirs(); } catch (_) {}
-      try { await NativeBridge.writeResolv(); } catch (_) {}
-      // Dart dart:io fallback if native calls failed (#40).
-      try {
-        final filesDir = await NativeBridge.getFilesDir();
-        const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
-        final resolvFile = File('$filesDir/config/resolv.conf');
-        if (!resolvFile.existsSync()) {
-          Directory('$filesDir/config').createSync(recursive: true);
-          resolvFile.writeAsStringSync(resolvContent);
-        }
-        // Also write into rootfs /etc/ so DNS works even if bind-mount fails
-        final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
-        if (!rootfsResolv.existsSync()) {
-          rootfsResolv.parent.createSync(recursive: true);
-          rootfsResolv.writeAsStringSync(resolvContent);
-        }
-      } catch (_) {}
+      await _ensureEnvFiles();
       await _writeNodeAllowConfig();
       _startingAt = DateTime.now();
       await NativeBridge.startGateway();
