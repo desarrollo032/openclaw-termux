@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # OpenClaw-Termux Installer
-# One-liner: curl -fsSL https://raw.githubusercontent.com/mithun50/openclaw-termux/main/install.sh | bash
+# One-liner: curl -fsSL https://raw.githubusercontent.com/desarrollo032/openclaw-termux/main/install.sh | bash
 #
 
 set -e

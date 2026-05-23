@@ -23,15 +23,15 @@
     "gemini",
     "claude"
   ],
-  "author": "Mithun Gowda B <mithungowda.b7411@gmail.com>",
+  "author": "desarrollo032 <desarrollo032@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mithun50/openclaw-termux.git"
+    "url": "git+https://github.com/desarrollo032/openclaw-termux.git"
   },
-  "homepage": "https://github.com/mithun50/openclaw-termux#readme",
+  "homepage": "https://github.com/desarrollo032/openclaw-termux#readme",
   "bugs": {
-    "url": "https://github.com/mithun50/openclaw-termux/issues"
+    "url": "https://github.com/desarrollo032/openclaw-termux/issues"
   },
   "engines": {
     "node": ">=22.0.0"

@@ -4,14 +4,14 @@
 
 **AI Gateway para Android** — Aplicación Flutter autónoma con terminal integrada, panel web y configuración de un toque.
 
-[![Descargar APK](https://img.shields.io/badge/Descargar-APK-green?style=for-the-badge&logo=android)](https://github.com/mithun50/openclaw-termux/releases/latest)
-[![Build](https://github.com/mithun50/openclaw-termux/actions/workflows/flutter-build.yml/badge.svg)](https://github.com/mithun50/openclaw-termux/actions/workflows/flutter-build.yml)
+[![Descargar APK](https://img.shields.io/badge/Descargar-APK-green?style=for-the-badge&logo=android)](https://github.com/desarrollo032/openclaw-termux/releases/latest)
+[![Build](https://github.com/desarrollo032/openclaw-termux/actions/workflows/flutter-build.yml/badge.svg)](https://github.com/desarrollo032/openclaw-termux/actions/workflows/flutter-build.yml)
 [![npm](https://img.shields.io/npm/v/openclaw-termux?color=blue&label=npm)](https://www.npmjs.com/package/openclaw-termux)
 [![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-22-green?logo=node.js)](https://nodejs.org/)
 [![Android](https://img.shields.io/badge/Android-10%2B-brightgreen?logo=android)](https://www.android.com/)
 [![Flutter](https://img.shields.io/badge/Flutter-3.24-02569B?logo=flutter)](https://flutter.dev/)
-[![PRs Bienvenidas](https://img.shields.io/badge/PRs-bienvenidas-brightgreen.svg)](https://github.com/mithun50/openclaw-termux/pulls)
+[![PRs Bienvenidas](https://img.shields.io/badge/PRs-bienvenidas-brightgreen.svg)](https://github.com/desarrollo032/openclaw-termux/pulls)
 
 <img src="assets/ic_launcher.png" alt="OpenClaw" width="100"/>
 
@@ -94,7 +94,7 @@ OpenClaw lleva la puerta de enlace de IA [OpenClaw](https://github.com/anthropic
 
 ### 📱 App Flutter (Recomendado)
 
-1. Descarga el APK desde [Releases](https://github.com/mithun50/openclaw-termux/releases)
+1. Descarga el APK desde [Releases](https://github.com/desarrollo032/openclaw-termux/releases)
 2. Instala en tu dispositivo Android
 3. Abre la app y toca **Comenzar configuración**
 4. Opcional: instala **Go** o **Homebrew** desde las tarjetas de paquete
@@ -104,7 +104,7 @@ OpenClaw lleva la puerta de enlace de IA [OpenClaw](https://github.com/anthropic
 O compila desde la fuente:
 
 ```bash
-git clone https://github.com/mithun50/openclaw-termux.git
+git clone https://github.com/desarrollo032/openclaw-termux.git
 cd openclaw-termux
 bash scripts/build-apk.sh
 ```
@@ -150,7 +150,7 @@ Esto copia la nueva versión desde la caché de pub y re-aplica los parches auto
 #### De una línea (recomendado)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mithun50/openclaw-termux/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/desarrollo032/openclaw-termux/main/install.sh | bash
 ```
 
 #### O vía npm
@@ -243,8 +243,8 @@ La app se conecta al gateway como un **nodo**, exponiendo hardware de Android a 
 
 <div align="center">
 
-**Hecho con ❤️ por [Mithun Gowda B](https://github.com/mithun50) — [NextGenX](https://github.com/mithun50)**
+**Hecho con ❤️ por [desarrollo032](https://github.com/desarrollo032)**
 
-[Reportar Bug](https://github.com/mithun50/openclaw-termux/issues) · [Solicitar Feature](https://github.com/mithun50/openclaw-termux/issues) · [Contribuir](https://github.com/mithun50/openclaw-termux/pulls)
+[Reportar Bug](https://github.com/desarrollo032/openclaw-termux/issues) · [Solicitar Feature](https://github.com/desarrollo032/openclaw-termux/issues) · [Contribuir](https://github.com/desarrollo032/openclaw-termux/pulls)
 
 </div>
