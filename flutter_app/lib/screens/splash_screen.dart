@@ -17,7 +17,7 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   String _status = 'Cargando…';
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;

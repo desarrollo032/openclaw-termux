@@ -125,13 +125,12 @@ Los plugins parcheados actualmente:
 - `url_launcher_android`
 - `webview_flutter_android`
 
-> `local_plugins/` está en `.gitignore` — las copias se regeneran automáticamente al ejecutar `build-apk.sh`.
+> `local_plugins/` se versiona en Git para que todas las computadoras usen las mismas copias parcheadas. Si cambias versiones con `flutter pub upgrade`, refresca las copias con `scripts/sync_local_plugins.dart` y confirma esos cambios junto con `pubspec.lock`.
 
 **Si compilas manualmente con `flutter build`:**
 
 ```bash
 cd flutter_app
-dart run ../scripts/sync_local_plugins.dart
 flutter pub get
 flutter build apk --release
 ```
