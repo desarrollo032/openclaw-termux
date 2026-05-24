@@ -1,7 +1,6 @@
 pluginManagement {
     def flutterSdkPath = {
-        def properties
-        properties = new Properties()
+        def properties = new Properties()
 
         file("local.properties").withInputStream {
             properties.load(it)
@@ -26,6 +25,7 @@ pluginManagement {
 plugins {
     id "dev.flutter.flutter-plugin-loader" version "1.0.0"
     id "com.android.application" version "9.0.1" apply false
+    id "com.android.library" version "9.0.1" apply false
 }
 
 dependencyResolutionManagement {
@@ -34,6 +34,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+
         def flutterSdkPath = {
             def properties = new Properties()
 
@@ -47,6 +48,7 @@ dependencyResolutionManagement {
 
             return sdkPath
         }()
+
         def flutterStorageBaseUrl = System.getenv("FLUTTER_STORAGE_BASE_URL") ?: "https://storage.googleapis.com"
         def engineRealmFile = file("${flutterSdkPath}/bin/cache/engine.realm")
         def engineRealm = engineRealmFile.exists() ? engineRealmFile.text.trim() : ""
@@ -60,13 +62,10 @@ dependencyResolutionManagement {
         maven {
             url = uri(localEngineRepo ?: "${flutterStorageBaseUrl}/${engineRealm}download.flutter.io")
         }
+
         maven {
             url = uri("https://jitpack.io")
         }
-        // Fallback for plugins that still reference jcenter() (#69).
-        // usb_serial 0.5.x requires jcenter for dependency resolution.
-        //noinspection GradleDeprecated
-        jcenter()
     }
 }
 
