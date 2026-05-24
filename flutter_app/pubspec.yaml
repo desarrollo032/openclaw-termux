@@ -19,6 +19,8 @@ dependency_overrides:
     path: local_plugins/webview_flutter_android
   flutter_blue_plus_android:
     path: local_plugins/flutter_blue_plus_android
+  flutter_plugin_android_lifecycle:
+    path: local_plugins/flutter_plugin_android_lifecycle
 
 dependencies:
   flutter:
