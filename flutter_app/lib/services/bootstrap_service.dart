@@ -42,8 +42,13 @@ class BootstrapService {
     }
   }
 
+  void _log(void Function(String)? onLog, String msg) {
+    if (onLog != null) onLog(msg);
+  }
+
   Future<void> runFullSetup({
     required void Function(SetupState) onProgress,
+    void Function(String)? onLog,
   }) async {
     try {
       // Start foreground service to keep app alive during setup
@@ -57,6 +62,7 @@ class BootstrapService {
         progress: 0.0,
         message: 'Setting up directories...',
       ));
+      _log(onLog, '[INFO] Preparando directorios del entorno...');
       _updateSetupNotification('Setting up directories...', progress: 2);
       // NativeBridge.ensureReady() is cached — only does real work once per 30s.
       await NativeBridge.ensureReady();
@@ -71,6 +77,7 @@ class BootstrapService {
       final rootfsUrl = AppConstants.getRootfsUrl(arch);
       final nodeTarUrl = AppConstants.getNodeTarballUrl(arch);
 
+      _log(onLog, '[DOWNLOAD] Iniciando descarga de Ubuntu rootfs...');
       _updateSetupNotification('Downloading Ubuntu rootfs...', progress: 5);
       onProgress(const SetupState(
         step: SetupStep.downloadingRootfs,
@@ -88,7 +95,6 @@ class BootstrapService {
               final pct = received / total;
               final mb = (received / 1024 / 1024).toStringAsFixed(1);
               final totalMb = (total / 1024 / 1024).toStringAsFixed(1);
-              // Map download to 5-25% of overall progress
               final notifProgress = 5 + (pct * 20).round();
               _updateSetupNotification('Downloading rootfs: $mb / $totalMb MB', progress: notifProgress);
               onProgress(SetupState(
@@ -96,6 +102,11 @@ class BootstrapService {
                 progress: pct,
                 message: 'Downloading rootfs: $mb MB / $totalMb MB',
               ));
+              // Log download progress every ~5%
+              final prevPct = (pct * 100).floor();
+              if (prevPct % 5 == 0 || pct >= 1.0) {
+                _log(onLog, '[DOWNLOAD] rootfs: $mb MB / $totalMb MB (${(pct * 100).toInt()}%)');
+              }
             }
           },
         ),
@@ -114,6 +125,7 @@ class BootstrapService {
         ),
       ]);
 
+      _log(onLog, '[OK] Descargas completadas');
       onProgress(const SetupState(
         step: SetupStep.downloadingRootfs,
         progress: 1.0,
@@ -121,6 +133,7 @@ class BootstrapService {
       ));
 
       // Step 3: Extract rootfs (30-45%)
+      _log(onLog, '[STEP] Extrayendo sistema base Ubuntu...');
       _updateSetupNotification('Extracting rootfs...', progress: 32);
       onProgress(const SetupState(
         step: SetupStep.extractingRootfs,
@@ -128,6 +141,7 @@ class BootstrapService {
         message: 'Extracting rootfs (this takes a while)...',
       ));
       await NativeBridge.extractRootfs(tarPath);
+      _log(onLog, '[OK] Sistema base extra\u00eddo correctamente');
       onProgress(const SetupState(
         step: SetupStep.extractingRootfs,
         progress: 1.0,
@@ -135,11 +149,13 @@ class BootstrapService {
       ));
 
       // Install bionic bypass + cwd-fix + node-wrapper BEFORE using node.
-      // The wrapper patches process.cwd() which returns ENOSYS in proot.
+      _log(onLog, '[STEP] Instalando Bionic Bypass para compatibilidad...');
       await NativeBridge.installBionicBypass();
+      _log(onLog, '[OK] Bionic Bypass instalado');
 
       // Step 4: Install Node.js (45-80%)
       // Fix permissions inside proot (Java extraction may miss execute bits)
+      _log(onLog, '[STEP] Configurando permisos del sistema...');
       _updateSetupNotification('Fixing rootfs permissions...', progress: 45);
       onProgress(const SetupState(
         step: SetupStep.installingNode,
@@ -158,7 +174,8 @@ class BootstrapService {
         timeoutSeconds: 120,
       );
 
-      // --- Install base packages via apt-get (like Termux proot-distro) ---
+      // Install base packages via apt-get
+      _log(onLog, '[STEP] Actualizando listas de paquetes...');
       _updateSetupNotification('Updating package lists...', progress: 48);
       onProgress(const SetupState(
         step: SetupStep.installingNode,
@@ -167,12 +184,15 @@ class BootstrapService {
       ));
       try {
         await _runInProotWithTimeout('apt-get update -y', timeoutSeconds: 600);
+        _log(onLog, '[OK] Paquetes actualizados');
       } catch (e) {
+        _log(onLog, '[WARN] Error al actualizar paquetes, reintentando...');
         _updateSetupNotification('Updating packages (retrying)...', progress: 48);
-        // Retry once in case of transient network failure
         await _runInProotWithTimeout('apt-get update -y', timeoutSeconds: 600);
+        _log(onLog, '[OK] Paquetes actualizados en el segundo intento');
       }
 
+      _log(onLog, '[STEP] Instalando paquetes base (ca-certificates, git, python3, make, g++, curl, wget)...');
       _updateSetupNotification('Installing base packages...', progress: 52);
       onProgress(const SetupState(
         step: SetupStep.installingNode,
@@ -190,7 +210,9 @@ class BootstrapService {
         'ca-certificates git python3 make g++ curl wget',
         timeoutSeconds: 900,
       );
+      _log(onLog, '[OK] Paquetes base instalados');
 
+      _log(onLog, '[STEP] Extrayendo Node.js...');
       onProgress(const SetupState(
         step: SetupStep.installingNode,
         progress: 0.5,
@@ -198,22 +220,22 @@ class BootstrapService {
       ));
       _updateSetupNotification('Extracting Node.js...', progress: 70);
       await NativeBridge.extractNodeTarball(nodeTarPath);
+      _log(onLog, '[OK] Node.js extra\u00eddo');
 
+      _log(onLog, '[STEP] Verificando Node.js...');
       _updateSetupNotification('Verifying Node.js...', progress: 78);
       onProgress(const SetupState(
         step: SetupStep.installingNode,
         progress: 0.75,
         message: 'Verifying Node.js...',
       ));
-      // node-wrapper.js patches broken proot syscalls before loading npm.
-      // /usr/local/bin is on PATH, so node finds the tarball's npm.
       const wrapper = '/root/.openclaw/node-wrapper.js';
       const nodeRun = 'node $wrapper';
-      // npm from nodejs.org tarball is at /usr/local/lib/node_modules/npm
       const npmCli = '/usr/local/lib/node_modules/npm/bin/npm-cli.js';
       await NativeBridge.runInProot(
         'node --version && $nodeRun $npmCli --version',
       );
+      _log(onLog, '[OK] Node.js verificado correctamente');
       onProgress(const SetupState(
         step: SetupStep.installingNode,
         progress: 1.0,
@@ -221,29 +243,30 @@ class BootstrapService {
       ));
 
       // Step 4: Install OpenClaw (80-98%)
+      _log(onLog, '[STEP] Instalando OpenClaw (esto puede tomar varios minutos)...');
       _updateSetupNotification('Installing OpenClaw...', progress: 82);
       onProgress(const SetupState(
         step: SetupStep.installingOpenClaw,
         progress: 0.0,
         message: 'Installing OpenClaw (this may take a few minutes)...',
       ));
-      // Install openclaw — fork/exec works now with our Termux-matching proot.
       await NativeBridge.runInProot(
         '$nodeRun $npmCli install -g openclaw',
         timeout: 1800,
       );
+      _log(onLog, '[OK] OpenClaw instalado correctamente');
 
+      _log(onLog, '[STEP] Creando wrappers de binarios...');
       _updateSetupNotification('Creating bin wrappers...', progress: 92);
       onProgress(const SetupState(
         step: SetupStep.installingOpenClaw,
         progress: 0.7,
         message: 'Creating bin wrappers...',
       ));
-      // npm global install creates symlinks for bin entries, but symlinks
-      // can fail silently in proot. Create shell wrappers from Java side
-      // (reads package.json directly from rootfs filesystem — no escaping).
       await NativeBridge.createBinWrappers('openclaw');
+      _log(onLog, '[OK] Wrappers creados');
 
+      _log(onLog, '[STEP] Verificando OpenClaw...');
       _updateSetupNotification('Verifying OpenClaw...', progress: 96);
       onProgress(const SetupState(
         step: SetupStep.installingOpenClaw,
@@ -251,6 +274,7 @@ class BootstrapService {
         message: 'Verifying OpenClaw...',
       ));
       await NativeBridge.runInProot('openclaw --version || echo openclaw_installed');
+      _log(onLog, '[OK] OpenClaw verificado');
       onProgress(const SetupState(
         step: SetupStep.installingOpenClaw,
         progress: 1.0,
@@ -258,6 +282,7 @@ class BootstrapService {
       ));
 
       // Step 5: Bionic Bypass already installed (before node verification)
+      _log(onLog, '[OK] Bionic Bypass configurado');
       _updateSetupNotification('Setup complete!', progress: 100);
       onProgress(const SetupState(
         step: SetupStep.configuringBypass,
@@ -266,6 +291,7 @@ class BootstrapService {
       ));
 
       // Done
+      _log(onLog, '[OK] Instalaci\u00f3n completada exitosamente!');
       _stopSetupService();
       onProgress(const SetupState(
         step: SetupStep.complete,
@@ -273,12 +299,14 @@ class BootstrapService {
         message: 'Setup complete! Ready to start the gateway.',
       ));
     } on DioException catch (e) {
+      _log(onLog, '[ERR] Error de descarga: ${e.message}');
       _stopSetupService();
       onProgress(SetupState(
         step: SetupStep.error,
         error: 'Download failed: ${e.message}. Check your internet connection.',
       ));
     } catch (e) {
+      _log(onLog, '[ERR] Error de instalaci\u00f3n: $e');
       _stopSetupService();
       onProgress(SetupState(
         step: SetupStep.error,
@@ -288,7 +316,6 @@ class BootstrapService {
   }
 
   /// Run a command in proot with a Dart-side timeout to prevent hanging.
-  /// If the native call times out, throws an exception caught by runFullSetup.
   Future<String> _runInProotWithTimeout(
     String command, {
     int timeoutSeconds = 300,

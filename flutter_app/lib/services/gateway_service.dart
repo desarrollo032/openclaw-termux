@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../constants.dart';
 import '../models/gateway_state.dart';
 import 'native_bridge.dart';
+import 'openclaw_config_normalizer.dart';
 import 'preferences_service.dart';
 
 class GatewayService {
@@ -149,9 +150,13 @@ c.gateway.nodes.denyCommands = [];
 c.gateway.nodes.allowCommands = $allowJson;
 // Fix config corruption: models entries must be objects, not strings (#83, #88)
 if (c.models && c.models.providers) {
-  for (const [pid, prov] of Object.entries(c.models.providers)) {
+  if (!c.models.mode) c.models.mode = "merge";
+  for (const prov of Object.values(c.models.providers)) {
     if (prov && Array.isArray(prov.models)) {
-      prov.models = prov.models.map(m => typeof m === "string" ? { id: m } : m);
+      prov.models = prov.models
+        .map((m) => typeof m === "string" ? { id: m, name: m } : m)
+        .filter((m) => m && typeof m.id === "string" && m.id.length > 0)
+        .map((m) => ({ ...m, name: (typeof m.name === "string" && m.name.length > 0) ? m.name : m.id }));
     }
   }
 }
@@ -188,8 +193,7 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
         final nodes = gw['nodes'] as Map<String, dynamic>;
         nodes['denyCommands'] = <String>[];
         nodes['allowCommands'] = allowCommands;
-        // Fix config corruption: models entries must be objects, not strings (#83, #88)
-        _repairModelEntries(config);
+        OpenClawConfigNormalizer.repairConfig(config);
         configFile.parent.createSync(recursive: true);
         configFile.writeAsStringSync(
           const JsonEncoder.withIndent('  ').convert(config),
@@ -252,25 +256,6 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
         );
       }
     } catch (_) {}
-  }
-
-  /// Fix corrupted model entries: convert bare strings to {id: string} objects (#83, #88).
-  static void _repairModelEntries(Map<String, dynamic> config) {
-    final models = config['models'] as Map<String, dynamic>?;
-    if (models == null) return;
-    final providers = models['providers'] as Map<String, dynamic>?;
-    if (providers == null) return;
-    for (final entry in providers.values) {
-      if (entry is Map<String, dynamic>) {
-        final modelsList = entry['models'];
-        if (modelsList is List) {
-          entry['models'] = modelsList.map((m) {
-            if (m is String) return {'id': m};
-            return m;
-          }).toList();
-        }
-      }
-    }
   }
 
   /// Read the actual gateway auth token from openclaw.json config file (#74, #82).

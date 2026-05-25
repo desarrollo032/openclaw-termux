@@ -1,5 +1,7 @@
 package com.nxg.openclawproot
 
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -185,6 +187,7 @@ class OpenClawPtyBridge(private val flutterEngine: FlutterEngine) {
         private val active = AtomicBoolean(true)
         private val eventChannel: EventChannel
         private var eventSink: EventChannel.EventSink? = null
+        private val mainHandler = Handler(Looper.getMainLooper())
 
         init {
             eventChannel = EventChannel(
@@ -204,7 +207,7 @@ class OpenClawPtyBridge(private val flutterEngine: FlutterEngine) {
 
         fun cancel() {
             active.set(false)
-            eventSink?.endOfStream()
+            mainHandler.post { eventSink?.endOfStream() }
             eventSink = null
         }
 
@@ -220,7 +223,7 @@ class OpenClawPtyBridge(private val flutterEngine: FlutterEngine) {
                             val event = HashMap<String, Any>()
                             event["type"] = "exit"
                             event["exitCode"] = exitCode
-                            sink.success(event)
+                            mainHandler.post { sink.success(event) }
                         }
                         // Drain remaining output
                         drainRemaining()
@@ -234,7 +237,7 @@ class OpenClawPtyBridge(private val flutterEngine: FlutterEngine) {
                             val event = HashMap<String, Any>()
                             event["type"] = "error"
                             event["message"] = "Session terminated unexpectedly"
-                            sink.success(event)
+                            mainHandler.post { sink.success(event) }
                         }
                         cancel()
                         sessionReaders.remove(sessionId)
@@ -249,7 +252,7 @@ class OpenClawPtyBridge(private val flutterEngine: FlutterEngine) {
                             val event = HashMap<String, Any>()
                             event["type"] = "output"
                             event["data"] = data
-                            sink.success(event)
+                            mainHandler.post { sink.success(event) }
                         }
                     }
 
@@ -263,7 +266,7 @@ class OpenClawPtyBridge(private val flutterEngine: FlutterEngine) {
                             val event = HashMap<String, Any>()
                             event["type"] = "error"
                             event["message"] = e.message ?: "Unknown error"
-                            sink.success(event)
+                            mainHandler.post { sink.success(event) }
                         }
                     }
                     cancel()
@@ -284,7 +287,7 @@ class OpenClawPtyBridge(private val flutterEngine: FlutterEngine) {
                         val event = HashMap<String, Any>()
                         event["type"] = "output"
                         event["data"] = data
-                        sink.success(event)
+                        mainHandler.post { sink.success(event) }
                     }
                     Thread.sleep(10)
                     data = nativeReadPty(sessionId)

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import '../models/ai_provider.dart';
 import 'native_bridge.dart';
+import 'openclaw_config_normalizer.dart';
 
 /// Reads and writes AI provider configuration in openclaw.json.
 class ProviderConfigService {
@@ -65,28 +66,38 @@ class ProviderConfigService {
     final apiKeyJson = jsonEncode(apiKey);
     final baseUrlJson = jsonEncode(provider.baseUrl);
     final modelJson = jsonEncode(model);
+    final fullModelJson = jsonEncode('${provider.id}/$model');
 
-    // Build the provider object with the model as an object containing `id`,
-    // not a bare string. OpenClaw expects: models: [{ id: "model-name" }].
-    // Writing a bare string causes config validation failure (#83, #88).
+    // OpenClaw 2026.5 validates model entries with both `id` and `name`.
+    // Older app versions wrote only `id`, which makes every CLI command fail.
     final script = '''
 const fs = require("fs");
 const p = "$_configPath";
 let c = {};
 try { c = JSON.parse(fs.readFileSync(p, "utf8")); } catch {}
 if (!c.models) c.models = {};
+if (!c.models.mode) c.models.mode = "merge";
 if (!c.models.providers) c.models.providers = {};
 c.models.providers[$providerIdJson] = {
   apiKey: $apiKeyJson,
   baseUrl: $baseUrlJson,
-  models: [{ id: $modelJson }]
+  models: [{ id: $modelJson, name: $modelJson }]
 };
 if (!c.agents) c.agents = {};
 if (!c.agents.defaults) c.agents.defaults = {};
 if (!c.agents.defaults.model) c.agents.defaults.model = {};
-c.agents.defaults.model.primary = $modelJson;
+c.agents.defaults.model.primary = $fullModelJson;
 if (!c.gateway) c.gateway = {};
 if (!c.gateway.mode) c.gateway.mode = "local";
+if (c.models && c.models.providers) {
+  for (const prov of Object.values(c.models.providers)) {
+    if (!prov || !Array.isArray(prov.models)) continue;
+    prov.models = prov.models
+      .map((m) => typeof m === "string" ? { id: m, name: m } : m)
+      .filter((m) => m && typeof m.id === "string" && m.id.length > 0)
+      .map((m) => ({ ...m, name: (typeof m.name === "string" && m.name.length > 0) ? m.name : m.id }));
+  }
+}
 fs.mkdirSync(require("path").dirname(p), { recursive: true });
 fs.writeFileSync(p, JSON.stringify(c, null, 2));
 ''';
@@ -125,25 +136,44 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
 
     // Merge provider entry — models must be objects with `id`, not bare strings (#83, #88).
     config['models'] ??= <String, dynamic>{};
+    (config['models'] as Map<String, dynamic>)['mode'] = 'merge';
     (config['models'] as Map<String, dynamic>)['providers'] ??= <String, dynamic>{};
     ((config['models'] as Map<String, dynamic>)['providers'] as Map<String, dynamic>)[providerId] = {
       'apiKey': apiKey,
       'baseUrl': baseUrl,
-      'models': [{'id': model}],
+      'models': [
+        {'id': model, 'name': model},
+      ],
     };
 
     // Set active model
     config['agents'] ??= <String, dynamic>{};
     (config['agents'] as Map<String, dynamic>)['defaults'] ??= <String, dynamic>{};
     ((config['agents'] as Map<String, dynamic>)['defaults'] as Map<String, dynamic>)['model'] ??= <String, dynamic>{};
-    (((config['agents'] as Map<String, dynamic>)['defaults'] as Map<String, dynamic>)['model'] as Map<String, dynamic>)['primary'] = model;
+    (((config['agents'] as Map<String, dynamic>)['defaults'] as Map<String, dynamic>)['model'] as Map<String, dynamic>)['primary'] = '$providerId/$model';
 
     // Ensure gateway.mode is set (#93, #90)
     config['gateway'] ??= <String, dynamic>{};
     (config['gateway'] as Map<String, dynamic>)['mode'] ??= 'local';
+    OpenClawConfigNormalizer.repairConfig(config);
 
     const encoder = JsonEncoder.withIndent('  ');
     await NativeBridge.writeRootfsFile(_configPath, encoder.convert(config));
+  }
+
+  static Future<void> repairExistingConfig() async {
+    try {
+      final content = await NativeBridge.readRootfsFile(_configPath);
+      if (content == null || content.isEmpty) return;
+      final config = Map<String, dynamic>.from(jsonDecode(content) as Map);
+      if (!OpenClawConfigNormalizer.repairConfig(config)) return;
+
+      const encoder = JsonEncoder.withIndent('  ');
+      await NativeBridge.writeRootfsFile(_configPath, encoder.convert(config));
+    } catch (_) {
+      // Best effort: malformed JSON can still be replaced by saving provider
+      // settings again or by running openclaw doctor --fix.
+    }
   }
 
   /// Remove a provider's config entry and clear the active model if it
