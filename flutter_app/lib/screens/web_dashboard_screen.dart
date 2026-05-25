@@ -108,7 +108,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
                 ],
                 const SizedBox(height: 24),
                 Wrap(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  alignment: WrapAlignment.center,
                   spacing: 12,
                   runSpacing: 12,
                   children: [
