@@ -11,3 +11,15 @@ coverage/
 flutter_app/android/key.properties
 *.jks
 *.keystore
+
+# Flutter / Dart cache
+flutter_app/.pub-cache-temp/
+flutter_app/.dart_tool/
+flutter_app/build/
+
+# Android Gradle cache
+flutter_app/android/.gradle/
+
+# Local build outputs
+*.apk
+*.aab
