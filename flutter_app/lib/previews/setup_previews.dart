@@ -5,11 +5,12 @@ import '../providers/setup_provider.dart';
 import '../screens/setup_wizard_screen.dart';
 
 // Temas que coinciden con OpenClawApp (app.dart) para previews precisas.
+// Nota: No pueden ser const porque ThemeData no tiene const constructor.
 
-const _lightTheme = ThemeData(
+final ThemeData _lightTheme = ThemeData(
   useMaterial3: true,
   brightness: Brightness.light,
-  colorScheme: ColorScheme(
+  colorScheme: const ColorScheme(
     brightness: Brightness.light,
     primary: Color(0xFF6C63FF),
     onPrimary: Colors.white,
@@ -24,13 +25,13 @@ const _lightTheme = ThemeData(
     surfaceContainerLow: Color(0xFFF7F2FA),
     surfaceContainerHighest: Color(0xFFE6E0EB),
   ),
-  scaffoldBackgroundColor: Color(0xFFF8F9FE),
+  scaffoldBackgroundColor: const Color(0xFFF8F9FE),
 );
 
-const _darkTheme = ThemeData(
+final ThemeData _darkTheme = ThemeData(
   useMaterial3: true,
   brightness: Brightness.dark,
-  colorScheme: ColorScheme(
+  colorScheme: const ColorScheme(
     brightness: Brightness.dark,
     primary: Color(0xFF6C63FF),
     onPrimary: Colors.white,
@@ -45,13 +46,12 @@ const _darkTheme = ThemeData(
     surfaceContainerLow: Color(0xFF1E1E2A),
     surfaceContainerHighest: Color(0xFF2A2A3E),
   ),
-  scaffoldBackgroundColor: Color(0xFF0D0D12),
+  scaffoldBackgroundColor: const Color(0xFF0D0D12),
 );
 
-/// Preview del SetupWizardScreen en su estado inicial (pre-instalación).
-/// Útil para identificar visualmente el rectángulo blanco.
-/// Usa el tema real de la app (OpenClawApp) para coincidir con el dispositivo.
-@Preview(name: 'SetupWizard - Pre-install')
+/// Preview del SetupWizardScreen en modo claro (estado pre-instalación).
+/// Usa el tema real de la app para coincidir con el dispositivo.
+@Preview(name: 'SetupWizard - Light')
 Widget setupWizardPreInstall() {
   return ChangeNotifierProvider(
     create: (_) => SetupProvider(),
@@ -63,38 +63,36 @@ Widget setupWizardPreInstall() {
   );
 }
 
-/// Preview del SetupWizardScreen forzado a tema dark.
-@Preview(name: 'SetupWizard - Pre-install (dark)')
+/// Preview del SetupWizardScreen en modo oscuro.
+@Preview(name: 'SetupWizard - Dark')
 Widget setupWizardPreInstallDark() {
   return ChangeNotifierProvider(
     create: (_) => SetupProvider(),
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.dark,
-      theme: _darkTheme,
+      theme: _lightTheme,
       darkTheme: _darkTheme,
+      themeMode: ThemeMode.dark,
       home: const SetupWizardScreen(),
     ),
   );
 }
 
 /// Aísla la tarjeta de pre-instalación para debug del rectángulo blanco.
-@Preview(name: 'PreInstallInfo card solo')
+/// Muestra la estructura exacta: gradiente + header + Expanded + botón.
+@Preview(name: 'Card solo - Light')
 Widget preInstallCardOnly() {
-  // Tema claro con el gradiente actual
-  const lightGradient = [
-    Color(0xFFEBE6F8),
-    Color(0xFFE2DCF5),
-    Color(0xFFD8D1EE),
-  ];
-
   return Material(
     child: Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: lightGradient,
+          colors: [
+            Color(0xFFEBE6F8),
+            Color(0xFFE2DCF5),
+            Color(0xFFD8D1EE),
+          ],
         ),
       ),
       child: Scaffold(
@@ -104,7 +102,7 @@ Widget preInstallCardOnly() {
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                // Header simulado
+                // Header simulado (transparente + borde)
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -114,19 +112,15 @@ Widget preInstallCardOnly() {
                       color: const Color(0xFFE4E5F0).withAlpha(160),
                     ),
                   ),
-                  child: Row(
+                  child: const Row(
                     children: [
-                      Container(
+                      SizedBox(
                         width: 48, height: 48,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF6C63FF).withAlpha(20),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(Icons.auto_awesome_rounded,
+                        child: Icon(Icons.auto_awesome_rounded,
                             size: 22, color: Color(0xFF6C63FF)),
                       ),
-                      const SizedBox(width: 14),
-                      const Expanded(
+                      SizedBox(width: 14),
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -156,7 +150,7 @@ Widget preInstallCardOnly() {
                 ),
                 const SizedBox(height: 12),
 
-                // ⚠️ Área del Expanded que antes contenía el rectángulo blanco
+                // ⚠️ Área del Expanded — aquí estaba el rectángulo blanco
                 Expanded(
                   child: Center(
                     child: SingleChildScrollView(
@@ -215,26 +209,17 @@ Widget preInstallCardOnly() {
                               ),
                             ),
                             const SizedBox(height: 20),
-                            _soloItem(
-                              Icons.cloud_download_rounded,
-                              'Ubuntu 24.04 Base',
-                              'Sistema base ARM64',
-                              const Color(0xFF6C63FF),
-                            ),
+                            _soloItem(Icons.cloud_download_rounded,
+                                'Ubuntu 24.04 Base', 'Sistema base ARM64',
+                                const Color(0xFF6C63FF)),
                             const SizedBox(height: 8),
-                            _soloItem(
-                              Icons.javascript_rounded,
-                              'Node.js 22',
-                              'Entorno JavaScript',
-                              const Color(0xFF22C55E),
-                            ),
+                            _soloItem(Icons.javascript_rounded,
+                                'Node.js 22', 'Entorno JavaScript',
+                                const Color(0xFF22C55E)),
                             const SizedBox(height: 8),
-                            _soloItem(
-                              Icons.auto_awesome_rounded,
-                              'OpenClaw',
-                              'AI Gateway',
-                              const Color(0xFFF59E0B),
-                            ),
+                            _soloItem(Icons.auto_awesome_rounded,
+                                'OpenClaw', 'AI Gateway',
+                                const Color(0xFFF59E0B)),
                           ],
                         ),
                       ),
@@ -282,20 +267,13 @@ Widget _soloItem(IconData icon, String name, String desc, Color color) {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              name,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-              ),
-            ),
-            Text(
-              desc,
-              style: const TextStyle(
-                color: Color(0xFF6B7280),
-                fontSize: 11,
-              ),
-            ),
+            Text(name,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 1),
+            Text(desc,
+                style: const TextStyle(
+                    color: Color(0xFF6B7280), fontSize: 11)),
           ],
         ),
       ],
