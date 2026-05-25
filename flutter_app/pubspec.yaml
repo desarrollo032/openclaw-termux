@@ -10,7 +10,6 @@ dependencies:
   flutter:
     sdk: flutter
   xterm: ^4.0.0
-  flutter_pty: ^0.4.2
   dio: ^5.4.0
   http: ^1.2.0
   provider: ^6.1.0
@@ -19,10 +18,6 @@ dependencies:
   cryptography: ^2.7.0
   google_fonts: ^8.1.0
   uuid: ^4.2.0
-
-dependency_overrides:
-  flutter_pty:
-    path: local_plugins/flutter_pty
 
 dev_dependencies:
   flutter_test:

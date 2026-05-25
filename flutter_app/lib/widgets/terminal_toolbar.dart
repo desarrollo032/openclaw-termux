@@ -1,18 +1,18 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter_pty/flutter_pty.dart';
+import '../native/openclaw_pty.dart';
 import '../app.dart';
 
 /// Termux-style extra keys toolbar for terminal screens.
 class TerminalToolbar extends StatefulWidget {
-  final Pty? pty;
+  final int? sessionId;
   final ValueNotifier<bool> ctrlNotifier;
   final ValueNotifier<bool> altNotifier;
 
   const TerminalToolbar({
     super.key,
-    required this.pty,
+    required this.sessionId,
     required this.ctrlNotifier,
     required this.altNotifier,
   });
@@ -44,15 +44,15 @@ class _TerminalToolbarState extends State<TerminalToolbar> {
   }
 
   void _send(String data) {
-    final pty = widget.pty;
-    if (pty == null) return;
+    final sid = widget.sessionId;
+    if (sid == null) return;
 
     if (_ctrlActive) {
       widget.ctrlNotifier.value = false;
       if (data.length == 1) {
         final code = data.toLowerCase().codeUnitAt(0);
         if (code >= 97 && code <= 122) {
-          pty.write(Uint8List.fromList([code - 96]));
+          OpenClawPty.write(sid, Uint8List.fromList([code - 96]));
           return;
         }
       }
@@ -68,20 +68,20 @@ class _TerminalToolbarState extends State<TerminalToolbar> {
       };
       final ctrlVariant = ctrlSeqMap[data];
       if (ctrlVariant != null) {
-        pty.write(utf8.encode(ctrlVariant));
+        OpenClawPty.write(sid, Uint8List.fromList(utf8.encode(ctrlVariant)));
         return;
       }
-      pty.write(utf8.encode(data));
+      OpenClawPty.write(sid, Uint8List.fromList(utf8.encode(data)));
       return;
     }
 
     if (_altActive) {
       widget.altNotifier.value = false;
-      pty.write(utf8.encode('\x1b$data'));
+      OpenClawPty.write(sid, Uint8List.fromList(utf8.encode('\x1b$data')));
       return;
     }
 
-    pty.write(utf8.encode(data));
+    OpenClawPty.write(sid, Uint8List.fromList(utf8.encode(data)));
   }
 
   void _toggleCtrl() {

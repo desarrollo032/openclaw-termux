@@ -4,8 +4,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
-import 'package:flutter_pty/flutter_pty.dart';
 import '../native/openclaw_native.dart';
+import '../native/openclaw_pty.dart';
 import '../services/native_bridge.dart';
 import '../services/screenshot_service.dart';
 import '../services/terminal_service.dart';
@@ -21,7 +21,8 @@ class TerminalScreen extends StatefulWidget {
 class _TerminalScreenState extends State<TerminalScreen> {
   late final Terminal _terminal;
   late final TerminalController _controller;
-  Pty? _pty;
+  int? _sessionId;
+  StreamSubscription<Map<String, dynamic>>? _ptySubscription;
   bool _loading = true;
   String? _error;
   final _ctrlNotifier = ValueNotifier<bool>(false);
@@ -56,8 +57,13 @@ class _TerminalScreenState extends State<TerminalScreen> {
   }
 
   Future<void> _startPty() async {
-    _pty?.kill();
-    _pty = null;
+    await _ptySubscription?.cancel();
+    _ptySubscription = null;
+    final prevSession = _sessionId;
+    _sessionId = null;
+    if (prevSession != null) {
+      await OpenClawPty.close(prevSession);
+    }
     try {
       // Ensure dirs + resolv.conf exist before proot starts (#40).
       await _ensureEnvFiles();
@@ -69,57 +75,70 @@ class _TerminalScreenState extends State<TerminalScreen> {
       );
 
       final executable = config['executable'] as String;
-      final pty = Pty.start(
-        executable,
+      final sessionId = await OpenClawPty.start(
+        shell: executable,
         arguments: args,
         environment: TerminalService.buildHostEnv(config),
-        columns: _terminal.viewWidth,
         rows: _terminal.viewHeight,
+        columns: _terminal.viewWidth,
       );
-      _pty = pty;
+      _sessionId = sessionId;
 
-      pty.output.cast<List<int>>().listen((data) {
-        final text = utf8.decode(data, allowMalformed: true);
-        _outputBuffer.write(text);
-        // Batch writes to avoid triggering a repaint per chunk.
-        // Flush at most once per ~16ms (60fps) instead of per-chunk.
-        _batchTimer ??= Timer(const Duration(milliseconds: 16), () {
-          if (!mounted) return;
-          final flushed = _outputBuffer.toString();
-          _outputBuffer.clear();
-          if (flushed.isNotEmpty) {
-            _terminal.write(flushed);
-          }
-          _batchTimer = null;
-        });
-      });
-
-      pty.exitCode.then((code) {
-        _terminal.write('\r\n[Process exited with code $code]\r\n');
+      _ptySubscription = OpenClawPty.events(sessionId).listen((event) {
+        switch (event['type']) {
+          case 'output':
+            final raw = (event['data'] as Uint8List);
+            final text = utf8.decode(raw, allowMalformed: true);
+            _outputBuffer.write(text);
+            // Batch writes to avoid triggering a repaint per chunk.
+            // Flush at most once per ~16ms (60fps) instead of per-chunk.
+            _batchTimer ??= Timer(const Duration(milliseconds: 16), () {
+              if (!mounted) return;
+              final flushed = _outputBuffer.toString();
+              _outputBuffer.clear();
+              if (flushed.isNotEmpty) {
+                _terminal.write(flushed);
+              }
+              _batchTimer = null;
+            });
+            break;
+          case 'exit':
+            final code = event['exitCode'] as int;
+            _terminal.write('\r\n[Process exited with code $code]\r\n');
+            break;
+          case 'error':
+            _terminal.write('\r\n[Error: ${event['message']}]\r\n');
+            break;
+        }
       });
 
       _terminal.onOutput = (data) {
+        final sid = _sessionId;
+        if (sid == null) return;
         // Intercept keyboard input when CTRL/ALT toolbar modifiers are active
         if (_ctrlNotifier.value && data.length == 1) {
           final code = data.toLowerCase().codeUnitAt(0);
           if (code >= 97 && code <= 122) {
             // Ctrl+a-z → bytes 1-26
-            _pty?.write(Uint8List.fromList([code - 96]));
+            OpenClawPty.write(sid, Uint8List.fromList([code - 96]));
             _ctrlNotifier.value = false;
             return;
           }
         }
         if (_altNotifier.value && data.isNotEmpty) {
           // Alt+key → ESC + key
-          _pty?.write(utf8.encode('\x1b$data'));
+          OpenClawPty.write(sid, Uint8List.fromList(utf8.encode(data)));
           _altNotifier.value = false;
           return;
         }
-        _pty?.write(utf8.encode(data));
+        OpenClawPty.write(sid, Uint8List.fromList(utf8.encode(data)));
       };
 
       _terminal.onResize = (w, h, pw, ph) {
-        _pty?.resize(h, w);
+        final sid = _sessionId;
+        if (sid != null) {
+          OpenClawPty.resize(sid, h, w);
+        }
       };
 
       setState(() => _loading = false);
@@ -156,7 +175,13 @@ class _TerminalScreenState extends State<TerminalScreen> {
     _altNotifier.dispose();
     _controller.dispose();
     _batchTimer?.cancel();
-    _pty?.kill();
+    _ptySubscription?.cancel();
+    _ptySubscription = null;
+    final sid = _sessionId;
+    _sessionId = null;
+    if (sid != null) {
+      OpenClawPty.close(sid);
+    }
     NativeBridge.stopTerminalService();
     super.dispose();
   }
@@ -258,7 +283,9 @@ class _TerminalScreenState extends State<TerminalScreen> {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text;
     if (text != null && text.isNotEmpty) {
-      _pty?.write(utf8.encode(text));
+      if (_sessionId != null) {
+        OpenClawPty.write(_sessionId!, Uint8List.fromList(utf8.encode(text)));
+      }
     }
   }
 
@@ -461,15 +488,21 @@ class _TerminalScreenState extends State<TerminalScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Reiniciar',
-            onPressed: () {
+            onPressed: () async {
               _batchTimer?.cancel();
               _batchTimer = null;
               _outputBuffer.clear();
-              _pty?.kill();
-              setState(() {
-                _loading = true;
-                _error = null;
-              });
+              final sid = _sessionId;
+              _sessionId = null;
+              if (sid != null) {
+                await OpenClawPty.close(sid);
+              }
+              if (mounted) {
+                setState(() {
+                  _loading = true;
+                  _error = null;
+                });
+              }
               _startPty();
             },
           ),
@@ -583,7 +616,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
           ),
         ),
         TerminalToolbar(
-          pty: _pty,
+          sessionId: _sessionId,
           ctrlNotifier: _ctrlNotifier,
           altNotifier: _altNotifier,
         ),

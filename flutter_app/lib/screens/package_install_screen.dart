@@ -1,9 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
-import 'package:flutter_pty/flutter_pty.dart';
+import '../native/openclaw_pty.dart';
 import '../models/optional_package.dart';
 import '../services/native_bridge.dart';
 import '../services/screenshot_service.dart';
@@ -30,7 +31,8 @@ class PackageInstallScreen extends StatefulWidget {
 class _PackageInstallScreenState extends State<PackageInstallScreen> {
   late final Terminal _terminal;
   late final TerminalController _controller;
-  Pty? _pty;
+  int? _sessionId;
+  StreamSubscription<Map<String, dynamic>>? _ptySubscription;
   bool _loading = true;
   bool _finished = false;
   String? _error;
@@ -58,8 +60,13 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
   }
 
   Future<void> _startProcess() async {
-    _pty?.kill();
-    _pty = null;
+    await _ptySubscription?.cancel();
+    _ptySubscription = null;
+    final prevSession = _sessionId;
+    _sessionId = null;
+    if (prevSession != null) {
+      await OpenClawPty.close(prevSession);
+    }
     try {
       // Ensure dirs + resolv.conf exist before proot starts (#40).
       try { await NativeBridge.setupDirs(); } catch (_) {}
@@ -72,7 +79,6 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
           Directory('$filesDir/config').createSync(recursive: true);
           resolvFile.writeAsStringSync(resolvContent);
         }
-        // Also write into rootfs /etc/ so DNS works even if bind-mount fails
         final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
         if (!rootfsResolv.existsSync()) {
           rootfsResolv.parent.createSync(recursive: true);
@@ -97,54 +103,67 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
       cmdArgs.addAll(['/bin/bash', '-lc', command]);
 
       final executable = config['executable'] as String;
-      final pty = Pty.start(
-        executable,
+      final sessionId = await OpenClawPty.start(
+        shell: executable,
         arguments: cmdArgs,
         environment: TerminalService.buildHostEnv(config),
-        columns: _terminal.viewWidth,
         rows: _terminal.viewHeight,
+        columns: _terminal.viewWidth,
       );
-      _pty = pty;
+      _sessionId = sessionId;
 
       final sentinel = widget.isUninstall
           ? widget.package.uninstallSentinel
           : widget.package.completionSentinel;
 
-      pty.output.cast<List<int>>().listen((data) {
-        final text = utf8.decode(data, allowMalformed: true);
-        _terminal.write(text);
+      _ptySubscription = OpenClawPty.events(sessionId).listen((event) {
+        switch (event['type']) {
+          case 'output':
+            final raw = event['data'] as Uint8List;
+            final text = utf8.decode(raw, allowMalformed: true);
+            _terminal.write(text);
 
-        if (!_finished && text.contains(sentinel)) {
-          if (mounted) setState(() => _finished = true);
-        }
-      });
-
-      pty.exitCode.then((code) {
-        _terminal.write('\r\n[Process exited with code $code]\r\n');
-        if (mounted && !_finished) {
-          setState(() => _finished = true);
+            if (!_finished && text.contains(sentinel)) {
+              if (mounted) setState(() => _finished = true);
+            }
+            break;
+          case 'exit':
+            final code = event['exitCode'] as int;
+            _terminal.write('\r\n[Process exited with code $code]\r\n');
+            if (mounted && !_finished) {
+              setState(() => _finished = true);
+            }
+            break;
+          case 'error':
+            _terminal.write('\r\n[Error: ${event['message']}]\r\n');
+            break;
         }
       });
 
       _terminal.onOutput = (data) {
+        final sid = _sessionId;
+        if (sid == null) return;
         if (_ctrlNotifier.value && data.length == 1) {
           final code = data.toLowerCase().codeUnitAt(0);
           if (code >= 97 && code <= 122) {
-            _pty?.write(Uint8List.fromList([code - 96]));
+            OpenClawPty.write(sid, Uint8List.fromList([code - 96]));
             _ctrlNotifier.value = false;
             return;
           }
         }
         if (_altNotifier.value && data.isNotEmpty) {
-          _pty?.write(utf8.encode('\x1b$data'));
+          OpenClawPty.write(sid, Uint8List.fromList(utf8.encode('\x1b$data')));
           _altNotifier.value = false;
           return;
         }
-        _pty?.write(utf8.encode(data));
+        OpenClawPty.write(sid, Uint8List.fromList(utf8.encode(data)));
       };
 
       _terminal.onResize = (w, h, pw, ph) {
-        _pty?.resize(h, w);
+        final sid = _sessionId;
+        if (sid != null) {
+          OpenClawPty.resize(sid, h, w);
+        }
       };
 
       setState(() => _loading = false);
@@ -160,7 +179,9 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text;
     if (text != null && text.isNotEmpty) {
-      _pty?.write(utf8.encode(text));
+      if (_sessionId != null) {
+        OpenClawPty.write(_sessionId!, Uint8List.fromList(utf8.encode(text)));
+      }
     }
   }
 
@@ -181,7 +202,13 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
     _ctrlNotifier.dispose();
     _altNotifier.dispose();
     _controller.dispose();
-    _pty?.kill();
+    _ptySubscription?.cancel();
+    _ptySubscription = null;
+    final sid = _sessionId;
+    _sessionId = null;
+    if (sid != null) {
+      OpenClawPty.close(sid);
+    }
     NativeBridge.stopTerminalService();
     super.dispose();
   }
@@ -232,7 +259,6 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Animated icon
                     _AnimatedPulseIcon(
                       icon: widget.package.icon,
                       color: pkgColor,
@@ -318,7 +344,6 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
               ),
             )
           else ...[
-            // Terminal with subtle border
             Expanded(
               child: RepaintBoundary(
                 key: _screenshotKey,
@@ -335,7 +360,7 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
               ),
             ),
             TerminalToolbar(
-              pty: _pty,
+              sessionId: _sessionId,
               ctrlNotifier: _ctrlNotifier,
               altNotifier: _altNotifier,
             ),

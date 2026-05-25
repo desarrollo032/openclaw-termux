@@ -48,6 +48,7 @@ class MainActivity : FlutterActivity() {
     private lateinit var locationHelper: LocationHelper
     private lateinit var bleHelper: BleHelper
     private lateinit var usbSerialHelper: UsbSerialHelper
+    private lateinit var ptyBridge: OpenClawPtyBridge
     private var screenCaptureResult: MethodChannel.Result? = null
     private var screenCaptureDurationMs: Long = 5000L
     private var cameraPhotoResult: MethodChannel.Result? = null
@@ -57,6 +58,7 @@ class MainActivity : FlutterActivity() {
     private val executor = Executors.newCachedThreadPool()
 
     override fun onDestroy() {
+        ptyBridge.destroy()
         executor.shutdownNow()
         super.onDestroy()
     }
@@ -73,6 +75,7 @@ class MainActivity : FlutterActivity() {
         locationHelper = LocationHelper(applicationContext)
         bleHelper = BleHelper(applicationContext)
         usbSerialHelper = UsbSerialHelper(applicationContext)
+        ptyBridge = OpenClawPtyBridge(flutterEngine).register()
 
         // Ensure directories and resolv.conf exist on every app start.
         // Android may clear filesDir during APK update (#40).

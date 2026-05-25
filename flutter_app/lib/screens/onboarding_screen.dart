@@ -1,10 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
-import 'package:flutter_pty/flutter_pty.dart';
 import '../native/openclaw_native.dart';
+import '../native/openclaw_pty.dart';
 import '../constants.dart';
 import '../services/native_bridge.dart';
 import '../services/screenshot_service.dart';
@@ -30,7 +31,8 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   late final Terminal _terminal;
   late final TerminalController _controller;
-  Pty? _pty;
+  int? _sessionId;
+  StreamSubscription<Map<String, dynamic>>? _ptySubscription;
   bool _loading = true;
   bool _finished = false;
   String? _error;
@@ -74,8 +76,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _startOnboarding() async {
-    _pty?.kill();
-    _pty = null;
+    await _ptySubscription?.cancel();
+    _ptySubscription = null;
+    final prevSession = _sessionId;
+    _sessionId = null;
+    if (prevSession != null) {
+      await OpenClawPty.close(prevSession);
+    }
     try {
       // Ensure dirs + resolv.conf exist before proot starts (#40).
       try {
@@ -125,71 +132,84 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ]);
 
       final executable = config['executable'] as String;
-      final pty = Pty.start(
-        executable,
+      final sessionId = await OpenClawPty.start(
+        shell: executable,
         arguments: onboardingArgs,
         // Host-side env: only proot-specific vars.
         // Guest env is set via env -i in buildProotArgs.
         environment: TerminalService.buildHostEnv(config),
-        columns: _terminal.viewWidth,
         rows: _terminal.viewHeight,
+        columns: _terminal.viewWidth,
       );
-      _pty = pty;
+      _sessionId = sessionId;
 
-      pty.output.cast<List<int>>().listen((data) {
-        final text = utf8.decode(data, allowMalformed: true);
-        _terminal.write(text);
-        // Scan output for token URL (e.g. http://localhost:18789/#token=...)
-        _outputBuffer += text;
-        // Keep buffer manageable
-        if (_outputBuffer.length > 4096) {
-          _outputBuffer = _outputBuffer.substring(_outputBuffer.length - 2048);
-        }
-        // Strip ANSI escape codes for text analysis
-        final cleanText = _outputBuffer.replaceAll(_ansiEscape, '');
-        // For URL matching, strip whitespace + box-drawing chars
-        final cleanForUrl = cleanText
-            .replaceAll(_boxDrawing, '')
-            .replaceAll(RegExp(r'\s+'), '');
-        // Save token URL to preferences if found
-        final tokenMatch = _tokenUrlRegex.firstMatch(cleanForUrl);
-        if (tokenMatch != null) {
-          _saveTokenUrl(tokenMatch.group(0) ?? '');
-        }
-        // Detect onboarding completion from output text
-        if (!_finished && _completionPattern.hasMatch(cleanText)) {
-          if (mounted) {
-            setState(() => _finished = true);
-          }
-        }
-      });
-
-      pty.exitCode.then((code) {
-        _terminal.write('\r\n[Onboarding exited with code $code]\r\n');
-        if (mounted) {
-          setState(() => _finished = true);
+      _ptySubscription = OpenClawPty.events(sessionId).listen((event) {
+        switch (event['type']) {
+          case 'output':
+            final raw = event['data'] as Uint8List;
+            final text = utf8.decode(raw, allowMalformed: true);
+            _terminal.write(text);
+            // Scan output for token URL (e.g. http://localhost:18789/#token=...)
+            _outputBuffer += text;
+            // Keep buffer manageable
+            if (_outputBuffer.length > 4096) {
+              _outputBuffer = _outputBuffer.substring(_outputBuffer.length - 2048);
+            }
+            // Strip ANSI escape codes for text analysis
+            final cleanText = _outputBuffer.replaceAll(_ansiEscape, '');
+            // For URL matching, strip whitespace + box-drawing chars
+            final cleanForUrl = cleanText
+                .replaceAll(_boxDrawing, '')
+                .replaceAll(RegExp(r'\s+'), '');
+            // Save token URL to preferences if found
+            final tokenMatch = _tokenUrlRegex.firstMatch(cleanForUrl);
+            if (tokenMatch != null) {
+              _saveTokenUrl(tokenMatch.group(0) ?? '');
+            }
+            // Detect onboarding completion from output text
+            if (!_finished && _completionPattern.hasMatch(cleanText)) {
+              if (mounted) {
+                setState(() => _finished = true);
+              }
+            }
+            break;
+          case 'exit':
+            final code = event['exitCode'] as int;
+            _terminal.write('\r\n[Onboarding exited with code $code]\r\n');
+            if (mounted) {
+              setState(() => _finished = true);
+            }
+            break;
+          case 'error':
+            _terminal.write('\r\n[Error: ${event['message']}]\r\n');
+            break;
         }
       });
 
       _terminal.onOutput = (data) {
+        final sid = _sessionId;
+        if (sid == null) return;
         if (_ctrlNotifier.value && data.length == 1) {
           final code = data.toLowerCase().codeUnitAt(0);
           if (code >= 97 && code <= 122) {
-            _pty?.write(Uint8List.fromList([code - 96]));
+            OpenClawPty.write(sid, Uint8List.fromList([code - 96]));
             _ctrlNotifier.value = false;
             return;
           }
         }
         if (_altNotifier.value && data.isNotEmpty) {
-          _pty?.write(utf8.encode('\x1b$data'));
+          OpenClawPty.write(sid, Uint8List.fromList(utf8.encode('\x1b$data')));
           _altNotifier.value = false;
           return;
         }
-        _pty?.write(utf8.encode(data));
+        OpenClawPty.write(sid, Uint8List.fromList(utf8.encode(data)));
       };
 
       _terminal.onResize = (w, h, pw, ph) {
-        _pty?.resize(h, w);
+        final sid = _sessionId;
+        if (sid != null) {
+          OpenClawPty.resize(sid, h, w);
+        }
       };
 
       setState(() => _loading = false);
@@ -212,7 +232,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _ctrlNotifier.dispose();
     _altNotifier.dispose();
     _controller.dispose();
-    _pty?.kill();
+    _ptySubscription?.cancel();
+    _ptySubscription = null;
+    final sid = _sessionId;
+    _sessionId = null;
+    if (sid != null) {
+      OpenClawPty.close(sid);
+    }
     NativeBridge.stopTerminalService();
     super.dispose();
   }
@@ -315,7 +341,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text;
     if (text != null && text.isNotEmpty) {
-      _pty?.write(utf8.encode(text));
+      if (_sessionId != null) {
+        OpenClawPty.write(_sessionId!, Uint8List.fromList(utf8.encode(text)));
+      }
     }
   }
 
@@ -564,7 +592,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
             TerminalToolbar(
-              pty: _pty,
+              sessionId: _sessionId,
               ctrlNotifier: _ctrlNotifier,
               altNotifier: _altNotifier,
             ),
