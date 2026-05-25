@@ -289,9 +289,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
                     const Color(0xFF08080C),
                   ]
                 : [
-                    const Color(0xFFF0F1FA),
-                    const Color(0xFFF8F9FE),
-                    const Color(0xFFEEF0F7),
+                    const Color(0xFFEBE6F8),
+                    const Color(0xFFE2DCF5),
+                    const Color(0xFFD8D1EE),
                   ],
           ),
         ),
@@ -416,14 +416,20 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
   // ─── Pre-install info (before user clicks "Iniciar") ──────────────────
 
   Widget _buildPreInstallInfo(ThemeData theme, ColorScheme cs, bool isDark) {
+    // Light mode: transparent background, items sit directly on gradient.
+    // Dark mode: subtle dark card background for depth.
     return Center(
       child: SingleChildScrollView(
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: cs.surfaceContainerLow.withAlpha(200),
+            color: isDark ? cs.surfaceContainerLow.withAlpha(200) : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: cs.outlineVariant.withAlpha(60)),
+            border: Border.all(
+              color: isDark
+                  ? cs.outlineVariant.withAlpha(60)
+                  : cs.outlineVariant.withAlpha(100),
+            ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -566,9 +572,13 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
+        color: isDark ? cs.surfaceContainerLow : Colors.transparent,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outlineVariant.withAlpha(80)),
+        border: Border.all(
+          color: isDark
+              ? cs.outlineVariant.withAlpha(80)
+              : cs.outlineVariant.withAlpha(120),
+        ),
       ),
       child: Row(
         children: [
@@ -706,9 +716,13 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
+        color: isDark ? cs.surfaceContainerLow : Colors.transparent,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: cs.outlineVariant.withAlpha(80)),
+        border: Border.all(
+          color: isDark
+              ? cs.outlineVariant.withAlpha(80)
+              : cs.outlineVariant.withAlpha(120),
+        ),
       ),
       child: Row(
         children: [
@@ -851,9 +865,13 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
+        color: isDark ? cs.surfaceContainerLow : Colors.transparent,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.statusGreen.withAlpha(40)),
+        border: Border.all(
+          color: isDark
+              ? AppColors.statusGreen.withAlpha(40)
+              : AppColors.statusGreen.withAlpha(80),
+        ),
       ),
       child: Column(
         children: [
@@ -934,12 +952,14 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
+        color: isDark ? cs.surfaceContainerLow : Colors.transparent,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: installed
               ? AppColors.statusGreen.withAlpha(50)
-              : cs.outlineVariant.withAlpha(80),
+              : isDark
+                  ? cs.outlineVariant.withAlpha(80)
+                  : cs.outlineVariant.withAlpha(120),
         ),
       ),
       child: InkWell(
