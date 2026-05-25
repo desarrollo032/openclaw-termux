@@ -13,7 +13,6 @@
 ///
 
 import 'dart:io';
-import 'dart:convert';
 
 // ---------------------------------------------------------------------------
 // Configuration: plugins we maintain local copies of and the patches to apply
@@ -562,7 +561,6 @@ Future<void> main(List<String> args) async {
   } catch (e) {
     _err('$e');
     exit(1);
-    return;
   }
   _ok('Pub cache: $pubCacheDir');
 
@@ -571,14 +569,12 @@ Future<void> main(List<String> args) async {
   if (!File(lockPath).existsSync()) {
     _err('pubspec.lock not found at $lockPath. Run flutter pub get first.');
     exit(1);
-    return;
   }
 
   final localPluginsDir = '$flutterDir/local_plugins';
   if (!Directory(localPluginsDir).existsSync()) {
     _err('local_plugins/ not found at $localPluginsDir');
     exit(1);
-    return;
   }
 
   int successCount = 0;
