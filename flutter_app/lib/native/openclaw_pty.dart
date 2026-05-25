@@ -19,17 +19,21 @@ class OpenClawPty {
   /// Throws [Exception] on failure.
   static Future<int> start({
     required String shell,
+    List<String>? args,
     List<String> arguments = const [],
+    Map<String, String>? env,
     Map<String, String> environment = const {},
     String? workingDirectory,
     int rows = 24,
     int columns = 80,
   }) async {
-    final envList = environment.entries.map((e) => '${e.key}=${e.value}').toList();
+    final resolvedArgs = args ?? arguments;
+    final resolvedEnvironment = env ?? environment;
+    final envList = resolvedEnvironment.entries.map((e) => '${e.key}=${e.value}').toList();
 
     final result = await _methodChannel.invokeMethod<int>('startPty', {
       'shell': shell,
-      'args': arguments,
+      'args': resolvedArgs,
       'envVars': envList,
       'cwd': workingDirectory,
       'rows': rows,
