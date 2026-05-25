@@ -278,6 +278,9 @@ class BootstrapService {
     required void Function(SetupState) onProgress,
     void Function(String)? onLog,
   }) async {
+    // Reset recovery flag for a fresh run
+    _recoveryAttempted = false;
+
     try {
       // Start foreground service to keep app alive during setup
       try {
