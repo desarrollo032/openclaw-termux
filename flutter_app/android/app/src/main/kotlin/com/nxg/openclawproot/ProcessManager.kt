@@ -372,7 +372,7 @@ class ProcessManager(
     private fun isDpkgInterruptionError(message: String?): Boolean {
         if (message == null) return false
         val msg = message.lowercase()
-        return msg.contains("dpkg was interrupted") ||
+        return            msg.contains("dpkg was interrupted") ||
             msg.contains("exit code 100") ||
             msg.contains("dpkg --configure -a") ||
             msg.contains("could not exec dpkg") ||
@@ -381,7 +381,6 @@ class ProcessManager(
             msg.contains("lock is held by") ||
             msg.contains("package is in a very bad inconsistent state") ||
             msg.contains("sub-process /usr/bin/dpkg returned an error code") ||
-            msg.contains("dpkg was interrupted") ||
             msg.contains("status database area is locked")
     }
 

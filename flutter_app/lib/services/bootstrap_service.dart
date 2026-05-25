@@ -11,6 +11,11 @@ const _maxRetries = 3;
 class BootstrapService {
   final Dio _dio = Dio();
 
+  /// Tracks whether pre-flight dpkg recovery has already been attempted
+  /// within the current [runFullSetup] call to avoid redundant checks.
+  bool _recoveryAttempted = false;
+
+
   void _updateSetupNotification(String text, {int progress = -1}) {
     try {
       NativeBridge.updateSetupNotification(text, progress: progress);
@@ -70,8 +75,8 @@ class BootstrapService {
   }) async {
     _log(onLog, '[STEP] $stepLabel');
 
-    // Pre-flight recovery for apt/dpkg commands — run before the first attempt
-    if (isAptCommand) {
+    // Pre-flight recovery for apt/dpkg commands — only if not already done
+    if (isAptCommand && !_recoveryAttempted) {
       await _runPreFlightRecovery(onLog: onLog);
     }
 
@@ -115,7 +120,7 @@ class BootstrapService {
       }
     }
 
-    throw _CorruptEnvironmentException(
+    throw const _CorruptEnvironmentException(
       'Command failed after $_maxRetries attempts',
     );
   }
@@ -136,9 +141,16 @@ class BootstrapService {
 
   /// Quick pre-flight check before apt commands.
   /// Runs dpkg --audit and recovers if needed.
+  /// After execution, sets [_recoveryAttempted] to true so subsequent
+  /// calls in the same [runFullSetup] invocation are skipped.
   Future<void> _runPreFlightRecovery({
     void Function(String)? onLog,
   }) async {
+    if (_recoveryAttempted) {
+      _log(onLog, '[STEP] dpkg ya verificado — saltando...');
+      return;
+    }
+
     _log(onLog, '[STEP] Verificando estado de dpkg...');
     try {
       final audit = await NativeBridge.runInProot(
@@ -157,6 +169,8 @@ class BootstrapService {
     } catch (e) {
       _log(onLog, '[WARN] No se pudo auditar dpkg ($e) — continuando...');
     }
+
+    _recoveryAttempted = true;
   }
 
   /// Run dpkg/apt recovery sequence.
