@@ -4,6 +4,32 @@
 
 ---
 
+## 🚦 v1.8.8-beta <small>— Auto-Recovery System & Instalación Resiliente</small>
+
+### 🚀 Nuevas Funcionalidades
+
+- **Sistema de Recuperación Automática dpkg/apt** — Detecta y repara automáticamente errores como "dpkg was interrupted", "exit code 100", locks rotos, paquetes inconsistentes y más, sin intervención manual.
+- **Reinteligente con 3 Intentos** — Si un comando apt/dpkg falla por un error recuperable, el sistema ejecuta la secuencia de reparación y reintenta hasta 3 veces antes de marcar el entorno como corrupto.
+- **Pre-Flight dpkg Audit** — Antes de ejecutar comandos apt, se verifica el estado de dpkg con `dpkg --audit` y se repara si es necesario.
+- **Flag `_recoveryAttempted`** — Optimización que evita verificaciones redundantes de dpkg durante la misma instalación.
+
+### 🔧 Mejoras de Estabilidad
+
+- **Recuperación en Dos Capas** — Kotlin (`ProcessManager.runInProotWithRecovery`) ejecuta la reparación pre-vuelo; Dart (`BootstrapService._runProotWithRecovery`) maneja reintentos, detección de entorno corrupto y logging estructurado.
+- **Secuencia de Reparación Completa:**
+  1. Limpieza de archivos lock (`/var/lib/dpkg/lock*`, `/var/cache/apt/archives/lock`, `/var/lib/apt/lists/lock`)
+  2. `dpkg --configure -a` (reconfigura paquetes interrumpidos)
+  3. `apt --fix-broken install -y` (repara dependencias rotas)
+  4. `apt update && apt upgrade -y` (refresca estado de paquetes)
+- **Detección de Entorno Corrupto** — Si tras 3 intentos no se puede recuperar, se lanza `_CorruptEnvironmentException` con mensaje claro al usuario.
+- **Logging Claro** — Mensajes con prefijos `[STEP]`, `[OK]`, `[WARN]`, `[ERR]` visibles en la consola en vivo durante la instalación.
+
+### 🐛 Correcciones
+
+- **Instalación interrumpida por dpkg** — El error `PlatformException(PROOT_ERROR, exit code 100)` ya no bloquea la instalación; el sistema lo detecta y repara automáticamente.
+
+---
+
 ## 🚦 v1.8.6 <small>— Config Repair, Gateway Mode & Node.js Update</small>
 
 ### 🐛 Bug Fixes
