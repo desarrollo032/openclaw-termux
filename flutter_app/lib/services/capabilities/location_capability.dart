@@ -1,7 +1,5 @@
-import 'dart:async';
-import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../../models/node_frame.dart';
+import '../../native/openclaw_native.dart';
 import 'capability_handler.dart';
 
 class LocationCapability extends CapabilityHandler {
@@ -12,23 +10,16 @@ class LocationCapability extends CapabilityHandler {
   List<String> get commands => ['get'];
 
   @override
-  List<Permission> get requiredPermissions => [Permission.location];
+  List<String> get requiredPermissionNames => ['android.permission.ACCESS_FINE_LOCATION'];
 
   @override
   Future<bool> checkPermission() async {
-    final permission = await Geolocator.checkPermission();
-    return permission == LocationPermission.whileInUse ||
-        permission == LocationPermission.always;
+    return await OpenClawNative.checkPermission('android.permission.ACCESS_FINE_LOCATION');
   }
 
   @override
   Future<bool> requestPermission() async {
-    final permission = await Geolocator.requestPermission();
-    if (permission == LocationPermission.deniedForever) {
-      return false;
-    }
-    return permission == LocationPermission.whileInUse ||
-        permission == LocationPermission.always;
+    return await OpenClawNative.requestPermission('android.permission.ACCESS_FINE_LOCATION');
   }
 
   @override
@@ -44,46 +35,34 @@ class LocationCapability extends CapabilityHandler {
     }
   }
 
-  NodeFrame _positionToFrame(Position position) {
-    return NodeFrame.response('', payload: {
-      'lat': position.latitude,
-      'lng': position.longitude,
-      'accuracy': position.accuracy,
-      'altitude': position.altitude,
-      'timestamp': position.timestamp.toIso8601String(),
-    });
-  }
-
   Future<NodeFrame> _getLocation(Map<String, dynamic> params) async {
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
+      final enabled = await OpenClawNative.isLocationServiceEnabled();
+      if (!enabled) {
         return NodeFrame.response('', error: {
           'code': 'LOCATION_DISABLED',
           'message': 'Location services are disabled',
         });
       }
 
-      const settings = LocationSettings(
-        accuracy: LocationAccuracy.high,
-        timeLimit: Duration(seconds: 10),
-      );
-      try {
-        final position = await Geolocator.getCurrentPosition(
-          locationSettings: settings,
-        );
-        return _positionToFrame(position);
-      } on TimeoutException {
-        // GPS fix took too long, fall back to last known position
-        final last = await Geolocator.getLastKnownPosition();
-        if (last != null) {
-          return _positionToFrame(last);
-        }
+      final location = await OpenClawNative.getCurrentLocation();
+      if (location == null) {
         return NodeFrame.response('', error: {
           'code': 'LOCATION_TIMEOUT',
           'message': 'Could not get location within 10 seconds and no cached position available',
         });
       }
+
+      return NodeFrame.response('', payload: {
+        'lat': location['latitude'],
+        'lng': location['longitude'],
+        'accuracy': location['accuracy'],
+        'altitude': location['altitude'],
+        'timestamp': DateTime.fromMillisecondsSinceEpoch(
+          (location['timestamp'] as int? ?? 0) ~/ 1,
+          isUtc: true,
+        ).toIso8601String(),
+      });
     } catch (e) {
       return NodeFrame.response('', error: {
         'code': 'LOCATION_ERROR',

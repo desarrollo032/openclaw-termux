@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../native/openclaw_native.dart';
 
 class NodeIdentityService {
   static const _keyPrivate = 'node_ed25519_private';
@@ -18,10 +18,9 @@ class NodeIdentityService {
   String get publicKeyBase64Url => _publicKeyBase64Url;
 
   Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    final storedPrivate = prefs.getString(_keyPrivate);
-    final storedPublic = prefs.getString(_keyPublic);
-    final storedDeviceId = prefs.getString(_keyDeviceId);
+    final storedPrivate = await OpenClawNative.getString(_keyPrivate);
+    final storedPublic = await OpenClawNative.getString(_keyPublic);
+    final storedDeviceId = await OpenClawNative.getString(_keyDeviceId);
 
     if (storedPrivate != null && storedPublic != null && storedDeviceId != null) {
       final privateBytes = base64Decode(storedPrivate);
@@ -34,11 +33,11 @@ class NodeIdentityService {
       _deviceId = storedDeviceId;
       _publicKeyBase64Url = _toBase64Url(publicBytes);
     } else {
-      await _generateAndStore(prefs);
+      await _generateAndStore();
     }
   }
 
-  Future<void> _generateAndStore(SharedPreferences prefs) async {
+  Future<void> _generateAndStore() async {
     final algorithm = Ed25519();
     final newKeyPair = await algorithm.newKeyPair();
     _keyPair = await newKeyPair.extract();
@@ -55,9 +54,9 @@ class NodeIdentityService {
     _publicKeyBase64Url = _toBase64Url(publicBytes);
 
     final privateBytes = await _keyPair.extractPrivateKeyBytes();
-    await prefs.setString(_keyPrivate, base64Encode(privateBytes));
-    await prefs.setString(_keyPublic, base64Encode(publicBytes));
-    await prefs.setString(_keyDeviceId, _deviceId);
+    await OpenClawNative.saveString(_keyPrivate, base64Encode(privateBytes));
+    await OpenClawNative.saveString(_keyPublic, base64Encode(publicBytes));
+    await OpenClawNative.saveString(_keyDeviceId, _deviceId);
   }
 
   /// Build the device auth payload that the gateway expects to verify.

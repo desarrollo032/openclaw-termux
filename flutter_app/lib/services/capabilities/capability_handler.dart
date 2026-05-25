@@ -1,5 +1,5 @@
-import 'package:permission_handler/permission_handler.dart';
 import '../../models/node_frame.dart';
+import '../../native/openclaw_native.dart';
 
 abstract class CapabilityHandler {
   String get name;
@@ -9,17 +9,18 @@ abstract class CapabilityHandler {
   Future<bool> checkPermission();
   Future<bool> requestPermission();
 
-  /// Override to return the Permission(s) this capability needs.
-  /// Used by handleWithPermission to detect permanently denied state.
-  List<Permission> get requiredPermissions => [];
+  /// Override to return the Android permission string(s) this capability needs
+  /// (e.g. "android.permission.CAMERA", "android.permission.ACCESS_FINE_LOCATION").
+  /// Used by [handleWithPermission] to detect permanently denied state.
+  List<String> get requiredPermissionNames => [];
 
   /// Ensures permission is granted before handling. Returns error frame if denied.
   Future<NodeFrame> handleWithPermission(
       String command, Map<String, dynamic> params) async {
     if (!await checkPermission()) {
       // Check if any permission is permanently denied
-      for (final perm in requiredPermissions) {
-        if (await perm.isPermanentlyDenied) {
+      for (final permission in requiredPermissionNames) {
+        if (await OpenClawNative.isPermissionPermanentlyDenied(permission)) {
           return NodeFrame.response('', error: {
             'code': 'PERMISSION_PERMANENTLY_DENIED',
             'message':

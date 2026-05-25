@@ -1,14 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:ui' as ui;
-import 'package:camera/camera.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../../models/node_frame.dart';
+import '../../native/openclaw_native.dart';
 import 'capability_handler.dart';
 
 class CameraCapability extends CapabilityHandler {
-  List<CameraDescription>? _cameras;
-
   @override
   String get name => 'camera';
 
@@ -16,37 +12,16 @@ class CameraCapability extends CapabilityHandler {
   List<String> get commands => ['snap', 'clip', 'list'];
 
   @override
-  List<Permission> get requiredPermissions => [Permission.camera];
+  List<String> get requiredPermissionNames => ['android.permission.CAMERA'];
 
   @override
   Future<bool> checkPermission() async {
-    return await Permission.camera.isGranted;
+    return await OpenClawNative.checkPermission('android.permission.CAMERA');
   }
 
   @override
   Future<bool> requestPermission() async {
-    final status = await Permission.camera.request();
-    return status.isGranted;
-  }
-
-  /// Create a fresh controller for each operation. The caller MUST dispose it
-  /// when done so the camera hardware is released immediately.
-  Future<CameraController> _createController({String? facing}) async {
-    _cameras ??= await availableCameras();
-    final cameras = _cameras;
-    if (cameras == null || cameras.isEmpty) throw Exception('No camera available');
-
-    final direction = facing == 'front'
-        ? CameraLensDirection.front
-        : CameraLensDirection.back;
-    final target = cameras.firstWhere(
-      (c) => c.lensDirection == direction,
-      orElse: () => cameras.first,
-    );
-
-    final controller = CameraController(target, ResolutionPreset.medium);
-    await controller.initialize();
-    return controller;
+    return await OpenClawNative.requestPermission('android.permission.CAMERA');
   }
 
   @override
@@ -68,12 +43,7 @@ class CameraCapability extends CapabilityHandler {
 
   Future<NodeFrame> _list() async {
     try {
-      _cameras ??= await availableCameras();
-      final cameras = _cameras ?? <CameraDescription>[];
-      final cameraList = cameras.map((c) => {
-        'id': c.name,
-        'facing': c.lensDirection == CameraLensDirection.front ? 'front' : 'back',
-      }).toList();
+      final cameraList = await OpenClawNative.getCameraList();
       return NodeFrame.response('', payload: {
         'cameras': cameraList,
       });
@@ -86,27 +56,41 @@ class CameraCapability extends CapabilityHandler {
   }
 
   Future<NodeFrame> _snap(Map<String, dynamic> params) async {
-    CameraController? controller;
     try {
       final facing = params['facing'] as String?;
-      controller = await _createController(facing: facing);
+      final filePath = await OpenClawNative.cameraSnap(facing: facing);
 
-      // Brief settle time for auto-exposure/focus
-      await Future.delayed(const Duration(milliseconds: 500));
+      if (filePath == null) {
+        return NodeFrame.response('', error: {
+          'code': 'CAMERA_CANCELLED',
+          'message': 'Photo capture was cancelled',
+        });
+      }
 
-      final file = await controller.takePicture();
-      final bytes = await File(file.path).readAsBytes();
+      final bytes = await OpenClawNative.readFile(filePath);
+      if (bytes == null) {
+        return NodeFrame.response('', error: {
+          'code': 'CAMERA_ERROR',
+          'message': 'Failed to read photo file',
+        });
+      }
+
+      // Clean up the temp file
+      await OpenClawNative.deleteFile(filePath);
+
       final b64 = base64Encode(bytes);
 
-      // Get image dimensions
-      final codec = await ui.instantiateImageCodec(bytes);
-      final frame = await codec.getNextFrame();
-      final width = frame.image.width;
-      final height = frame.image.height;
-      frame.image.dispose();
+      // Get image dimensions from raw bytes
+      int width = 0;
+      int height = 0;
+      try {
+        final codec = await ui.instantiateImageCodec(bytes);
+        final frame = await codec.getNextFrame();
+        width = frame.image.width;
+        height = frame.image.height;
+        frame.image.dispose();
+      } catch (_) {}
 
-      // Clean up temp file
-      await File(file.path).delete().catchError((_) => File(file.path));
       return NodeFrame.response('', payload: {
         'base64': b64,
         'format': 'jpg',
@@ -118,24 +102,33 @@ class CameraCapability extends CapabilityHandler {
         'code': 'CAMERA_ERROR',
         'message': '$e',
       });
-    } finally {
-      // Always release the camera
-      await controller?.dispose();
     }
   }
 
   Future<NodeFrame> _clip(Map<String, dynamic> params) async {
-    CameraController? controller;
     try {
       final durationMs = params['durationMs'] as int? ?? 5000;
-      final facing = params['facing'] as String?;
-      controller = await _createController(facing: facing);
-      await controller.startVideoRecording();
-      await Future.delayed(Duration(milliseconds: durationMs));
-      final file = await controller.stopVideoRecording();
-      final bytes = await File(file.path).readAsBytes();
+      final filePath = await OpenClawNative.cameraClip(durationMs: durationMs);
+
+      if (filePath == null) {
+        return NodeFrame.response('', error: {
+          'code': 'CAMERA_CANCELLED',
+          'message': 'Video capture was cancelled',
+        });
+      }
+
+      final bytes = await OpenClawNative.readFile(filePath);
+      if (bytes == null) {
+        return NodeFrame.response('', error: {
+          'code': 'CAMERA_ERROR',
+          'message': 'Failed to read video file',
+        });
+      }
+
+      // Clean up the temp file (keep for large files that would fail in memory)
+      await OpenClawNative.deleteFile(filePath);
+
       final b64 = base64Encode(bytes);
-      await File(file.path).delete().catchError((_) => File(file.path));
       return NodeFrame.response('', payload: {
         'base64': b64,
         'format': 'mp4',
@@ -147,13 +140,8 @@ class CameraCapability extends CapabilityHandler {
         'code': 'CAMERA_ERROR',
         'message': '$e',
       });
-    } finally {
-      // Always release the camera
-      await controller?.dispose();
     }
   }
 
-  void dispose() {
-    // No persistent controller to clean up anymore
-  }
+  void dispose() {}
 }

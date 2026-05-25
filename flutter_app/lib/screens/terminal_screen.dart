@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
 import 'package:flutter_pty/flutter_pty.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../native/openclaw_native.dart';
 import '../services/native_bridge.dart';
 import '../services/screenshot_service.dart';
 import '../services/terminal_service.dart';
@@ -218,7 +218,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
             onPressed: () {
               final uri = Uri.tryParse(url);
               if (uri != null) {
-                launchUrl(uri, mode: LaunchMode.externalApplication);
+                OpenClawNative.openUrl(uri.toString());
               }
             },
           ),
@@ -242,7 +242,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     if (url != null) {
       final uri = Uri.tryParse(url);
       if (uri != null) {
-        launchUrl(uri, mode: LaunchMode.externalApplication);
+        OpenClawNative.openUrl(uri.toString());
         return;
       }
     }
@@ -279,14 +279,13 @@ class _TerminalScreenState extends State<TerminalScreen> {
     final text = _getSelectedText();
     if (text == null) return;
     final q = Uri.encodeQueryComponent(text);
-    final uri = Uri.parse('https://www.google.com/search?q=$q');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    await OpenClawNative.openUrl('https://www.google.com/search?q=$q');
   }
 
   Future<void> _showAdvancedSelectionTools() async {
     final selected = _getSelectedText();
     final hasSelection = selected != null && selected.isNotEmpty;
-    final url = hasSelection ? _extractUrl(selected!) : null;
+    final url = hasSelection ? _extractUrl(selected) : null;
 
     await HapticFeedback.mediumImpact();
     if (!mounted) return;
@@ -301,10 +300,9 @@ class _TerminalScreenState extends State<TerminalScreen> {
             children: [
               ListTile(
                 leading: const Icon(Icons.touch_app_outlined),
-                title: const Text('Selección avanzada'),
-                subtitle: Text(hasSelection
-                    ? 'Texto seleccionado: ${selected!.length} caracteres'
-                    : 'Mantén presionado en la terminal para seleccionar texto'),
+                title: const Text('Selección avanzada'),                    subtitle: Text(hasSelection
+                        ? 'Texto seleccionado: ${selected.length} caracteres'
+                        : 'Mantén presionado en la terminal para seleccionar texto'),
               ),
               ListTile(
                 leading: const Icon(Icons.copy_all_outlined),
@@ -425,7 +423,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     );
 
     if (shouldOpen == true) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      await OpenClawNative.openUrl(uri.toString());
     }
   }
 

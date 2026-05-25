@@ -1,4 +1,4 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import '../native/openclaw_native.dart';
 
 class PreferencesService {
   static const _keyAutoStart = 'auto_start_gateway';
@@ -13,80 +13,116 @@ class PreferencesService {
   static const _keyNodeGatewayToken = 'node_gateway_token';
   static const _keyLastAppVersion = 'last_app_version';
 
-  late SharedPreferences _prefs;
+  // Cached values loaded in init()
+  bool _autoStartGateway = false;
+  bool _setupComplete = false;
+  bool _isFirstRun = true;
+  String? _dashboardUrl;
+  bool _nodeEnabled = false;
+  String? _nodeDeviceToken;
+  String? _nodeGatewayHost;
+  int? _nodeGatewayPort;
+  String? _nodePublicKey;
+  String? _nodeGatewayToken;
+  String? _lastAppVersion;
 
   Future<void> init() async {
-    _prefs = await SharedPreferences.getInstance();
+    _autoStartGateway = await OpenClawNative.getBool(_keyAutoStart);
+    _setupComplete = await OpenClawNative.getBool(_keySetupComplete);
+    _isFirstRun = await OpenClawNative.getBool(_keyFirstRun);
+    _dashboardUrl = await OpenClawNative.getString(_keyDashboardUrl);
+    _nodeEnabled = await OpenClawNative.getBool(_keyNodeEnabled);
+    _nodeDeviceToken = await OpenClawNative.getString(_keyNodeDeviceToken);
+    _nodeGatewayHost = await OpenClawNative.getString(_keyNodeGatewayHost);
+    _nodeGatewayPort = await OpenClawNative.getInt(_keyNodeGatewayPort);
+    _nodePublicKey = await OpenClawNative.getString(_keyNodePublicKey);
+    _nodeGatewayToken = await OpenClawNative.getString(_keyNodeGatewayToken);
+    _lastAppVersion = await OpenClawNative.getString(_keyLastAppVersion);
   }
 
-  bool get autoStartGateway => _prefs.getBool(_keyAutoStart) ?? false;
-  set autoStartGateway(bool value) => _prefs.setBool(_keyAutoStart, value);
+  bool get autoStartGateway => _autoStartGateway;
+  set autoStartGateway(bool value) {
+    _autoStartGateway = value;
+    OpenClawNative.saveBool(_keyAutoStart, value);
+  }
 
-  bool get setupComplete => _prefs.getBool(_keySetupComplete) ?? false;
-  set setupComplete(bool value) => _prefs.setBool(_keySetupComplete, value);
+  bool get setupComplete => _setupComplete;
+  set setupComplete(bool value) {
+    _setupComplete = value;
+    OpenClawNative.saveBool(_keySetupComplete, value);
+  }
 
-  bool get isFirstRun => _prefs.getBool(_keyFirstRun) ?? true;
-  set isFirstRun(bool value) => _prefs.setBool(_keyFirstRun, value);
+  bool get isFirstRun => _isFirstRun;
+  set isFirstRun(bool value) {
+    _isFirstRun = value;
+    OpenClawNative.saveBool(_keyFirstRun, value);
+  }
 
-  String? get dashboardUrl => _prefs.getString(_keyDashboardUrl);
+  String? get dashboardUrl => _dashboardUrl;
   set dashboardUrl(String? value) {
+    _dashboardUrl = value;
     if (value != null) {
-      _prefs.setString(_keyDashboardUrl, value);
+      OpenClawNative.saveString(_keyDashboardUrl, value);
     } else {
-      _prefs.remove(_keyDashboardUrl);
+      OpenClawNative.removeKey(_keyDashboardUrl);
     }
   }
 
-  bool get nodeEnabled => _prefs.getBool(_keyNodeEnabled) ?? false;
-  set nodeEnabled(bool value) => _prefs.setBool(_keyNodeEnabled, value);
+  bool get nodeEnabled => _nodeEnabled;
+  set nodeEnabled(bool value) {
+    _nodeEnabled = value;
+    OpenClawNative.saveBool(_keyNodeEnabled, value);
+  }
 
-  String? get nodeDeviceToken => _prefs.getString(_keyNodeDeviceToken);
+  String? get nodeDeviceToken => _nodeDeviceToken;
   set nodeDeviceToken(String? value) {
+    _nodeDeviceToken = value;
     if (value != null) {
-      _prefs.setString(_keyNodeDeviceToken, value);
+      OpenClawNative.saveString(_keyNodeDeviceToken, value);
     } else {
-      _prefs.remove(_keyNodeDeviceToken);
+      OpenClawNative.removeKey(_keyNodeDeviceToken);
     }
   }
 
-  String? get nodeGatewayHost => _prefs.getString(_keyNodeGatewayHost);
+  String? get nodeGatewayHost => _nodeGatewayHost;
   set nodeGatewayHost(String? value) {
+    _nodeGatewayHost = value;
     if (value != null) {
-      _prefs.setString(_keyNodeGatewayHost, value);
+      OpenClawNative.saveString(_keyNodeGatewayHost, value);
     } else {
-      _prefs.remove(_keyNodeGatewayHost);
+      OpenClawNative.removeKey(_keyNodeGatewayHost);
     }
   }
 
-  String? get nodePublicKey => _prefs.getString(_keyNodePublicKey);
+  String? get nodePublicKey => _nodePublicKey;
 
-  String? get nodeGatewayToken => _prefs.getString(_keyNodeGatewayToken);
+  String? get nodeGatewayToken => _nodeGatewayToken;
   set nodeGatewayToken(String? value) {
+    _nodeGatewayToken = value;
     if (value != null && value.isNotEmpty) {
-      _prefs.setString(_keyNodeGatewayToken, value);
+      OpenClawNative.saveString(_keyNodeGatewayToken, value);
     } else {
-      _prefs.remove(_keyNodeGatewayToken);
+      OpenClawNative.removeKey(_keyNodeGatewayToken);
     }
   }
 
-  String? get lastAppVersion => _prefs.getString(_keyLastAppVersion);
+  String? get lastAppVersion => _lastAppVersion;
   set lastAppVersion(String? value) {
+    _lastAppVersion = value;
     if (value != null) {
-      _prefs.setString(_keyLastAppVersion, value);
+      OpenClawNative.saveString(_keyLastAppVersion, value);
     } else {
-      _prefs.remove(_keyLastAppVersion);
+      OpenClawNative.removeKey(_keyLastAppVersion);
     }
   }
 
-  int? get nodeGatewayPort {
-    final val = _prefs.getInt(_keyNodeGatewayPort);
-    return val;
-  }
+  int? get nodeGatewayPort => _nodeGatewayPort;
   set nodeGatewayPort(int? value) {
+    _nodeGatewayPort = value;
     if (value != null) {
-      _prefs.setInt(_keyNodeGatewayPort, value);
+      OpenClawNative.saveInt(_keyNodeGatewayPort, value);
     } else {
-      _prefs.remove(_keyNodeGatewayPort);
+      OpenClawNative.removeKey(_keyNodeGatewayPort);
     }
   }
 }

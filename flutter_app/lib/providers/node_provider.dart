@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../models/gateway_state.dart';
+import '../native/openclaw_native.dart';
 import '../models/node_state.dart';
 import '../services/capabilities/camera_capability.dart';
 import '../services/capabilities/canvas_capability.dart';
@@ -240,13 +240,13 @@ class NodeProvider extends ChangeNotifier with WidgetsBindingObserver {
   /// Request runtime permissions proactively so they are granted before
   /// the gateway sends invoke requests (which would otherwise be blocked).
   Future<void> _requestNodePermissions() async {
-    await [
-      Permission.camera,
-      Permission.location,
-      Permission.sensors,
-      Permission.bluetoothConnect,
-      Permission.bluetoothScan,
-    ].request();
+    await Future.wait([
+      OpenClawNative.requestPermission('android.permission.CAMERA'),
+      OpenClawNative.requestPermission('android.permission.ACCESS_FINE_LOCATION'),
+      OpenClawNative.requestPermission('android.permission.BODY_SENSORS'),
+      OpenClawNative.requestPermission('android.permission.BLUETOOTH_CONNECT'),
+      OpenClawNative.requestPermission('android.permission.BLUETOOTH_SCAN'),
+    ]);
   }
 
   /// Prompt user to disable battery optimization so Android doesn't kill

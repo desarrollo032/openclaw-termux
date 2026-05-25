@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../native/openclaw_native.dart';
 import '../app.dart';
 import '../constants.dart';
 import '../providers/node_provider.dart';
@@ -256,29 +256,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Icons.code_outlined,
                     'GitHub',
                     'desarrollo032/openclaw-termux',
-                    onTap: () => launchUrl(
-                      Uri.parse(AppConstants.githubUrl),
-                      mode: LaunchMode.externalApplication,
-                    ),
+                    onTap: () => OpenClawNative.openUrl(AppConstants.githubUrl),
                   ),
                   _listTile(
                     theme,
                     Icons.email_outlined,
                     'Contacto',
                     AppConstants.orgEmail,
-                    onTap: () => launchUrl(
-                      Uri.parse('mailto:${AppConstants.orgEmail}'),
-                    ),
+                    onTap: () => OpenClawNative.openUrl('mailto:${AppConstants.orgEmail}'),
                   ),
                   _listTile(
                     theme,
                     Icons.description_outlined,
                     'Licencia',
                     AppConstants.license,
-                    onTap: () => launchUrl(
-                      Uri.parse(AppConstants.licenseUrl),
-                      mode: LaunchMode.externalApplication,
-                    ),
+                    onTap: () => OpenClawNative.openUrl(AppConstants.licenseUrl),
                   ),
                 ], title: 'Acerca de', icon: Icons.info_outline),
               ],
@@ -479,10 +471,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               FilledButton(
                 onPressed: () {
                   Navigator.pop(ctx);
-                  launchUrl(
-                    Uri.parse(result.url),
-                    mode: LaunchMode.externalApplication,
-                  );
+                  OpenClawNative.openUrl(result.url);
                 },
                 child: const Text('Download'),
               ),

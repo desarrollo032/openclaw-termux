@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
 import 'package:flutter_pty/flutter_pty.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../native/openclaw_native.dart';
 import '../constants.dart';
 import '../services/native_bridge.dart';
 import '../services/screenshot_service.dart';
@@ -275,7 +275,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             onPressed: () {
               final uri = Uri.tryParse(url);
               if (uri != null) {
-                launchUrl(uri, mode: LaunchMode.externalApplication);
+                OpenClawNative.openUrl(uri.toString());
               }
             },
           ),
@@ -299,7 +299,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (url != null) {
       final uri = Uri.tryParse(url);
       if (uri != null) {
-        launchUrl(uri, mode: LaunchMode.externalApplication);
+        OpenClawNative.openUrl(uri.toString());
         return;
       }
     }
@@ -401,7 +401,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
 
     if (shouldOpen == true) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      await OpenClawNative.openUrl(uri.toString());
     }
   }
 
@@ -455,7 +455,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: SafeArea(
+        child: Column(
         children: [
           if (_loading)
             Expanded(
@@ -585,6 +586,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
         ],
+      ),
       ),
     );
   }

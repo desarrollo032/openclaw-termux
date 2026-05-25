@@ -6,43 +6,19 @@ version: 1.8.7+18
 environment:
   sdk: ">=3.2.0 <4.0.0"
 
-dependency_overrides:
-  camera_android_camerax:
-    path: local_plugins/camera_android_camerax
-  package_info_plus:
-    path: local_plugins/package_info_plus
-  shared_preferences_android:
-    path: local_plugins/shared_preferences_android
-  url_launcher_android:
-    path: local_plugins/url_launcher_android
-  webview_flutter_android:
-    path: local_plugins/webview_flutter_android
-  flutter_blue_plus_android:
-    path: local_plugins/flutter_blue_plus_android
-  flutter_plugin_android_lifecycle:
-    path: local_plugins/flutter_plugin_android_lifecycle
-
 dependencies:
   flutter:
     sdk: flutter
   xterm: ^4.0.0
   flutter_pty: ^0.4.2
-  webview_flutter: ^4.4.0
   dio: ^5.4.0
   http: ^1.2.0
   provider: ^6.1.0
-  shared_preferences: ^2.2.0
   path_provider: ^2.1.0
-  permission_handler: ^12.0.1
-  url_launcher: ^6.2.0
   web_socket_channel: ^3.0.0
   cryptography: ^2.7.0
   google_fonts: ^8.1.0
   uuid: ^4.2.0
-  camera: ^0.12.0+1
-  geolocator: ^14.0.2
-  flutter_blue_plus: ^2.3.2
-  usb_serial: ^0.5.1
 
 dev_dependencies:
   flutter_test:

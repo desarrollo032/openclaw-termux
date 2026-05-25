@@ -1,5 +1,11 @@
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  exclude:
+    - "local_plugins_backup_built_in_kotlin/**"
+    - "**/example/**"
+    - "**/integration_test/**"
+
 linter:
   rules:
     prefer_const_constructors: true

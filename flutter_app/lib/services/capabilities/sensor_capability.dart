@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../../models/node_frame.dart';
+import '../../native/openclaw_native.dart';
 import 'capability_handler.dart';
 
 class SensorCapability extends CapabilityHandler {
@@ -14,17 +14,16 @@ class SensorCapability extends CapabilityHandler {
   List<String> get commands => ['read', 'list'];
 
   @override
-  List<Permission> get requiredPermissions => [Permission.sensors];
+  List<String> get requiredPermissionNames => ['android.permission.BODY_SENSORS'];
 
   @override
   Future<bool> checkPermission() async {
-    return await Permission.sensors.isGranted;
+    return await OpenClawNative.checkPermission('android.permission.BODY_SENSORS');
   }
 
   @override
   Future<bool> requestPermission() async {
-    final status = await Permission.sensors.request();
-    return status.isGranted;
+    return await OpenClawNative.requestPermission('android.permission.BODY_SENSORS');
   }
 
   @override

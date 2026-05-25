@@ -223,7 +223,8 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: SafeArea(
+        child: Column(
         children: [
           if (_loading)
             Expanded(
@@ -373,6 +374,7 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
               ),
             ),
         ],
+        ),
       ),
     );
   }

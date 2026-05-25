@@ -24,6 +24,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.location.LocationManager
 import android.media.projection.MediaProjectionManager
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -34,6 +35,8 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.util.concurrent.Executors
 import java.util.concurrent.ExecutorService
+import java.io.File
+import androidx.core.content.FileProvider
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.nxg.openclawproot/native"
@@ -41,8 +44,15 @@ class MainActivity : FlutterActivity() {
 
     private lateinit var bootstrapManager: BootstrapManager
     private lateinit var processManager: ProcessManager
+    private lateinit var cameraHelper: CameraHelper
+    private lateinit var locationHelper: LocationHelper
+    private lateinit var bleHelper: BleHelper
+    private lateinit var usbSerialHelper: UsbSerialHelper
     private var screenCaptureResult: MethodChannel.Result? = null
     private var screenCaptureDurationMs: Long = 5000L
+    private var cameraPhotoResult: MethodChannel.Result? = null
+    private var cameraVideoResult: MethodChannel.Result? = null
+    private var cameraOutputPath: String? = null
     private var setupDone = false
     private val executor = Executors.newCachedThreadPool()
 
@@ -59,6 +69,10 @@ class MainActivity : FlutterActivity() {
 
         bootstrapManager = BootstrapManager(applicationContext, filesDir, nativeLibDir)
         processManager = ProcessManager(filesDir, nativeLibDir)
+        cameraHelper = CameraHelper(applicationContext)
+        locationHelper = LocationHelper(applicationContext)
+        bleHelper = BleHelper(applicationContext)
+        usbSerialHelper = UsbSerialHelper(applicationContext)
 
         // Ensure directories and resolv.conf exist on every app start.
         // Android may clear filesDir during APK update (#40).
@@ -597,6 +611,460 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                 }
+                // ──────────────────────────────────────────────
+                // Native replacements for Flutter plugins
+                // ──────────────────────────────────────────────
+                "getAppInfo" -> {
+                    try {
+                        val pkgInfo = packageManager.getPackageInfo(packageName, 0)
+                        val info = hashMapOf<String, Any>(
+                            "packageName" to packageName,
+                            "versionName" to (pkgInfo.versionName ?: ""),
+                            "versionCode" to (
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+                                    pkgInfo.longVersionCode
+                                else
+                                    pkgInfo.versionCode.toLong()
+                                )
+                        )
+                        result.success(info)
+                    } catch (e: Exception) {
+                        result.error("APP_INFO_ERROR", e.message, null)
+                    }
+                }
+                "openUrl" -> {
+                    val url = call.argument<String>("url")
+                    if (url != null) {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("URL_ERROR", e.message, null)
+                        }
+                    } else {
+                        result.error("INVALID_ARGS", "url required", null)
+                    }
+                }
+                "getString" -> {
+                    val key = call.argument<String>("key")
+                    if (key != null) {
+                        val prefs = getSharedPreferences("openclaw_prefs", Context.MODE_PRIVATE)
+                        result.success(prefs.getString(key, null))
+                    } else {
+                        result.error("INVALID_ARGS", "key required", null)
+                    }
+                }
+                "saveString" -> {
+                    val key = call.argument<String>("key")
+                    val value = call.argument<String>("value")
+                    if (key != null && value != null) {
+                        getSharedPreferences("openclaw_prefs", Context.MODE_PRIVATE)
+                            .edit()
+                            .putString(key, value)
+                            .apply()
+                        result.success(true)
+                    } else {
+                        result.error("INVALID_ARGS", "key and value required", null)
+                    }
+                }
+                "getBool" -> {
+                    val key = call.argument<String>("key")
+                    if (key != null) {
+                        val prefs = getSharedPreferences("openclaw_prefs", Context.MODE_PRIVATE)
+                        result.success(prefs.getBoolean(key, false))
+                    } else {
+                        result.error("INVALID_ARGS", "key required", null)
+                    }
+                }
+                "saveBool" -> {
+                    val key = call.argument<String>("key")
+                    val value = call.argument<Boolean>("value")
+                    if (key != null && value != null) {
+                        getSharedPreferences("openclaw_prefs", Context.MODE_PRIVATE)
+                            .edit()
+                            .putBoolean(key, value)
+                            .apply()
+                        result.success(true)
+                    } else {
+                        result.error("INVALID_ARGS", "key and value required", null)
+                    }
+                }
+                "getInt" -> {
+                    val key = call.argument<String>("key")
+                    if (key != null) {
+                        val prefs = getSharedPreferences("openclaw_prefs", Context.MODE_PRIVATE)
+                        val value = prefs.getInt(key, Int.MIN_VALUE)
+                        result.success(if (value == Int.MIN_VALUE) null else value)
+                    } else {
+                        result.error("INVALID_ARGS", "key required", null)
+                    }
+                }
+                "saveInt" -> {
+                    val key = call.argument<String>("key")
+                    val value = call.argument<Int?>("value")
+                    if (key != null && value != null) {
+                        getSharedPreferences("openclaw_prefs", Context.MODE_PRIVATE)
+                            .edit()
+                            .putInt(key, value)
+                            .apply()
+                        result.success(true)
+                    } else if (key != null) {
+                        getSharedPreferences("openclaw_prefs", Context.MODE_PRIVATE)
+                            .edit()
+                            .remove(key)
+                            .apply()
+                        result.success(true)
+                    } else {
+                        result.error("INVALID_ARGS", "key required", null)
+                    }
+                }
+                "removeKey" -> {
+                    val key = call.argument<String>("key")
+                    if (key != null) {
+                        getSharedPreferences("openclaw_prefs", Context.MODE_PRIVATE)
+                            .edit()
+                            .remove(key)
+                            .apply()
+                        result.success(true)
+                    } else {
+                        result.error("INVALID_ARGS", "key required", null)
+                    }
+                }
+                "clearPrefs" -> {
+                    getSharedPreferences("openclaw_prefs", Context.MODE_PRIVATE)
+                        .edit()
+                        .clear()
+                        .apply()
+                    result.success(true)
+                }
+                "checkPermission" -> {
+                    val permission = call.argument<String>("permission")
+                    if (permission != null) {
+                        val granted = ContextCompat.checkSelfPermission(this, permission) ==
+                                PackageManager.PERMISSION_GRANTED
+                        result.success(granted)
+                    } else {
+                        result.error("INVALID_ARGS", "permission required", null)
+                    }
+                }
+                "requestPermission" -> {
+                    val permission = call.argument<String>("permission")
+                    if (permission != null) {
+                        ActivityCompat.requestPermissions(
+                            this, arrayOf(permission), GENERAL_PERMISSION_REQUEST
+                        )
+                        result.success(true)
+                    } else {
+                        result.error("INVALID_ARGS", "permission required", null)
+                    }
+                }
+                // ──────────────────────────────────────────────
+                // WebView (native Activity)
+                // ──────────────────────────────────────────────
+                "openWebDashboard" -> {
+                    val url = call.argument<String>("url") ?: "http://localhost:9090"
+                    val intent = Intent(this, WebViewActivity::class.java).apply {
+                        putExtra(WebViewActivity.EXTRA_URL, url)
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    }
+                    startActivity(intent)
+                    result.success(true)
+                }
+
+                // ──────────────────────────────────────────────
+                // Camera — torch/flash (via CameraManager)
+                // ──────────────────────────────────────────────
+                "getCameraList" -> {
+                    executor.execute {
+                        try {
+                            val cameras = cameraHelper.listCameras()
+                            val list = cameras.map { c ->
+                                hashMapOf<String, Any>("id" to c.id, "facing" to c.facing)
+                            }
+                            runOnUiThread { result.success(list) }
+                        } catch (e: Exception) {
+                            runOnUiThread { result.error("CAMERA_ERROR", e.message, null) }
+                        }
+                    }
+                }
+                "toggleTorch" -> {
+                    val on = call.argument<Boolean>("on") ?: false
+                    try {
+                        val success = cameraHelper.setTorch(on)
+                        result.success(success)
+                    } catch (e: Exception) {
+                        result.error("TORCH_ERROR", e.message, null)
+                    }
+                }
+                "isTorchAvailable" -> {
+                    result.success(cameraHelper.isTorchAvailable())
+                }
+                "cameraSnap" -> {
+                    try {
+                        val facing = call.argument<String>("facing")
+                        val (intent, filePath) = cameraHelper.createPhotoIntent(facing)
+                        cameraPhotoResult = result
+                        cameraOutputPath = filePath
+                        startActivityForResult(intent, CAMERA_PHOTO_REQUEST)
+                    } catch (e: Exception) {
+                        result.error("CAMERA_ERROR", e.message, null)
+                    }
+                }
+                "cameraClip" -> {
+                    val durationMs = call.argument<Int>("durationMs") ?: 5000
+                    try {
+                        val (intent, filePath) = cameraHelper.createVideoIntent(durationMs)
+                        cameraVideoResult = result
+                        cameraOutputPath = filePath
+                        startActivityForResult(intent, CAMERA_VIDEO_REQUEST)
+                    } catch (e: Exception) {
+                        result.error("CAMERA_ERROR", e.message, null)
+                    }
+                }
+
+                // ──────────────────────────────────────────────
+                // Location (via LocationManager)
+                // ──────────────────────────────────────────────
+                "isLocationServiceEnabled" -> {
+                    result.success(locationHelper.isLocationServiceEnabled())
+                }
+                "getCurrentLocation" -> {
+                    executor.execute {
+                        try {
+                            val loc = locationHelper.getCurrentLocation()
+                            if (loc != null) {
+                                val data = hashMapOf<String, Any>(
+                                    "latitude" to loc.latitude,
+                                    "longitude" to loc.longitude,
+                                    "accuracy" to loc.accuracy.toDouble(),
+                                    "altitude" to loc.altitude,
+                                    "timestamp" to loc.timestamp
+                                )
+                                runOnUiThread { result.success(data) }
+                            } else {
+                                runOnUiThread { result.error("LOCATION_ERROR", "Could not determine location", null) }
+                            }
+                        } catch (e: SecurityException) {
+                            runOnUiThread { result.error("PERMISSION_DENIED", "Location permission not granted", null) }
+                        } catch (e: Exception) {
+                            runOnUiThread { result.error("LOCATION_ERROR", e.message, null) }
+                        }
+                    }
+                }
+
+                // ──────────────────────────────────────────────
+                // BLE (via BluetoothLeScanner + BluetoothGatt)
+                // ──────────────────────────────────────────────
+                "bleScan" -> {
+                    val timeoutMs = call.argument<Int>("timeoutMs")?.toLong() ?: 3000L
+                    executor.execute {
+                        try {
+                            val devices = bleHelper.scan(timeoutMs)
+                            val list = devices.map { d ->
+                                hashMapOf<String, Any>(
+                                    "id" to d.id,
+                                    "name" to d.name,
+                                    "rssi" to d.rssi
+                                )
+                            }
+                            runOnUiThread { result.success(list) }
+                        } catch (e: Exception) {
+                            runOnUiThread { result.error("BLE_ERROR", e.message, null) }
+                        }
+                    }
+                }
+                "bleConnect" -> {
+                    val deviceId = call.argument<String>("deviceId")
+                    if (deviceId != null) {
+                        executor.execute {
+                            try {
+                                val success = bleHelper.connect(deviceId)
+                                runOnUiThread { result.success(success) }
+                            } catch (e: Exception) {
+                                runOnUiThread { result.error("BLE_ERROR", e.message, null) }
+                            }
+                        }
+                    } else {
+                        result.error("INVALID_ARGS", "deviceId required", null)
+                    }
+                }
+                "bleDisconnect" -> {
+                    val deviceId = call.argument<String>("deviceId")
+                    if (deviceId != null) {
+                        executor.execute {
+                            try {
+                                bleHelper.disconnect(deviceId)
+                                runOnUiThread { result.success(true) }
+                            } catch (e: Exception) {
+                                runOnUiThread { result.error("BLE_ERROR", e.message, null) }
+                            }
+                        }
+                    } else {
+                        bleHelper.disconnectAll()
+                        result.success(true)
+                    }
+                }
+                "bleWrite" -> {
+                    val deviceId = call.argument<String>("deviceId")
+                    val data = call.argument<ByteArray>("data")
+                    if (deviceId != null && data != null) {
+                        executor.execute {
+                            try {
+                                val success = bleHelper.write(deviceId, data)
+                                runOnUiThread { result.success(success) }
+                            } catch (e: Exception) {
+                                runOnUiThread { result.error("BLE_ERROR", e.message, null) }
+                            }
+                        }
+                    } else {
+                        result.error("INVALID_ARGS", "deviceId and data required", null)
+                    }
+                }
+                "bleRead" -> {
+                    val deviceId = call.argument<String>("deviceId")
+                    val timeoutMs = call.argument<Int>("timeoutMs") ?: 2000
+                    if (deviceId != null) {
+                        executor.execute {
+                            try {
+                                val data = bleHelper.read(deviceId, timeoutMs.toLong())
+                                if (data != null) {
+                                    runOnUiThread { result.success(data) }
+                                } else {
+                                    runOnUiThread { result.success(null) }
+                                }
+                            } catch (e: Exception) {
+                                runOnUiThread { result.error("BLE_ERROR", e.message, null) }
+                            }
+                        }
+                    } else {
+                        result.error("INVALID_ARGS", "deviceId required", null)
+                    }
+                }
+                "bleListServices" -> {
+                    val deviceId = call.argument<String>("deviceId")
+                    if (deviceId != null) {
+                        executor.execute {
+                            try {
+                                val services = bleHelper.discoverServices(deviceId)
+                                val list = services.map { s ->
+                                    hashMapOf<String, Any>(
+                                        "uuid" to s.uuid,
+                                        "characteristics" to s.characteristics.map { c ->
+                                            hashMapOf<String, Any>(
+                                                "uuid" to c.uuid,
+                                                "properties" to c.properties
+                                            )
+                                        }
+                                    )
+                                }
+                                runOnUiThread { result.success(list) }
+                            } catch (e: Exception) {
+                                runOnUiThread { result.error("BLE_ERROR", e.message, null) }
+                            }
+                        }
+                    } else {
+                        result.error("INVALID_ARGS", "deviceId required", null)
+                    }
+                }
+
+                // ──────────────────────────────────────────────
+                // USB Serial (via UsbManager)
+                // ──────────────────────────────────────────────
+                "usbList" -> {
+                    executor.execute {
+                        try {
+                            val devices = usbSerialHelper.listDevices()
+                            val list = devices.map { d ->
+                                hashMapOf<String, Any>(
+                                    "deviceId" to d.deviceId,
+                                    "name" to d.name,
+                                    "vendorId" to d.vendorId,
+                                    "productId" to d.productId
+                                )
+                            }
+                            runOnUiThread { result.success(list) }
+                        } catch (e: Exception) {
+                            runOnUiThread { result.error("USB_ERROR", e.message, null) }
+                        }
+                    }
+                }
+                "usbConnect" -> {
+                    val deviceId = call.argument<Int>("deviceId")
+                    val baudRate = call.argument<Int>("baudRate") ?: 115200
+                    if (deviceId != null) {
+                        executor.execute {
+                            try {
+                                val success = usbSerialHelper.connect(deviceId, baudRate)
+                                runOnUiThread { result.success(success) }
+                            } catch (e: Exception) {
+                                runOnUiThread { result.error("USB_ERROR", e.message, null) }
+                            }
+                        }
+                    } else {
+                        result.error("INVALID_ARGS", "deviceId required", null)
+                    }
+                }
+                "usbDisconnect" -> {
+                    val deviceId = call.argument<Int>("deviceId")
+                    if (deviceId != null) {
+                        usbSerialHelper.disconnect(deviceId)
+                        result.success(true)
+                    } else {
+                        usbSerialHelper.disconnectAll()
+                        result.success(true)
+                    }
+                }
+                "usbWrite" -> {
+                    val deviceId = call.argument<Int>("deviceId")
+                    val data = call.argument<ByteArray>("data")
+                    if (deviceId != null && data != null) {
+                        executor.execute {
+                            try {
+                                val success = usbSerialHelper.write(deviceId, data)
+                                runOnUiThread { result.success(success) }
+                            } catch (e: Exception) {
+                                runOnUiThread { result.error("USB_ERROR", e.message, null) }
+                            }
+                        }
+                    } else {
+                        result.error("INVALID_ARGS", "deviceId and data required", null)
+                    }
+                }
+                "usbRead" -> {
+                    val deviceId = call.argument<Int>("deviceId")
+                    val timeoutMs = call.argument<Int>("timeoutMs") ?: 2000
+                    if (deviceId != null) {
+                        executor.execute {
+                            try {
+                                val data = usbSerialHelper.read(deviceId, timeoutMs)
+                                if (data != null) {
+                                    runOnUiThread { result.success(data) }
+                                } else {
+                                    runOnUiThread { result.success(null) }
+                                }
+                            } catch (e: Exception) {
+                                runOnUiThread { result.error("USB_ERROR", e.message, null) }
+                            }
+                        }
+                    } else {
+                        result.error("INVALID_ARGS", "deviceId required", null)
+                    }
+                }
+
+                "isPermissionPermanentlyDenied" -> {
+                    val permission = call.argument<String>("permission")
+                    if (permission != null) {
+                        val denied = !ActivityCompat.shouldShowRequestPermissionRationale(this, permission)
+                        // If permission hasn't been requested yet, shouldShowRequestPermissionRationale
+                        // also returns false. Check if it's actually denied first.
+                        val isGranted = ContextCompat.checkSelfPermission(this, permission) ==
+                                PackageManager.PERMISSION_GRANTED
+                        result.success(!isGranted && denied)
+                    } else {
+                        result.error("INVALID_ARGS", "permission required", null)
+                    }
+                }
                 else -> {
                     result.notImplemented()
                 }
@@ -679,8 +1147,32 @@ class MainActivity : FlutterActivity() {
         manager.notify(urlNotificationId++, notification)
     }
 
+    /** Returns the file path of the camera output for Dart to read directly. */
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == CAMERA_PHOTO_REQUEST) {
+            val photoResult = cameraPhotoResult
+            cameraPhotoResult = null
+            if (resultCode == Activity.RESULT_OK) {
+                runOnUiThread { photoResult?.success(cameraOutputPath) }
+            } else {
+                photoResult?.success(null)
+            }
+            cameraOutputPath = null
+            return
+        }
+        if (requestCode == CAMERA_VIDEO_REQUEST) {
+            val videoResult = cameraVideoResult
+            cameraVideoResult = null
+            if (resultCode == Activity.RESULT_OK) {
+                runOnUiThread { videoResult?.success(cameraOutputPath) }
+            } else {
+                videoResult?.success(null)
+            }
+            cameraOutputPath = null
+            return
+        }
         if (requestCode == SCREEN_CAPTURE_REQUEST) {
             if (resultCode == Activity.RESULT_OK && data != null) {
                 val intent = Intent(applicationContext, ScreenCaptureService::class.java).apply {
@@ -720,5 +1212,8 @@ class MainActivity : FlutterActivity() {
         const val NOTIFICATION_PERMISSION_REQUEST = 1001
         const val SCREEN_CAPTURE_REQUEST = 1002
         const val STORAGE_PERMISSION_REQUEST = 1003
+        const val GENERAL_PERMISSION_REQUEST = 1004
+        const val CAMERA_PHOTO_REQUEST = 1005
+        const val CAMERA_VIDEO_REQUEST = 1006
     }
 }

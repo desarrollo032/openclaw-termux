@@ -1,11 +1,8 @@
-import 'package:camera/camera.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../../models/node_frame.dart';
+import '../../native/openclaw_native.dart';
 import 'capability_handler.dart';
 
 class FlashCapability extends CapabilityHandler {
-  CameraController? _controller;
-  List<CameraDescription>? _cameras;
   bool _torchOn = false;
 
   @override
@@ -15,43 +12,16 @@ class FlashCapability extends CapabilityHandler {
   List<String> get commands => ['on', 'off', 'toggle', 'status'];
 
   @override
-  List<Permission> get requiredPermissions => [Permission.camera];
+  List<String> get requiredPermissionNames => ['android.permission.CAMERA'];
 
   @override
   Future<bool> checkPermission() async {
-    return await Permission.camera.isGranted;
+    return await OpenClawNative.checkPermission('android.permission.CAMERA');
   }
 
   @override
   Future<bool> requestPermission() async {
-    final status = await Permission.camera.request();
-    return status.isGranted;
-  }
-
-  Future<CameraController> _getController() async {
-    // Verify existing controller is still usable
-    final existing = _controller;
-    if (existing != null) {
-      if (existing.value.isInitialized && !existing.value.hasError) {
-        return existing;
-      }
-      // Controller is stale/errored — dispose and recreate
-      try { existing.dispose(); } catch (_) {}
-      _controller = null;
-    }
-
-    _cameras ??= await availableCameras();
-    final cameras = _cameras;
-    if (cameras == null || cameras.isEmpty) throw Exception('No camera available');
-    // Use back camera for flash/torch
-    final backCamera = cameras.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.back,
-      orElse: () => cameras.first,
-    );
-    final controller = CameraController(backCamera, ResolutionPreset.low);
-    _controller = controller;
-    await controller.initialize();
-    return controller;
+    return await OpenClawNative.requestPermission('android.permission.CAMERA');
   }
 
   @override
@@ -75,21 +45,16 @@ class FlashCapability extends CapabilityHandler {
 
   Future<NodeFrame> _setTorch(bool on) async {
     try {
-      final controller = await _getController();
-      await controller.setFlashMode(on ? FlashMode.torch : FlashMode.off);
-      _torchOn = on;
-
-      // If turning off, release the camera so it doesn't block snap/clip
-      if (!on) {
-        _controller?.dispose();
-        _controller = null;
+      final success = await OpenClawNative.toggleTorch(on);
+      if (!success) {
+        return NodeFrame.response('', error: {
+          'code': 'FLASH_ERROR',
+          'message': 'Torch not available or failed to toggle',
+        });
       }
-
+      _torchOn = on;
       return NodeFrame.response('', payload: {'on': _torchOn});
     } catch (e) {
-      // If it failed, dispose and reset so next attempt gets a fresh controller
-      try { _controller?.dispose(); } catch (_) {}
-      _controller = null;
       _torchOn = false;
       return NodeFrame.response('', error: {
         'code': 'FLASH_ERROR',
@@ -98,8 +63,5 @@ class FlashCapability extends CapabilityHandler {
     }
   }
 
-  void dispose() {
-    _controller?.dispose();
-    _controller = null;
-  }
+  void dispose() {}
 }
