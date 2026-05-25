@@ -427,8 +427,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: isDark
-                  ? cs.outlineVariant.withAlpha(60)
-                  : cs.outlineVariant.withAlpha(100),
+              ? cs.outlineVariant.withAlpha(60)
+              : cs.outlineVariant.withAlpha(160),
             ),
           ),
           child: Column(
@@ -522,12 +522,14 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
     ThemeData theme,
     ColorScheme cs,
   ) {
+    // Higher alpha in light mode for visibility on transparent card.
+    final isLight = theme.brightness == Brightness.light;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withAlpha(8),
+        color: color.withAlpha(isLight ? 12 : 8),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withAlpha(20)),
+        border: Border.all(color: color.withAlpha(isLight ? 30 : 20)),
       ),
       child: Row(
         children: [
@@ -577,7 +579,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
         border: Border.all(
           color: isDark
               ? cs.outlineVariant.withAlpha(80)
-              : cs.outlineVariant.withAlpha(120),
+              : cs.outlineVariant.withAlpha(160),
         ),
       ),
       child: Row(
@@ -721,7 +723,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
         border: Border.all(
           color: isDark
               ? cs.outlineVariant.withAlpha(80)
-              : cs.outlineVariant.withAlpha(120),
+              : cs.outlineVariant.withAlpha(160),
         ),
       ),
       child: Row(
@@ -959,7 +961,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
               ? AppColors.statusGreen.withAlpha(50)
               : isDark
                   ? cs.outlineVariant.withAlpha(80)
-                  : cs.outlineVariant.withAlpha(120),
+                  : cs.outlineVariant.withAlpha(160),
         ),
       ),
       child: InkWell(
