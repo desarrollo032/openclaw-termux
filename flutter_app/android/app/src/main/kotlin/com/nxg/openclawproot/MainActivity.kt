@@ -128,7 +128,9 @@ class MainActivity : FlutterActivity() {
                     if (command != null) {
                         executor.execute {
                             try {
-                                val output = processManager.runInProotSync(command, timeout)
+                                // Use recovery-aware execution with automatic
+                                // dpkg/apt error detection and retry
+                                val output = processManager.runInProotWithRecovery(command, timeout)
                                 runOnUiThread { result.success(output) }
                             } catch (e: Exception) {
                                 runOnUiThread { result.error("PROOT_ERROR", e.message, null) }

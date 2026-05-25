@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import '../constants.dart';
 import '../models/setup_state.dart';
 import 'native_bridge.dart';
+
+/// Maximum retry attempts for recoverable proot commands.
+const _maxRetries = 3;
 
 class BootstrapService {
   final Dio _dio = Dio();
@@ -46,6 +50,216 @@ class BootstrapService {
     if (onLog != null) onLog(msg);
   }
 
+  // ── Recovery-aware proot execution ────────────────────────────────────────
+
+  /// Run a command in proot with automatic dpkg/apt recovery and retry.
+  ///
+  /// The Kotlin [ProcessManager.runInProotWithRecovery] handles low-level
+  /// dpkg lock cleanup, `dpkg --configure -a`, and `apt --fix-broken install`.
+  /// This Dart wrapper adds:
+  /// - [PlatformException] → [PROOT_ERROR] mapping
+  /// - Timeout safety
+  /// - Pre-flight recovery step before apt commands
+  /// - Detailed logging
+  Future<String> _runProotWithRecovery({
+    required String command,
+    required String stepLabel,
+    int timeoutSeconds = 300,
+    void Function(String)? onLog,
+    bool isAptCommand = false,
+  }) async {
+    _log(onLog, '[STEP] $stepLabel');
+
+    // Pre-flight recovery for apt/dpkg commands — run before the first attempt
+    if (isAptCommand) {
+      await _runPreFlightRecovery(onLog: onLog);
+    }
+
+    for (int attempt = 1; attempt <= _maxRetries; attempt++) {
+      try {
+        final result = await NativeBridge.runInProot(command, timeout: timeoutSeconds)
+            .timeout(
+              Duration(seconds: timeoutSeconds + 30),
+              onTimeout: () => throw TimeoutException(
+                'Command timed out after ${timeoutSeconds}s',
+              ),
+            );
+        _log(onLog, '[OK] $stepLabel');
+        return result;
+      } on PlatformException catch (e) {
+        final msg = e.message ?? 'Unknown proot error';
+        final isDpkgError = _isDpkgInterruptionError(msg);
+
+        if (attempt < _maxRetries && isDpkgError) {
+          _log(onLog, '[WARN] Intento $attempt/$_maxRetries — recuperando dpkg/apt...');
+          await _runDpkgRecovery(onLog: onLog);
+          continue;
+        }
+
+        if (isDpkgError) {
+          _log(onLog, '[ERR] $stepLabel falló tras $_maxRetries intentos');
+          _log(onLog, '[ERR] Entorno corrupto — se requiere reinstalación');
+          throw _CorruptEnvironmentException(msg);
+        }
+
+        _log(onLog, '[ERR] $stepLabel: $msg');
+        rethrow;
+      } catch (e) {
+        _log(onLog, '[ERR] $stepLabel: $e');
+
+        if (attempt < _maxRetries && e is TimeoutException) {
+          _log(onLog, '[WARN] Intento $attempt/$_maxRetries — timeout, reintentando...');
+          continue;
+        }
+        rethrow;
+      }
+    }
+
+    throw _CorruptEnvironmentException(
+      'Command failed after $_maxRetries attempts',
+    );
+  }
+
+  /// Detect dpkg interruption / exit code 100 errors.
+  bool _isDpkgInterruptionError(String message) {
+    final msg = message.toLowerCase();
+    return msg.contains('dpkg was interrupted') ||
+        msg.contains('exit code 100') ||
+        msg.contains('dpkg --configure -a') ||
+        msg.contains('could not exec dpkg') ||
+        msg.contains('unable to lock the administration directory') ||
+        msg.contains('could not get lock') ||
+        msg.contains('package is in a very bad inconsistent state') ||
+        msg.contains('sub-process /usr/bin/dpkg returned an error code') ||
+        msg.contains('status database area is locked');
+  }
+
+  /// Quick pre-flight check before apt commands.
+  /// Runs dpkg --audit and recovers if needed.
+  Future<void> _runPreFlightRecovery({
+    void Function(String)? onLog,
+  }) async {
+    _log(onLog, '[STEP] Verificando estado de dpkg...');
+    try {
+      final audit = await NativeBridge.runInProot(
+        'dpkg --audit 2>&1 || echo audit_failed',
+        timeout: 60,
+      );
+      if (audit.contains('problem') ||
+          audit.contains('error') ||
+          audit.contains('interrupted') ||
+          audit.contains('inconsistent')) {
+        _log(onLog, '[WARN] dpkg reporta paquetes interrumpidos — recuperando...');
+        await _runDpkgRecovery(onLog: onLog);
+      } else {
+        _log(onLog, '[OK] dpkg en estado limpio');
+      }
+    } catch (e) {
+      _log(onLog, '[WARN] No se pudo auditar dpkg ($e) — continuando...');
+    }
+  }
+
+  /// Run dpkg/apt recovery sequence.
+  ///
+  /// 1. Remove lock files
+  /// 2. dpkg --configure -a (reconfigure interrupted packages)
+  /// 3. apt --fix-broken install -y (fix broken dependencies)
+  /// 4. apt update && apt upgrade -y (refresh package state)
+  Future<void> _runDpkgRecovery({
+    void Function(String)? onLog,
+  }) async {
+    _log(onLog, '[STEP] Modo recuperación activado');
+
+    // Step 1: Lock cleanup
+    _log(onLog, '[STEP] Eliminando locks de dpkg/apt...');
+    const lockCleanup = [
+      '/bin/rm -f /var/lib/dpkg/lock-frontend 2>/dev/null',
+      '/bin/rm -f /var/lib/dpkg/lock 2>/dev/null',
+      '/bin/rm -f /var/cache/apt/archives/lock 2>/dev/null',
+      '/bin/rm -f /var/lib/apt/lists/lock 2>/dev/null',
+    ];
+    for (final cmd in lockCleanup) {
+      try {
+        await _runProotSilent(cmd, timeoutSeconds: 15);
+      } catch (_) {}
+    }
+    _log(onLog, '[OK] Locks eliminados');
+
+    // Step 2: Configure interrupted packages
+    _log(onLog, '[STEP] Reconfigurando paquetes interrumpidos...');
+    try {
+      await _runProotSilent(
+        'DEBIAN_FRONTEND=noninteractive dpkg --configure -a',
+        timeoutSeconds: 300,
+      );
+      _log(onLog, '[OK] dpkg --configure -a completado');
+    } catch (e) {
+      _log(onLog, '[WARN] dpkg --configure -a tuvo errores ($e) — continuando...');
+    }
+
+    // Step 3: Fix broken dependencies
+    _log(onLog, '[STEP] Reparando dependencias rotas...');
+    try {
+      await _runProotSilent(
+        'DEBIAN_FRONTEND=noninteractive apt --fix-broken install -y -q 2>/dev/null',
+        timeoutSeconds: 300,
+      );
+      _log(onLog, '[OK] apt --fix-broken completado');
+    } catch (e) {
+      _log(onLog, '[WARN] apt --fix-broken tuvo errores ($e) — continuando...');
+    }
+
+    // Step 4: Update package lists & upgrade (user requirement #2)
+    _log(onLog, '[STEP] Actualizando listas de paquetes...');
+    try {
+      await _runProotSilent(
+        'DEBIAN_FRONTEND=noninteractive apt update -y -q 2>/dev/null',
+        timeoutSeconds: 300,
+      );
+      _log(onLog, '[OK] apt update completado');
+    } catch (e) {
+      _log(onLog, '[WARN] apt update tuvo errores ($e) — continuando...');
+    }
+
+    _log(onLog, '[STEP] Actualizando paquetes existentes...');
+    try {
+      await _runProotSilent(
+        'DEBIAN_FRONTEND=noninteractive apt upgrade -y -q 2>/dev/null',
+        timeoutSeconds: 300,
+      );
+      _log(onLog, '[OK] apt upgrade completado');
+    } catch (e) {
+      _log(onLog, '[WARN] apt upgrade tuvo errores ($e) — continuando...');
+    }
+
+    _log(onLog, '[OK] Recuperación completada');
+  }
+
+  /// Run a proot command silently (no log output).
+  Future<String> _runProotSilent(String command, {int timeoutSeconds = 60}) async {
+    return NativeBridge.runInProot(command, timeout: timeoutSeconds).timeout(
+      Duration(seconds: timeoutSeconds + 15),
+      onTimeout: () => throw TimeoutException('Silent proot command timed out'),
+    );
+  }
+
+  /// Run a command in proot with a Dart-side timeout.
+  /// Preferred for non-apt/dpkg commands that don't need recovery.
+  Future<String> _runInProotWithTimeout(
+    String command, {
+    int timeoutSeconds = 300,
+  }) async {
+    return NativeBridge.runInProot(command, timeout: timeoutSeconds)
+        .timeout(
+          Duration(seconds: timeoutSeconds + 30),
+          onTimeout: () => throw TimeoutException(
+            'Command timed out after ${timeoutSeconds}s: ${command.substring(0, command.length.clamp(0, 80))}',
+          ),
+        );
+  }
+
+  // ── Full setup orchestration ──────────────────────────────────────────────
+
   Future<void> runFullSetup({
     required void Function(SetupState) onProgress,
     void Function(String)? onLog,
@@ -54,26 +268,32 @@ class BootstrapService {
       // Start foreground service to keep app alive during setup
       try {
         await NativeBridge.startSetupService();
-      } catch (_) {} // Non-fatal if service fails to start
+      } catch (_) {}
 
+      // ===================================================================
       // Step 0: Setup directories
+      // ===================================================================
+      _log(onLog, '[STEP] Preparando directorios del entorno...');
       onProgress(const SetupState(
         step: SetupStep.checkingStatus,
         progress: 0.0,
         message: 'Setting up directories...',
       ));
-      _log(onLog, '[INFO] Preparando directorios del entorno...');
       _updateSetupNotification('Setting up directories...', progress: 2);
-      // NativeBridge.ensureReady() is cached — only does real work once per 30s.
       await NativeBridge.ensureReady();
+      _log(onLog, '[OK] Directorios listos');
 
-      // Step 1: Get arch + filesDir (now cached in NativeBridge)
+      // ===================================================================
+      // Get arch + filesDir
+      // ===================================================================
       final arch = await NativeBridge.getArch();
       final filesDir = await NativeBridge.getFilesDir();
       final tarPath = '$filesDir/tmp/ubuntu-rootfs.tar.gz';
       final nodeTarPath = '$filesDir/tmp/nodejs.tar.xz';
 
-      // Step 2: Download rootfs AND Node.js in parallel — independent operations
+      // ===================================================================
+      // Step 1: Download rootfs AND Node.js in parallel
+      // ===================================================================
       final rootfsUrl = AppConstants.getRootfsUrl(arch);
       final nodeTarUrl = AppConstants.getNodeTarballUrl(arch);
 
@@ -85,7 +305,6 @@ class BootstrapService {
         message: 'Downloading Ubuntu rootfs...',
       ));
 
-      // Run both downloads concurrently
       await Future.wait([
         _dio.download(
           rootfsUrl,
@@ -96,16 +315,19 @@ class BootstrapService {
               final mb = (received / 1024 / 1024).toStringAsFixed(1);
               final totalMb = (total / 1024 / 1024).toStringAsFixed(1);
               final notifProgress = 5 + (pct * 20).round();
-              _updateSetupNotification('Downloading rootfs: $mb / $totalMb MB', progress: notifProgress);
+              _updateSetupNotification(
+                'Downloading rootfs: $mb / $totalMb MB',
+                progress: notifProgress,
+              );
               onProgress(SetupState(
                 step: SetupStep.downloadingRootfs,
                 progress: pct,
                 message: 'Downloading rootfs: $mb MB / $totalMb MB',
               ));
-              // Log download progress every ~5%
               final prevPct = (pct * 100).floor();
               if (prevPct % 5 == 0 || pct >= 1.0) {
-                _log(onLog, '[DOWNLOAD] rootfs: $mb MB / $totalMb MB (${(pct * 100).toInt()}%)');
+                _log(onLog,
+                    '[DOWNLOAD] rootfs: $mb MB / $totalMb MB (${(pct * 100).toInt()}%)');
               }
             }
           },
@@ -132,7 +354,9 @@ class BootstrapService {
         message: 'Downloads complete',
       ));
 
-      // Step 3: Extract rootfs (30-45%)
+      // ===================================================================
+      // Step 2: Extract rootfs
+      // ===================================================================
       _log(onLog, '[STEP] Extrayendo sistema base Ubuntu...');
       _updateSetupNotification('Extracting rootfs...', progress: 32);
       onProgress(const SetupState(
@@ -141,20 +365,23 @@ class BootstrapService {
         message: 'Extracting rootfs (this takes a while)...',
       ));
       await NativeBridge.extractRootfs(tarPath);
-      _log(onLog, '[OK] Sistema base extra\u00eddo correctamente');
+      _log(onLog, '[OK] Sistema base extraído correctamente');
       onProgress(const SetupState(
         step: SetupStep.extractingRootfs,
         progress: 1.0,
         message: 'Rootfs extracted',
       ));
 
-      // Install bionic bypass + cwd-fix + node-wrapper BEFORE using node.
+      // ===================================================================
+      // Step 2b: Install bionic bypass (before using apt/node)
+      // ===================================================================
       _log(onLog, '[STEP] Instalando Bionic Bypass para compatibilidad...');
       await NativeBridge.installBionicBypass();
       _log(onLog, '[OK] Bionic Bypass instalado');
 
-      // Step 4: Install Node.js (45-80%)
-      // Fix permissions inside proot (Java extraction may miss execute bits)
+      // ===================================================================
+      // Step 3: Fix permissions + pre-flight dpkg recovery
+      // ===================================================================
       _log(onLog, '[STEP] Configurando permisos del sistema...');
       _updateSetupNotification('Fixing rootfs permissions...', progress: 45);
       onProgress(const SetupState(
@@ -162,7 +389,7 @@ class BootstrapService {
         progress: 0.0,
         message: 'Fixing rootfs permissions...',
       ));
-      // Use timeout to prevent blocking indefinitely
+
       await _runInProotWithTimeout(
         'chmod -R 755 /usr/bin /usr/sbin /bin /sbin '
         '/usr/local/bin /usr/local/sbin 2>/dev/null; '
@@ -173,25 +400,38 @@ class BootstrapService {
         'echo permissions_fixed',
         timeoutSeconds: 120,
       );
+      _log(onLog, '[OK] Permisos configurados');
 
-      // Install base packages via apt-get
-      _log(onLog, '[STEP] Actualizando listas de paquetes...');
-      _updateSetupNotification('Updating package lists...', progress: 48);
-      onProgress(const SetupState(
-        step: SetupStep.installingNode,
-        progress: 0.1,
-        message: 'Updating package lists...',
-      ));
+      // Pre-flight dpkg recovery before first apt command
+      _log(onLog, '[STEP] Verificando integridad de dpkg...');
+      await _runPreFlightRecovery(onLog: onLog);
+
+      // ===================================================================
+      // Step 3b: Update package lists (with recovery)
+      // ===================================================================
       try {
-        await _runInProotWithTimeout('apt-get update -y', timeoutSeconds: 600);
-        _log(onLog, '[OK] Paquetes actualizados');
-      } catch (e) {
-        _log(onLog, '[WARN] Error al actualizar paquetes, reintentando...');
-        _updateSetupNotification('Updating packages (retrying)...', progress: 48);
-        await _runInProotWithTimeout('apt-get update -y', timeoutSeconds: 600);
-        _log(onLog, '[OK] Paquetes actualizados en el segundo intento');
+        await _runProotWithRecovery(
+          command: 'apt-get update -y -q 2>/dev/null',
+          stepLabel: 'Actualizando listas de paquetes',
+          timeoutSeconds: 600,
+          onLog: onLog,
+          isAptCommand: true,
+        );
+      } on _CorruptEnvironmentException catch (e) {
+        _log(onLog, '[ERR] Entorno dpkg corrupto: ${e.message}');
+        _log(onLog, '[STEP] Ofreciendo reinstalación limpia...');
+        onProgress(const SetupState(
+          step: SetupStep.error,
+          error:
+              'El entorno de paquetes está corrupto. Por favor, reinstala la app desde cero.',
+        ));
+        _stopSetupService();
+        return;
       }
 
+      // ===================================================================
+      // Step 3c: Install base packages (with recovery)
+      // ===================================================================
       _log(onLog, '[STEP] Instalando paquetes base (ca-certificates, git, python3, make, g++, curl, wget)...');
       _updateSetupNotification('Installing base packages...', progress: 52);
       onProgress(const SetupState(
@@ -199,19 +439,38 @@ class BootstrapService {
         progress: 0.15,
         message: 'Installing base packages...',
       ));
+
       // Pre-configure tzdata to avoid interactive prompts
       await _runInProotWithTimeout(
         'ln -sf /usr/share/zoneinfo/Etc/UTC /etc/localtime && '
         'echo "Etc/UTC" > /etc/timezone',
         timeoutSeconds: 30,
       );
-      await _runInProotWithTimeout(
-        'apt-get install -y --no-install-recommends '
-        'ca-certificates git python3 make g++ curl wget',
-        timeoutSeconds: 900,
-      );
-      _log(onLog, '[OK] Paquetes base instalados');
 
+      try {
+        await _runProotWithRecovery(
+          command:
+              'apt-get install -y --no-install-recommends -q 2>/dev/null '
+              'ca-certificates git python3 make g++ curl wget',
+          stepLabel: 'Instalando paquetes base',
+          timeoutSeconds: 900,
+          onLog: onLog,
+          isAptCommand: true,
+        );
+      } on _CorruptEnvironmentException catch (e) {
+        _log(onLog, '[ERR] Entorno dpkg corrupto: ${e.message}');
+        onProgress(const SetupState(
+          step: SetupStep.error,
+          error:
+              'El entorno de paquetes está corrupto. Por favor, reinstala la app desde cero.',
+        ));
+        _stopSetupService();
+        return;
+      }
+
+      // ===================================================================
+      // Step 3d: Extract Node.js
+      // ===================================================================
       _log(onLog, '[STEP] Extrayendo Node.js...');
       onProgress(const SetupState(
         step: SetupStep.installingNode,
@@ -220,7 +479,7 @@ class BootstrapService {
       ));
       _updateSetupNotification('Extracting Node.js...', progress: 70);
       await NativeBridge.extractNodeTarball(nodeTarPath);
-      _log(onLog, '[OK] Node.js extra\u00eddo');
+      _log(onLog, '[OK] Node.js extraído');
 
       _log(onLog, '[STEP] Verificando Node.js...');
       _updateSetupNotification('Verifying Node.js...', progress: 78);
@@ -232,9 +491,7 @@ class BootstrapService {
       const wrapper = '/root/.openclaw/node-wrapper.js';
       const nodeRun = 'node $wrapper';
       const npmCli = '/usr/local/lib/node_modules/npm/bin/npm-cli.js';
-      await NativeBridge.runInProot(
-        'node --version && $nodeRun $npmCli --version',
-      );
+      await NativeBridge.runInProot('node --version && $nodeRun $npmCli --version');
       _log(onLog, '[OK] Node.js verificado correctamente');
       onProgress(const SetupState(
         step: SetupStep.installingNode,
@@ -242,7 +499,9 @@ class BootstrapService {
         message: 'Node.js installed',
       ));
 
-      // Step 4: Install OpenClaw (80-98%)
+      // ===================================================================
+      // Step 4: Install OpenClaw via npm
+      // ===================================================================
       _log(onLog, '[STEP] Instalando OpenClaw (esto puede tomar varios minutos)...');
       _updateSetupNotification('Installing OpenClaw...', progress: 82);
       onProgress(const SetupState(
@@ -273,7 +532,8 @@ class BootstrapService {
         progress: 0.9,
         message: 'Verifying OpenClaw...',
       ));
-      await NativeBridge.runInProot('openclaw --version || echo openclaw_installed');
+      await NativeBridge.runInProot(
+          'openclaw --version || echo openclaw_installed');
       _log(onLog, '[OK] OpenClaw verificado');
       onProgress(const SetupState(
         step: SetupStep.installingOpenClaw,
@@ -281,7 +541,9 @@ class BootstrapService {
         message: 'OpenClaw installed',
       ));
 
-      // Step 5: Bionic Bypass already installed (before node verification)
+      // ===================================================================
+      // Step 5: Bionic Bypass (already installed)
+      // ===================================================================
       _log(onLog, '[OK] Bionic Bypass configurado');
       _updateSetupNotification('Setup complete!', progress: 100);
       onProgress(const SetupState(
@@ -290,8 +552,10 @@ class BootstrapService {
         message: 'Bionic Bypass configured',
       ));
 
+      // ===================================================================
       // Done
-      _log(onLog, '[OK] Instalaci\u00f3n completada exitosamente!');
+      // ===================================================================
+      _log(onLog, '[OK] Instalación completada exitosamente!');
       _stopSetupService();
       onProgress(const SetupState(
         step: SetupStep.complete,
@@ -303,10 +567,30 @@ class BootstrapService {
       _stopSetupService();
       onProgress(SetupState(
         step: SetupStep.error,
-        error: 'Download failed: ${e.message}. Check your internet connection.',
+        error:
+            'Download failed: ${e.message}. Check your internet connection.',
+      ));
+    } on _CorruptEnvironmentException catch (e) {
+      _log(onLog, '[ERR] Entorno corrupto: ${e.message}');
+      _log(onLog,
+          '[INFO] Reinstale la app o ejecute "dpkg --configure -a" manualmente');
+      _stopSetupService();
+      onProgress(SetupState(
+        step: SetupStep.error,
+        error:
+            'El entorno de paquetes está en un estado inconsistente. '
+            'Por favor, reinicia la app o reinstala desde cero.\n'
+            'Detalles: ${e.message}',
+      ));
+    } on PlatformException catch (e) {
+      _log(onLog, '[ERR] Error del sistema: ${e.message}');
+      _stopSetupService();
+      onProgress(SetupState(
+        step: SetupStep.error,
+        error: 'Error del sistema: ${e.message}',
       ));
     } catch (e) {
-      _log(onLog, '[ERR] Error de instalaci\u00f3n: $e');
+      _log(onLog, '[ERR] Error de instalación: $e');
       _stopSetupService();
       onProgress(SetupState(
         step: SetupStep.error,
@@ -314,18 +598,13 @@ class BootstrapService {
       ));
     }
   }
+}
 
-  /// Run a command in proot with a Dart-side timeout to prevent hanging.
-  Future<String> _runInProotWithTimeout(
-    String command, {
-    int timeoutSeconds = 300,
-  }) async {
-    return NativeBridge.runInProot(command, timeout: timeoutSeconds)
-        .timeout(
-          Duration(seconds: timeoutSeconds + 30),
-          onTimeout: () => throw TimeoutException(
-            'Command timed out after ${timeoutSeconds}s: ${command.substring(0, command.length.clamp(0, 80))}',
-          ),
-        );
-  }
+/// Exception thrown when the dpkg/apt environment is too corrupted to recover.
+class _CorruptEnvironmentException implements Exception {
+  final String message;
+  const _CorruptEnvironmentException(this.message);
+
+  @override
+  String toString() => 'CorruptEnvironmentException: $message';
 }

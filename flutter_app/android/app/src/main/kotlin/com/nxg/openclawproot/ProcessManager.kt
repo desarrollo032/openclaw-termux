@@ -362,6 +362,117 @@ class ProcessManager(
     }
 
     // ================================================================
+    // NEW: Run command with automatic dpkg/apt error recovery
+    // ================================================================
+
+    /**
+     * Checks if a [RuntimeException] message indicates a dpkg/apt interruption
+     * that can be automatically recovered.
+     */
+    private fun isDpkgInterruptionError(message: String?): Boolean {
+        if (message == null) return false
+        val msg = message.lowercase()
+        return msg.contains("dpkg was interrupted") ||
+            msg.contains("exit code 100") ||
+            msg.contains("dpkg --configure -a") ||
+            msg.contains("could not exec dpkg") ||
+            msg.contains("unable to lock the administration directory") ||
+            msg.contains("could not get lock") ||
+            msg.contains("lock is held by") ||
+            msg.contains("package is in a very bad inconsistent state") ||
+            msg.contains("sub-process /usr/bin/dpkg returned an error code") ||
+            msg.contains("dpkg was interrupted") ||
+            msg.contains("status database area is locked")
+    }
+
+    /**
+     * Run dpkg/apt recovery commands inside proot.
+     * 1. Remove lock files
+     * 2. Reconfigure interrupted packages
+     * 3. Fix broken dependencies
+     * 4. Update package lists & upgrade
+     */
+    private fun runDpkgRecovery() {
+        val lockCleanup = listOf(
+            "/bin/rm -f /var/lib/dpkg/lock-frontend 2>/dev/null",
+            "/bin/rm -f /var/lib/dpkg/lock 2>/dev/null",
+            "/bin/rm -f /var/cache/apt/archives/lock 2>/dev/null",
+            "/bin/rm -f /var/lib/apt/lists/lock 2>/dev/null",
+        )
+        for (cmd in lockCleanup) {
+            try {
+                runInProotSync(cmd, 30)
+            } catch (_: Exception) {}
+        }
+
+        // Step 2: Configure interrupted packages
+        try {
+            runInProotSync("DEBIAN_FRONTEND=noninteractive dpkg --configure -a", 300)
+        } catch (_: Exception) {}
+
+        // Step 3: Fix broken dependencies
+        try {
+            runInProotSync("DEBIAN_FRONTEND=noninteractive apt --fix-broken install -y -q 2>/dev/null", 300)
+        } catch (_: Exception) {}
+
+        // Step 4: Update and upgrade package lists (matches user requirement #2)
+        try {
+            runInProotSync("DEBIAN_FRONTEND=noninteractive apt update -y -q 2>/dev/null", 300)
+        } catch (_: Exception) {}
+        try {
+            runInProotSync("DEBIAN_FRONTEND=noninteractive apt upgrade -y -q 2>/dev/null", 300)
+        } catch (_: Exception) {}
+    }
+
+    /**
+     * Quick audit: check if dpkg reports any problems.
+     * Returns true if recovery is needed.
+     */
+    private fun isDpkgAuditNeeded(): Boolean {
+        return try {
+            val audit = runInProotSync(
+                "dpkg --audit 2>&1 || /bin/echo audit_failed", 60
+            )
+            audit.contains("problem") ||
+                audit.contains("error") ||
+                audit.contains("inconsistent") ||
+                audit.contains("interrupted")
+        } catch (_: Exception) {
+            false // Can't check, assume OK
+        }
+    }
+
+    /**
+     * Run a command inside proot with pre-flight dpkg audit (no retry).
+     *
+     * Features:
+     * - Pre-flight check: runs dpkg audit before apt-related commands
+     * - Auto-recovery: if audit finds problems, runs full recovery first
+     * - No retry: Dart-side orchestrator handles retry + corrupt env detection
+     *
+     * This is a lightweight wrapper around [runInProotSync] that only adds
+     * pre-flight recovery for apt/dpkg commands. The Dart layer
+     * ([BootstrapService._runProotWithRecovery]) handles retry, logging,
+     * and corrupt environment detection.
+     *
+     * @param command The shell command to run inside proot
+     * @param timeoutSeconds Maximum execution time
+     * @return Command output on success
+     * @throws RuntimeException on any non-zero exit code
+     */
+    fun runInProotWithRecovery(command: String, timeoutSeconds: Long = 900): String {
+        // Only apt/dpkg commands need pre-flight recovery
+        val isAptCommand = command.contains("apt") || command.contains("dpkg")
+
+        // Pre-flight: run quick dpkg audit before apt commands
+        if (isAptCommand && isDpkgAuditNeeded()) {
+            runDpkgRecovery()
+        }
+
+        return runInProotSync(command, timeoutSeconds)
+    }
+
+    // ================================================================
     // Start a long-lived gateway process (gateway mode).
     // Uses full proot-distro command_login() style configuration.
     // ================================================================
