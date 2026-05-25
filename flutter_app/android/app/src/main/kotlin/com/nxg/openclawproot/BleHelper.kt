@@ -254,12 +254,8 @@ class BleHelper(private val context: Context) {
             val chunk = data.copyOfRange(i, end)
             char.value = chunk
             val written = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val future = CompletableFuture<Boolean>()
-                val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
-                conn.gatt.writeCharacteristic(chunk, char, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE, executor) { status ->
-                    future.complete(status == BluetoothGatt.GATT_SUCCESS)
-                }
-                try { future.get(5, TimeUnit.SECONDS) } catch (_: Exception) { false }
+                val result = conn.gatt.writeCharacteristic(char, chunk, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE)
+                result == BluetoothGatt.GATT_SUCCESS
             } else {
                 @Suppress("DEPRECATION")
                 conn.gatt.writeCharacteristic(char)

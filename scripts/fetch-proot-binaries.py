@@ -15,7 +15,9 @@ from pathlib import Path
 TERMUX_REPO = "https://packages.termux.dev/apt/termux-main"
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = SCRIPT_DIR.parent
-JNILIBS_DIR = PROJECT_DIR / "flutter_app" / "android" / "app" / "src" / "main" / "jniLibs"
+JNILIBS_DIR = PROJECT_DIR / "flutter_app" / \
+    "android" / "app" / "src" / "main" / "jniLibs"
+MIRROR_JNILIBS_DIR = PROJECT_DIR / "flutter_app" / "android" / "app" / "jniLibs"
 
 ARCH_MAP = {
     "arm64-v8a": "aarch64",
@@ -40,8 +42,9 @@ def read_ar_archive(data: bytes):
     while pos < len(data):
         if pos + 60 > len(data):
             break
-        header = data[pos : pos + 60]
-        name_raw = header[:16].rstrip(b" /").decode("ascii", errors="replace").strip()
+        header = data[pos: pos + 60]
+        name_raw = header[:16].rstrip(
+            b" /").decode("ascii", errors="replace").strip()
         # Parse size (last 10 bytes before magic)
         size_str = header[48:58].decode("ascii", errors="replace").strip()
         try:
@@ -54,7 +57,7 @@ def read_ar_archive(data: bytes):
             if pos % 2:
                 pos += 1
             continue
-        content = data[pos + 60 : pos + 60 + size]
+        content = data[pos + 60: pos + 60 + size]
         files[name_raw] = content
         pos += 60 + size
         if pos % 2:
@@ -195,7 +198,8 @@ def fetch_for_abi(jni_abi: str, deb_arch: str):
 
     # --- Fetch libtalloc package ---
     print(f"  [{jni_abi}] Fetching libtalloc package...")
-    talloc_files = fetch_package("libtalloc", deb_arch, Path(tempfile.mkdtemp()))
+    talloc_files = fetch_package(
+        "libtalloc", deb_arch, Path(tempfile.mkdtemp()))
     if talloc_files:
         talloc_data = extract_data(talloc_files)
         if talloc_data:
@@ -204,7 +208,8 @@ def fetch_for_abi(jni_abi: str, deb_arch: str):
             for name, content in all_files.items():
                 if not name.endswith(".py"):  # Skip Python files
                     (out_dir / "libtalloc.so").write_bytes(content)
-                    print(f"  [{jni_abi}] Copied libtalloc.so ({len(content)} bytes) from {name}")
+                    print(
+                        f"  [{jni_abi}] Copied libtalloc.so ({len(content)} bytes) from {name}")
                     break
 
     # Show results
