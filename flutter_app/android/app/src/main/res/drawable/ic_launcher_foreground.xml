@@ -2,78 +2,55 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
+    android:viewportWidth="120"
+    android:viewportHeight="120">
 
-    <!-- Left antenna (lobster-style, curved outward) -->
+    <!-- Gradiente lineal diagonal rojo (coincide con SVG) -->
     <path
-        android:pathData="M44,29 C41,24 37,20 34,19"
-        android:strokeColor="#E53935"
-        android:strokeWidth="2.5"
-        android:strokeLineCap="round"/>
+        android:pathData="M60 10c-30 0-45 25-45 45s15 40 30 45v10h10v-10s5 2 10 0v10h10v-10c15-5 30-25 30-45S90 10 60 10Z
+            M20 45C5 40 0 50 5 60s15 5 20-5c3-7 0-10-5-10
+            M100 45c15-5 20 5 15 15s-15 5-20-5c-3-7 0-10 5-10Z">
+        <gradient
+            android:startX="0"
+            android:startY="0"
+            android:endX="120"
+            android:endY="120"
+            android:type="linear"
+            android:startColor="#FFFF4D4D"
+            android:endColor="#FF991B1B" />
+    </path>
 
-    <!-- Right antenna -->
+    <!-- Antenas/whiskers superiores -->
     <path
-        android:pathData="M64,29 C67,24 71,20 74,19"
-        android:strokeColor="#E53935"
-        android:strokeWidth="2.5"
-        android:strokeLineCap="round"/>
+        android:pathData="M45 15Q35 5 30 8"
+        android:strokeColor="#FFFF4D4D"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"/>
+    <path
+        android:pathData="M75 15Q85 5 90 8"
+        android:strokeColor="#FFFF4D4D"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"/>
 
-    <!-- Head (Android semicircle) -->
+    <!-- Ojo izquierdo -->
     <path
-        android:pathData="M37,44 C37,29 71,29 71,44 Z"
-        android:fillColor="#E53935"/>
+        android:pathData="M39 35a6 6 0 1 0 12 0a6 6 0 1 0 -12 0"
+        android:fillColor="#FF050810"/>
 
-    <!-- Left eye -->
+    <!-- Ojo derecho -->
     <path
-        android:pathData="M47,37 m-2.2,0 a2.2,2.2 0 1,0 4.4,0 a2.2,2.2 0 1,0 -4.4,0"
-        android:fillColor="#0F1B2D"/>
+        android:pathData="M69 35a6 6 0 1 0 12 0a6 6 0 1 0 -12 0"
+        android:fillColor="#FF050810"/>
 
-    <!-- Right eye -->
+    <!-- Pupila izquierda (cian) -->
     <path
-        android:pathData="M61,37 m-2.2,0 a2.2,2.2 0 1,0 4.4,0 a2.2,2.2 0 1,0 -4.4,0"
-        android:fillColor="#0F1B2D"/>
+        android:pathData="M43.5 34a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0"
+        android:fillColor="#FF00E5CC"/>
 
-    <!-- Body -->
+    <!-- Pupila derecha (cian) -->
     <path
-        android:pathData="M37,47 L71,47 Q75,47 75,51 L75,65 Q75,69 71,69 L37,69 Q33,69 33,65 L33,51 Q33,47 37,47 Z"
-        android:fillColor="#E53935"/>
-
-    <!-- Left claw upper prong -->
-    <path
-        android:pathData="M37,52 L29,49 C25,47 21,48 21,52"
-        android:strokeColor="#E53935"
-        android:strokeWidth="5"
-        android:strokeLineCap="round"/>
-
-    <!-- Left claw lower prong -->
-    <path
-        android:pathData="M37,57 L29,60 C25,62 21,61 21,57"
-        android:strokeColor="#E53935"
-        android:strokeWidth="5"
-        android:strokeLineCap="round"/>
-
-    <!-- Right claw upper prong -->
-    <path
-        android:pathData="M71,52 L79,49 C83,47 87,48 87,52"
-        android:strokeColor="#E53935"
-        android:strokeWidth="5"
-        android:strokeLineCap="round"/>
-
-    <!-- Right claw lower prong -->
-    <path
-        android:pathData="M71,57 L79,60 C83,62 87,61 87,57"
-        android:strokeColor="#E53935"
-        android:strokeWidth="5"
-        android:strokeLineCap="round"/>
-
-    <!-- Left leg -->
-    <path
-        android:pathData="M43,69 L43,79 Q43,82.5 46.5,82.5 Q50,82.5 50,79 L50,69"
-        android:fillColor="#E53935"/>
-
-    <!-- Right leg -->
-    <path
-        android:pathData="M58,69 L58,79 Q58,82.5 61.5,82.5 Q65,82.5 65,79 L65,69"
-        android:fillColor="#E53935"/>
+        android:pathData="M73.5 34a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0"
+        android:fillColor="#FF00E5CC"/>
 </vector>
