@@ -177,7 +177,6 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       startsWith(github.ref, 'refs/tags/v') ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && inputs.create_release)
     permissions:
       contents: write
@@ -197,8 +196,13 @@ jobs:
       - name: Get version
         id: version
         run: |
-          version=$(grep '^version:' flutter_app/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            TAG="${{ github.ref_name }}"
+            echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          else
+            version=$(grep '^version:' flutter_app/pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+          fi
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
