@@ -44,20 +44,32 @@ class OpenClawAccessibilityService : AccessibilityService() {
 
     // ─── Screenshot result (API 34+) ───
 
+    // API 34+ ScreenshotResult wraps the bitmap
     private val screenshotCallback = TakeScreenshotCallback()
 
+    @Suppress("OVERRIDE_DEPRECATION")
     private inner class TakeScreenshotCallback :
         android.accessibilityservice.AccessibilityService.TakeScreenshotCallback {
-        override fun onSuccess(screenshot: Bitmap?) {
-            if (screenshot != null) {
-                try {
+        override fun onSuccess(screenshot: Any) {
+            try {
+                // In API 35+, screenshot is ScreenshotResult; in API 34 it's Bitmap
+                val bitmap = when (screenshot) {
+                    is Bitmap -> screenshot
+                    else -> {
+                        try {
+                            val m = screenshot.javaClass.getMethod("getBitmap")
+                            m.invoke(screenshot) as? Bitmap
+                        } catch (_: Exception) { null }
+                    }
+                }
+                if (bitmap != null) {
                     val file = File(cacheDir, "screenshot_${System.currentTimeMillis()}.png")
                     FileOutputStream(file).use { out ->
-                        screenshot.compress(Bitmap.CompressFormat.PNG, 90, out)
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 90, out)
                     }
                     lastScreenshotPath = file.absolutePath
-                } catch (_: Exception) {}
-            }
+                }
+            } catch (_: Exception) {}
         }
 
         override fun onFailure(errorCode: Int) {}
@@ -130,7 +142,16 @@ class OpenClawAccessibilityService : AccessibilityService() {
             val svc = instance ?: return
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 lastScreenshotPath = null
-                svc.takeScreenshot(svc.screenshotCallback, Handler(Looper.getMainLooper()))
+                if (Build.VERSION.SDK_INT >= 35) {
+                    // API 35+ uses Executor + consumer pattern
+                    svc.takeScreenshot(
+                        0,
+                        java.util.concurrent.Executors.newSingleThreadExecutor(),
+                        svc.screenshotCallback
+                    )
+                } else {
+                    svc.takeScreenshot(svc.screenshotCallback, Handler(Looper.getMainLooper()))
+                }
             }
         }
     }

@@ -15,15 +15,14 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 object OrbWebSocketServer : Closeable {
 
-    private var server: ApplicationEngine? = null
+    /** Port the server listens on. Default 18790 (next after gateway 18789). */
+    const val DEFAULT_PORT = 18790
+
     private var job: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val _isRunning = AtomicBoolean(false)
 
     val isRunning: Boolean get() = _isRunning.get()
-
-    /** Port the server listens on. Default 18790 (next after gateway 18789). */
-    const val DEFAULT_PORT = 18790
 
     /**
      * Start the embedded Ktor server on [host]:[port].
@@ -33,24 +32,17 @@ object OrbWebSocketServer : Closeable {
         host: String = "127.0.0.1",
         port: Int = DEFAULT_PORT,
     ) {
-        if (_isRunning.get()) {
-            return // Already running
-        }
+        if (_isRunning.get()) return
 
         job = scope.launch {
             try {
-                val engine = embeddedServer(CIO, host = host, port = port) {
+                embeddedServer(CIO, host = host, port = port) {
                     orbModule()
-                }
-                engine.start(wait = true) // Blocks this coroutine until server stops
-                server = engine
-            } catch (e: Exception) {
-                // Server crashed — log or notify
-                _isRunning.set(false)
-                server = null
+                }.start(wait = true)
+            } catch (_: Exception) {
+                // Server crashed
             }
         }
-
         _isRunning.set(true)
     }
 
@@ -61,8 +53,7 @@ object OrbWebSocketServer : Closeable {
         if (!_isRunning.get()) return
         _isRunning.set(false)
         job?.cancel()
-        server?.stop(1000, 2000)
-        server = null
+        job = null
     }
 
     override fun close() {

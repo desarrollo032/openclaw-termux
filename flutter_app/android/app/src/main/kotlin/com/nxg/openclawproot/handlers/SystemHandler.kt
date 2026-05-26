@@ -588,7 +588,6 @@ class SystemHandler(private val context: Context, private val activity: MainActi
                 recorder.setOutputFormat(MediaRecorder.OutputFormat.AAC_ADTS)
                 recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                 recorder.setAudioSamplingRate(44100)
-                recorder.setAudioBitRate(128000)
                 recorder.setOutputFile(outputFile.absolutePath)
                 recorder.prepare()
                 recorder.start()
@@ -691,7 +690,7 @@ class SystemHandler(private val context: Context, private val activity: MainActi
                     voicesInfo.add(hashMapOf(
                         "name" to voice.name,
                         "language" to voice.locale.toLanguageTag(),
-                        "displayName" to (voice.displayName ?: voice.name),
+                        "displayName" to (voice.name),
                         "quality" to voice.quality,
                         "latency" to voice.latency,
                         "requiresNetwork" to voice.isNetworkConnectionRequired,
@@ -1056,16 +1055,10 @@ class SystemHandler(private val context: Context, private val activity: MainActi
     private fun getHotspotStatus(result: MethodChannel.Result) {
         try {
             val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            val isEnabled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                // On Android 13+, use reflection for hotspot state
-                try {
-                    val method = wifiManager.javaClass.getMethod("isWifiApEnabled")
-                    method.invoke(wifiManager) as Boolean
-                } catch (_: Exception) { false }
-            } else {
-                @Suppress("DEPRECATION")
-                wifiManager.isWifiApEnabled
-            }
+            val isEnabled = try {
+                val method = wifiManager.javaClass.getMethod("isWifiApEnabled")
+                method.invoke(wifiManager) as Boolean
+            } catch (_: Exception) { false }
             result.success(hashMapOf(
                 "enabled" to isEnabled,
                 "available" to true,
@@ -1083,12 +1076,17 @@ class SystemHandler(private val context: Context, private val activity: MainActi
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 // Android 13+ — must open system hotspot settings
-                val intent = Intent(Settings.ACTION_WIFI_TETHER_SETTINGS).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                try {
+                    val intent = Intent("android.settings.WIFI_TETHER_SETTINGS").apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    context.startActivity(intent)
+                    result.success(hashMapOf("enabled" to true, "note" to "Open hotspot settings manually"))
+                    return
+                } catch (_: Exception) {
+                    result.success(hashMapOf("enabled" to false, "note" to "Open hotspot settings manually"))
+                    return
                 }
-                context.startActivity(intent)
-                result.success(hashMapOf("enabled" to true, "note" to "Open hotspot settings manually"))
-                return
             }
 
             @Suppress("DEPRECATION")
@@ -1097,8 +1095,11 @@ class SystemHandler(private val context: Context, private val activity: MainActi
                 preSharedKey = password
                 allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA2_PSK)
             }
-            @Suppress("DEPRECATION")
-            wifiManager.setWifiApEnabled(config, true)
+            try {
+                val method = wifiManager.javaClass.getMethod("setWifiApEnabled",
+                    WifiConfiguration::class.java, Boolean::class.java)
+                method.invoke(wifiManager, config, true)
+            } catch (_: Exception) {}
             result.success(hashMapOf("enabled" to true, "ssid" to ssid))
         } catch (e: Exception) {
             result.error("HOTSPOT_ERROR", e.message, null)
@@ -1108,17 +1109,12 @@ class SystemHandler(private val context: Context, private val activity: MainActi
     private fun disableHotspot(result: MethodChannel.Result) {
         try {
             val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                try {
-                    val method = wifiManager.javaClass.getMethod("setWifiApEnabled", WifiConfiguration::class.java, Boolean::class.java)
-                    method.invoke(wifiManager, null, false)
-                } catch (_: Exception) {
-                    result.success(false)
-                    return
-                }
-            } else {
-                @Suppress("DEPRECATION")
-                wifiManager.setWifiApEnabled(null, false)
+            try {
+                val method = wifiManager.javaClass.getMethod("setWifiApEnabled", WifiConfiguration::class.java, Boolean::class.java)
+                method.invoke(wifiManager, null, false)
+            } catch (_: Exception) {
+                result.success(false)
+                return
             }
             result.success(true)
         } catch (e: Exception) {
@@ -1276,9 +1272,8 @@ class SystemHandler(private val context: Context, private val activity: MainActi
 
     private fun webSearch(call: MethodCall, result: MethodChannel.Result) {
         try {
-            val query = call.argument<String>("query") ?: return result.error("INVALID_ARGS", "query required", null)
-            val intent = Intent(Intent.ACTION_WEB_SEARCH).apply {
-                putExtra(android.provider.SearchManager.QUERY, query)
+            val query = call.argument<String>("query") ?: return result.error("INVALID_ARGS", "query required", null)                val intent = Intent(Intent.ACTION_WEB_SEARCH).apply {
+                putExtra("query", query)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
             context.startActivity(intent)
@@ -1409,14 +1404,10 @@ class SystemHandler(private val context: Context, private val activity: MainActi
     // ──────────────────────────────────────────────
 
     private fun listNotifications(result: MethodChannel.Result) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val listener = android.service.notification.NotificationListenerService()
-            // Simple approach: return empty list — full notification access requires
-            // a dedicated NotificationListenerService.
-            result.success(emptyList<Map<String, Any>>())
-        } else {
-            result.success(emptyList<Map<String, Any>>())
-        }
+        // Requires a dedicated NotificationListenerService.
+        // Return empty list — full access requires the user to enable notification
+        // listener in system settings.
+        result.success(emptyList<Map<String, Any>>())
     }
 
     private fun clickNotification(call: MethodCall, result: MethodChannel.Result) {
