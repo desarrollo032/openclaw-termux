@@ -21,6 +21,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _currentUrl = widget.url;
     _loadAndOpen();
   }
 
@@ -33,7 +34,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
         url = prefs.dashboardUrl;
       }
       final finalUrl = url ?? AppConstants.gatewayUrl;
-      _currentUrl = finalUrl;
+      if (mounted) setState(() => _currentUrl = finalUrl);
 
       final opened = await OpenClawNative.openWebDashboard(finalUrl);
       if (opened) {

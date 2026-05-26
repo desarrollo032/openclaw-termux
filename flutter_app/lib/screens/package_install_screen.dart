@@ -27,6 +27,7 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
   final _terminalModuleKey = GlobalKey<TerminalViewModuleState>();
   bool _initialized = false;
   bool _finished = false;
+  String? _error;
   String _shell = '';
   List<String> _args = [];
   Map<String, String> _env = {};
@@ -49,14 +50,20 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
       cmdArgs.removeLast(); // remove '/bin/bash'
       cmdArgs.addAll(['/bin/bash', '-lc', command]);
 
+      if (!mounted) return;
       setState(() {
         _shell = config['executable'] as String;
         _args = cmdArgs;
         _env = TerminalService.buildHostEnv(config);
         _initialized = true;
+        _error = null;
       });
-    } catch (e) {
-      debugPrint('Error preparing package install: $e');
+    } catch (e, st) {
+      debugPrint('Error preparing package install: $e\n$st');
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudo preparar la instalación: $e';
+      });
     }
   }
 
@@ -102,20 +109,51 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
         child: Column(
           children: [
             Expanded(
-              child: !_initialized
-                  ? const Center(child: CircularProgressIndicator())
-                  : TerminalViewModule(
-                      key: _terminalModuleKey,
-                      shell: _shell,
-                      arguments: _args,
-                      environment: _env,
-                      completionSentinel: sentinel,
-                      onSentinelMatched: () => setState(() => _finished = true),
-                      onExit: (_) => setState(() => _finished = true),
-                    ).animate().fadeIn(
-                      duration: 300.ms,
-                      curve: Curves.easeOut,
-                    ),
+              child: _error != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ErrorBox(message: _error!),
+                            const SizedBox(height: 16),
+                            Wrap(
+                              spacing: 8,
+                              children: [
+                                FilledButton.icon(
+                                  onPressed: () {
+                                    setState(() => _error = null);
+                                    _prepareConfig();
+                                  },
+                                  icon: const Icon(Icons.refresh, size: 18),
+                                  label: const Text('Reintentar'),
+                                ),
+                                OutlinedButton.icon(
+                                  onPressed: () => Navigator.of(context).pop(false),
+                                  icon: const Icon(Icons.close, size: 18),
+                                  label: const Text('Cancelar'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : !_initialized
+                      ? const Center(child: CircularProgressIndicator())
+                      : TerminalViewModule(
+                          key: _terminalModuleKey,
+                          shell: _shell,
+                          arguments: _args,
+                          environment: _env,
+                          completionSentinel: sentinel,
+                          onSentinelMatched: () => setState(() => _finished = true),
+                          onExit: (_) => setState(() => _finished = true),
+                        ).animate().fadeIn(
+                          duration: 300.ms,
+                          curve: Curves.easeOut,
+                        ),
             ),
             if (_finished)
               Container(

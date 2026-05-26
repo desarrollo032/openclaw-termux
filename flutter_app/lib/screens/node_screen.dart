@@ -79,30 +79,30 @@ class _NodeScreenState extends State<NodeScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-            RadioGroup<bool>(
-              groupValue: _isLocal,
-              onChanged: (value) => setState(() => _isLocal = value!),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Radio<bool>(value: true),
-                    title: const Text('Gateway Local', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                    subtitle: const Text('Emparejar automáticamente con el gateway en este dispositivo'),
-                    contentPadding: EdgeInsets.zero,
-                    onTap: () => setState(() => _isLocal = true),
-                    dense: true,
-                  ),
-                  ListTile(
-                    leading: const Radio<bool>(value: false),
-                    title: const Text('Gateway Remoto', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                    subtitle: const Text('Conectar a un gateway en otro dispositivo'),
-                    contentPadding: EdgeInsets.zero,
-                    onTap: () => setState(() => _isLocal = false),
-                    dense: true,
-                  ),
-                ],
-              ),
-            ),
+                            ListTile(
+                              leading: Radio<bool>(
+                                value: true,
+                                groupValue: _isLocal,
+                                onChanged: (value) => setState(() => _isLocal = value ?? true),
+                              ),
+                              title: const Text('Gateway Local', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                              subtitle: const Text('Emparejar automáticamente con el gateway en este dispositivo'),
+                              contentPadding: EdgeInsets.zero,
+                              onTap: () => setState(() => _isLocal = true),
+                              dense: true,
+                            ),
+                            ListTile(
+                              leading: Radio<bool>(
+                                value: false,
+                                groupValue: _isLocal,
+                                onChanged: (value) => setState(() => _isLocal = value ?? false),
+                              ),
+                              title: const Text('Gateway Remoto', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                              subtitle: const Text('Conectar a un gateway en otro dispositivo'),
+                              contentPadding: EdgeInsets.zero,
+                              onTap: () => setState(() => _isLocal = false),
+                              dense: true,
+                            ),
                             if (!_isLocal) ...[
                               const SizedBox(height: 12),
                               TextField(
@@ -135,21 +135,27 @@ class _NodeScreenState extends State<NodeScreen> {
                                 obscureText: true,
                               ),
                               const SizedBox(height: 16),
-                              SizedBox(
-                                width: double.infinity,
-                                child: FilledButton.icon(
-                                  onPressed: () {
-                                    final host = _hostController.text.trim();
-                                    final port = int.tryParse(_portController.text.trim()) ?? 18789;
-                                    final token = _tokenController.text.trim();
-                                    if (host.isNotEmpty) {
-                                      provider.connectRemote(host, port,
-                                          token: token.isNotEmpty ? token : null);
-                                    }
-                                  },
-                                  icon: const Icon(Icons.link, size: 18),
-                                  label: const Text('Conectar'),
-                                ),
+                              AnimatedBuilder(
+                                animation: Listenable.merge([_hostController, _portController]),
+                                builder: (context, _) {
+                                  final hostFilled = _hostController.text.trim().isNotEmpty;
+                                  return SizedBox(
+                                    width: double.infinity,
+                                    child: FilledButton.icon(
+                                      onPressed: hostFilled
+                                          ? () {
+                                              final host = _hostController.text.trim();
+                                              final port = int.tryParse(_portController.text.trim()) ?? 18789;
+                                              final token = _tokenController.text.trim();
+                                              provider.connectRemote(host, port,
+                                                  token: token.isNotEmpty ? token : null);
+                                            }
+                                          : null,
+                                      icon: const Icon(Icons.link, size: 18),
+                                      label: const Text('Conectar'),
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ],
@@ -210,7 +216,9 @@ class _NodeScreenState extends State<NodeScreen> {
                               ],
                               selected: {provider.privacyFilter.mode},
                               onSelectionChanged: (modes) {
-                                provider.setPrivacyMode(modes.first);
+                                if (modes.isNotEmpty) {
+                                  provider.setPrivacyMode(modes.first);
+                                }
                               },
                               showSelectedIcon: false,
                               style: ButtonStyle(
