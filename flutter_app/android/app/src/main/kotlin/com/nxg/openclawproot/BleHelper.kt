@@ -1,5 +1,6 @@
 package com.nxg.openclawproot
 
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
@@ -17,6 +18,7 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
+@SuppressLint("MissingPermission")
 class BleHelper(private val context: Context) {
 
     private val bluetoothManager: BluetoothManager? =

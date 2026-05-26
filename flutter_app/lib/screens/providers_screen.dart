@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../app.dart';
+import '../design/components.dart';
+import '../design/tokens.dart';
 import '../models/ai_provider.dart';
 import '../services/provider_config_service.dart';
 import 'provider_detail_screen.dart';
@@ -172,39 +173,15 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                         ),
                         if (status.isNotEmpty) ...[
                           const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: statusColor.withAlpha(20),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              status,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: statusColor,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 11,
-                              ),
-                            ),
+                          StatusBadge(
+                            color: statusColor,
+                            label: status,
+                            icon: Icons.check_circle,
                           ),
                         ],
                         if (isConfigured && status.isEmpty) ...[
                           const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.mutedText.withAlpha(20),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              'Configurado',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: AppColors.mutedText,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ),
+                          StatusBadge.inactive('Configurado'),
                         ],
                       ],
                     ),

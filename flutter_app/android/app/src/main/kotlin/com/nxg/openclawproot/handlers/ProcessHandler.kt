@@ -46,10 +46,11 @@ class ProcessHandler(
             }
             "extractRootfs" -> {
                 val tarPath = call.argument<String>("tarPath")
+                val sha256 = call.argument<String>("sha256")
                 if (tarPath != null) {
                     executor.execute {
                         try {
-                            bootstrapManager.extractRootfs(tarPath)
+                            bootstrapManager.extractRootfs(tarPath, sha256)
                             activity.runOnUiThread { result.success(true) }
                         } catch (e: Exception) {
                             activity.runOnUiThread { result.error("EXTRACT_ERROR", e.message, null) }
@@ -119,6 +120,11 @@ class ProcessHandler(
             }
             "isTerminalServiceRunning" -> {
                 result.success(TerminalSessionService.isRunning)
+                return true
+            }
+            "renewTerminalWakeLock" -> {
+                TerminalSessionService.renewWakeLock(context)
+                result.success(true)
                 return true
             }
             "startNodeService" -> {

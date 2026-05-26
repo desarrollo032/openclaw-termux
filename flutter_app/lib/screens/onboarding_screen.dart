@@ -1,27 +1,13 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:xterm/xterm.dart';
-import '../native/openclaw_native.dart';
-import '../native/openclaw_pty.dart';
-import '../constants.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../services/native_bridge.dart';
-import '../services/screenshot_service.dart';
 import '../services/terminal_service.dart';
 import '../services/preferences_service.dart';
-import '../widgets/terminal_toolbar.dart';
+import '../widgets/terminal_view_module.dart';
 import 'dashboard_screen.dart';
 
-/// Runs `openclaw onboard` in a terminal so the user can configure
-/// API keys and select loopback binding. Shown after first-time setup
-/// and accessible from the dashboard for re-configuration.
 class OnboardingScreen extends StatefulWidget {
-  /// If true, shows a "Go to Dashboard" button when onboarding exits.
-  /// Used after first-time setup. If false, just pops back.
   final bool isFirstRun;
-
   const OnboardingScreen({super.key, this.isFirstRun = false});
 
   @override
@@ -29,93 +15,26 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  late final Terminal _terminal;
-  late final TerminalController _controller;
-  int? _sessionId;
-  StreamSubscription<Map<String, dynamic>>? _ptySubscription;
-  bool _loading = true;
+  final _terminalModuleKey = GlobalKey<TerminalViewModuleState>();
+  bool _initialized = false;
   bool _finished = false;
-  String? _error;
-  final _ctrlNotifier = ValueNotifier<bool>(false);
-  final _altNotifier = ValueNotifier<bool>(false);
-  final _screenshotKey = GlobalKey();
-  static final _anyUrlRegex = RegExp(r'https?://[^\s<>\[\]"' "'" r'\)]+');
-  static final _tokenUrlRegex =
-      RegExp(r'https?://(?:localhost|127\.0\.0\.1):18789/#token=[0-9a-f]+');
-  static final _ansiEscape = AppConstants.ansiEscape;
+  String _shell = '';
+  List<String> _args = [];
+  Map<String, String> _env = {};
 
-  /// Box-drawing and other TUI characters that break URLs when copied
-  static final _boxDrawing = RegExp(r'[│┤├┬┴┼╮╯╰╭─╌╴╶┌┐└┘◇◆]+');
-  static final _completionPattern = RegExp(
-    r'onboard(ing)?\s+(is\s+)?complete|successfully\s+onboarded|setup\s+complete',
-    caseSensitive: false,
-  );
-  String _outputBuffer = '';
-
-  static const _fontFallback = [
-    'monospace',
-    'Noto Sans Mono',
-    'Noto Color Emoji',
-    'Noto Sans Symbols',
-    'sans-serif',
-  ];
+  final _tokenUrlRegex = RegExp(r'https?://(?:localhost|127\.0\.0\.1):18789/#token=[0-9a-f]+');
 
   @override
   void initState() {
     super.initState();
-    _terminal = Terminal(maxLines: 2000);
-    _controller = TerminalController();
     NativeBridge.startTerminalService();
-    // Defer PTY start until after the first frame so TerminalView has been
-    // laid out and _terminal.viewWidth/viewHeight reflect real screen
-    // dimensions instead of the 80×24 default. This is critical for QR
-    // codes — the shell must know the actual column count to avoid wrapping.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startOnboarding();
-    });
+    _prepareConfig();
   }
 
-  Future<void> _startOnboarding() async {
-    await _ptySubscription?.cancel();
-    _ptySubscription = null;
-    final prevSession = _sessionId;
-    _sessionId = null;
-    if (prevSession != null) {
-      await OpenClawPty.close(prevSession);
-    }
+  Future<void> _prepareConfig() async {
     try {
-      // Ensure dirs + resolv.conf exist before proot starts (#40).
-      try {
-        await NativeBridge.setupDirs();
-      } catch (_) {}
-      try {
-        await NativeBridge.writeResolv();
-      } catch (_) {}
-      try {
-        final filesDir = await NativeBridge.getFilesDir();
-        const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
-        final resolvFile = File('$filesDir/config/resolv.conf');
-        if (!resolvFile.existsSync()) {
-          Directory('$filesDir/config').createSync(recursive: true);
-          resolvFile.writeAsStringSync(resolvContent);
-        }
-        // Also write into rootfs /etc/ so DNS works even if bind-mount fails
-        final rootfsResolv = File('$filesDir/rootfs/ubuntu/etc/resolv.conf');
-        if (!rootfsResolv.existsSync()) {
-          rootfsResolv.parent.createSync(recursive: true);
-          rootfsResolv.writeAsStringSync(resolvContent);
-        }
-      } catch (_) {}
       final config = await TerminalService.getProotShellConfig();
-      final args = TerminalService.buildProotArgs(
-        config,
-        columns: _terminal.viewWidth,
-        rows: _terminal.viewHeight,
-      );
-
-      // Replace the login shell with a command that runs onboarding.
-      // buildProotArgs ends with [..., '/bin/bash', '-l']
-      // Replace with [..., '/bin/bash', '-lc', 'openclaw onboard']
+      final args = TerminalService.buildProotArgs(config, columns: 80, rows: 24);
 
       final onboardingArgs = List<String>.from(args);
       onboardingArgs.removeLast(); // remove '-l'
@@ -123,101 +42,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       onboardingArgs.addAll([
         '/bin/bash',
         '-lc',
-        'echo "=== OpenClaw Onboarding ===" && '
-            'echo "Configure your API keys and binding settings." && '
-            'echo "TIP: Select Loopback (127.0.0.1) when asked for binding!" && '
-            'echo "" && '
-            'openclaw onboard; '
-            'echo "" && echo "Onboarding complete! You can close this screen."',
+        'echo "=== OpenClaw Onboarding === && openclaw onboard; echo "Onboarding complete!"',
       ]);
 
-      final executable = config['executable'] as String;
-      final sessionId = await OpenClawPty.start(
-        shell: executable,
-        arguments: onboardingArgs,
-        // Host-side env: only proot-specific vars.
-        // Guest env is set via env -i in buildProotArgs.
-        environment: TerminalService.buildHostEnv(config),
-        rows: _terminal.viewHeight,
-        columns: _terminal.viewWidth,
-      );
-      _sessionId = sessionId;
-
-      _ptySubscription = OpenClawPty.events(sessionId).listen((event) {
-        switch (event['type']) {
-          case 'output':
-            final raw = event['data'] as Uint8List;
-            final text = utf8.decode(raw, allowMalformed: true);
-            _terminal.write(text);
-            // Scan output for token URL (e.g. http://localhost:18789/#token=...)
-            _outputBuffer += text;
-            // Keep buffer manageable
-            if (_outputBuffer.length > 4096) {
-              _outputBuffer = _outputBuffer.substring(_outputBuffer.length - 2048);
-            }
-            // Strip ANSI escape codes for text analysis
-            final cleanText = _outputBuffer.replaceAll(_ansiEscape, '');
-            // For URL matching, strip whitespace + box-drawing chars
-            final cleanForUrl = cleanText
-                .replaceAll(_boxDrawing, '')
-                .replaceAll(RegExp(r'\s+'), '');
-            // Save token URL to preferences if found
-            final tokenMatch = _tokenUrlRegex.firstMatch(cleanForUrl);
-            if (tokenMatch != null) {
-              _saveTokenUrl(tokenMatch.group(0) ?? '');
-            }
-            // Detect onboarding completion from output text
-            if (!_finished && _completionPattern.hasMatch(cleanText)) {
-              if (mounted) {
-                setState(() => _finished = true);
-              }
-            }
-            break;
-          case 'exit':
-            final code = event['exitCode'] as int;
-            _terminal.write('\r\n[Onboarding exited with code $code]\r\n');
-            if (mounted) {
-              setState(() => _finished = true);
-            }
-            break;
-          case 'error':
-            _terminal.write('\r\n[Error: ${event['message']}]\r\n');
-            break;
-        }
-      });
-
-      _terminal.onOutput = (data) {
-        final sid = _sessionId;
-        if (sid == null) return;
-        if (_ctrlNotifier.value && data.length == 1) {
-          final code = data.toLowerCase().codeUnitAt(0);
-          if (code >= 97 && code <= 122) {
-            OpenClawPty.write(sid, Uint8List.fromList([code - 96]));
-            _ctrlNotifier.value = false;
-            return;
-          }
-        }
-        if (_altNotifier.value && data.isNotEmpty) {
-          OpenClawPty.write(sid, Uint8List.fromList(utf8.encode('\x1b$data')));
-          _altNotifier.value = false;
-          return;
-        }
-        OpenClawPty.write(sid, Uint8List.fromList(utf8.encode(data)));
-      };
-
-      _terminal.onResize = (w, h, pw, ph) {
-        final sid = _sessionId;
-        if (sid != null) {
-          OpenClawPty.resize(sid, h, w);
-        }
-      };
-
-      setState(() => _loading = false);
-    } catch (e) {
       setState(() {
-        _loading = false;
-        _error = 'Failed to start onboarding: $e';
+        _shell = config['executable'] as String;
+        _args = onboardingArgs;
+        _env = TerminalService.buildHostEnv(config);
+        _initialized = true;
       });
+    } catch (e) {
+      debugPrint('Error preparing onboarding: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    NativeBridge.stopTerminalService();
+    super.dispose();
+  }
+
+  void _handleOutput(String text) {
+    final tokenMatch = _tokenUrlRegex.firstMatch(text.replaceAll(RegExp(r'\s+'), ''));
+    if (tokenMatch != null) {
+      _saveTokenUrl(tokenMatch.group(0) ?? '');
+    }
+
+    if (!_finished && (text.contains('Onboarding complete') || text.contains('setup complete'))) {
+      setState(() => _finished = true);
     }
   }
 
@@ -227,394 +79,87 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     prefs.dashboardUrl = url;
   }
 
-  @override
-  void dispose() {
-    _ctrlNotifier.dispose();
-    _altNotifier.dispose();
-    _controller.dispose();
-    _ptySubscription?.cancel();
-    _ptySubscription = null;
-    final sid = _sessionId;
-    _sessionId = null;
-    if (sid != null) {
-      OpenClawPty.close(sid);
-    }
-    NativeBridge.stopTerminalService();
-    super.dispose();
-  }
-
-  String? _getSelectedText() {
-    final selection = _controller.selection;
-    if (selection == null || selection.isCollapsed) return null;
-
-    final range = selection.normalized;
-    final sb = StringBuffer();
-    for (int y = range.begin.y; y <= range.end.y; y++) {
-      if (y >= _terminal.buffer.lines.length) break;
-      final line = _terminal.buffer.lines[y];
-      final from = (y == range.begin.y) ? range.begin.x : 0;
-      final to = (y == range.end.y) ? range.end.x : null;
-      sb.write(line.getText(from, to));
-      if (y < range.end.y) sb.writeln();
-    }
-    final text = sb.toString().trim();
-    return text.isEmpty ? null : text;
-  }
-
-  /// Extract a clean URL from selected text by stripping box-drawing
-  /// chars and rejoining lines, but splitting on `http` boundaries
-  /// so concatenated URLs don't merge into one.
-  String? _extractUrl(String text) {
-    final clean =
-        text.replaceAll(_boxDrawing, '').replaceAll(RegExp(r'\s+'), '');
-    // Split before each http(s):// so concatenated URLs become separate
-    final parts = clean.split(RegExp(r'(?=https?://)'));
-    // Return the longest URL match (token URLs are longest)
-    String? best;
-    for (final part in parts) {
-      final match = _anyUrlRegex.firstMatch(part);
-      if (match != null) {
-        final url = match.group(0) ?? '';
-        if (best == null || url.length > best.length) {
-          best = url;
-        }
-      }
-    }
-    return best;
-  }
-
-  void _copySelection() {
-    final text = _getSelectedText();
-    if (text == null) return;
-
-    Clipboard.setData(ClipboardData(text: text));
-
-    // If the copied text contains a URL, offer "Open" action
-    final url = _extractUrl(text);
-    if (url != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Copiado al portapapeles'),
-          duration: const Duration(seconds: 3),
-          action: SnackBarAction(
-            label: 'Open',
-            onPressed: () {
-              final uri = Uri.tryParse(url);
-              if (uri != null) {
-                OpenClawNative.openUrl(uri.toString());
-              }
-            },
-          ),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Copied to clipboard'),
-          duration: Duration(seconds: 1),
-        ),
-      );
-    }
-  }
-
-  void _openSelection() {
-    final text = _getSelectedText();
-    if (text == null) return;
-
-    final url = _extractUrl(text);
-    if (url != null) {
-      final uri = Uri.tryParse(url);
-      if (uri != null) {
-        OpenClawNative.openUrl(uri.toString());
-        return;
-      }
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('No URL found in selection'),
-        duration: Duration(seconds: 1),
-      ),
-    );
-  }
-
-  Future<void> _paste() async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    final text = data?.text;
-    if (text != null && text.isNotEmpty) {
-      if (_sessionId != null) {
-        OpenClawPty.write(_sessionId!, Uint8List.fromList(utf8.encode(text)));
-      }
-    }
-  }
-
-  Future<void> _takeScreenshot() async {
-    final path =
-        await ScreenshotService.capture(_screenshotKey, prefix: 'onboarding');
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(path != null
-            ? 'Screenshot saved: ${path.split('/').last}'
-            : 'Failed to capture screenshot'),
-      ),
-    );
-  }
-
-  void _handleTap(TapUpDetails details, CellOffset offset) {
-    // Join adjacent lines and extract URL, handling wrapped URLs
-    // and TUI box-drawing characters.
-    final totalLines = _terminal.buffer.lines.length;
-    final startRow = (offset.y - 2).clamp(0, totalLines - 1);
-    final endRow = (offset.y + 2).clamp(0, totalLines - 1);
-
-    final sb = StringBuffer();
-    for (int row = startRow; row <= endRow; row++) {
-      sb.write(_getLineText(row).trimRight());
-    }
-    final url = _extractUrl(sb.toString());
-    if (url != null) {
-      _openUrl(url);
-    }
-  }
-
-  String _getLineText(int row) {
-    try {
-      final line = _terminal.buffer.lines[row];
-      final sb = StringBuffer();
-      for (int i = 0; i < line.length; i++) {
-        final char = line.getCodePoint(i);
-        if (char != 0) {
-          sb.writeCharCode(char);
-        }
-      }
-      return sb.toString();
-    } catch (_) {
-      return '';
-    }
-  }
-
-  Future<void> _openUrl(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
-
-    final shouldOpen = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Abrir Enlace'),
-        content: Text(url),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: url));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Enlace copiado'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-              Navigator.pop(ctx, false);
-            },
-            child: const Text('Copiar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Abrir'),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldOpen == true) {
-      await OpenClawNative.openUrl(uri.toString());
-    }
-  }
-
   Future<void> _goToDashboard() async {
-    final navigator = Navigator.of(context);
     final prefs = PreferencesService();
     await prefs.init();
     prefs.setupComplete = true;
     prefs.isFirstRun = false;
-
     if (mounted) {
-      navigator.pushReplacement(
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
-      );
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const DashboardScreen()));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Configuración Inicial'),
-        leading: widget.isFirstRun
-            ? null // no back button during first-run
-            : IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.of(context).pop(),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withAlpha(20),
+                borderRadius: BorderRadius.circular(8),
               ),
-        automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.camera_alt_outlined),
-            tooltip: 'Captura de pantalla',
-            onPressed: _takeScreenshot,
-          ),
-          IconButton(
-            icon: const Icon(Icons.copy),
-            tooltip: 'Copiar',
-            onPressed: _copySelection,
-          ),
-          IconButton(
-            icon: const Icon(Icons.open_in_browser),
-            tooltip: 'Abrir URL',
-            onPressed: _openSelection,
-          ),
-          IconButton(
-            icon: const Icon(Icons.paste),
-            tooltip: 'Pegar',
-            onPressed: _paste,
-          ),
-        ],
+              child: Icon(
+                Icons.rocket_launch_outlined,
+                size: 16,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text('Configuración Inicial'),
+          ],
+        ),
       ),
       body: SafeArea(
         child: Column(
-        children: [
-          if (_loading)
+          children: [
             Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color:
-                            theme.colorScheme.primary.withAlpha(15),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const SizedBox(
-                        width: 28,
-                        height: 28,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                        ),
-                      ),
+              child: !_initialized
+                  ? const Center(child: CircularProgressIndicator())
+                  : TerminalViewModule(
+                      key: _terminalModuleKey,
+                      shell: _shell,
+                      arguments: _args,
+                      environment: _env,
+                      onOutput: _handleOutput,
+                      onExit: (_) => setState(() => _finished = true),
+                    ).animate().fadeIn(
+                      duration: 300.ms,
+                      curve: Curves.easeOut,
                     ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Iniciando configuración…',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                            color:
-                                theme.colorScheme.onSurfaceVariant,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else if (_error != null)
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color:
-                              theme.colorScheme.error.withAlpha(15),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Icon(
-                          Icons.error_outline,
-                          size: 48,
-                          color: theme.colorScheme.error,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'Error al iniciar',
-                        style:
-                            theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _error ?? '',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                      ),
-                      const SizedBox(height: 24),
-                      FilledButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _loading = true;
-                            _error = null;
-                            _finished = false;
-                          });
-                          _startOnboarding();
-                        },
-                        icon: const Icon(Icons.refresh, size: 18),
-                        label: const Text('Reintentar'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            )
-          else ...[
-            Expanded(
-              child: RepaintBoundary(
-                key: _screenshotKey,
-                child: TerminalView(
-                  _terminal,
-                  controller: _controller,
-                  textStyle: const TerminalStyle(
-                    fontSize: 11,
-                    height: 1.0,
-                    fontFamily: 'DejaVuSansMono',
-                    fontFamilyFallback: _fontFallback,
-                  ),
-                  onTapUp: _handleTap,
-                ),
-              ),
             ),
-            TerminalToolbar(
-              sessionId: _sessionId,
-              ctrlNotifier: _ctrlNotifier,
-              altNotifier: _altNotifier,
-            ),
-          ],
-          if (_finished)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: SizedBox(
+            if (_finished)
+              Container(
                 width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: widget.isFirstRun
-                      ? _goToDashboard
-                      : () => Navigator.of(context).pop(),
-                  icon: Icon(
-                      widget.isFirstRun ? Icons.arrow_forward : Icons.check,
-                      size: 18),
-                  label: Text(widget.isFirstRun ? 'Ir al Panel' : 'Listo'),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(
+                      color: theme.dividerTheme.color ?? theme.colorScheme.outline.withAlpha(40),
+                    ),
+                  ),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: widget.isFirstRun ? _goToDashboard : () => Navigator.pop(context),
+                    icon: Icon(widget.isFirstRun ? Icons.arrow_forward : Icons.check),
+                    label: Text(widget.isFirstRun ? 'Ir al Panel' : 'Listo'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }

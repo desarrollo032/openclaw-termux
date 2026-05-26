@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../constants.dart';
+import '../design/components.dart';
 import '../native/openclaw_native.dart';
 import '../services/preferences_service.dart';
 
@@ -36,7 +38,7 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
       final opened = await OpenClawNative.openWebDashboard(finalUrl);
       if (!opened && mounted) {
         setState(() {
-          _error = 'Could not open web dashboard';
+          _error = 'No se pudo abrir el panel web';
         });
       }
     } catch (e) {
@@ -54,78 +56,62 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Panel Web'),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withAlpha(20),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.open_in_browser,
+                size: 16,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text('Panel Web'),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
+            tooltip: 'Reintentar',
             onPressed: _loadAndOpen,
           ),
         ],
       ),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withAlpha(15),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Icon(
-                    Icons.open_in_browser,
-                    size: 48,
-                    color: theme.colorScheme.primary,
-                  ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: ErrorBox(message: _error!),
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  'Panel Web Abierto',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _currentUrl ?? 'Cargando...',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _error!,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.error,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    FilledButton.icon(
-                      onPressed: _loadAndOpen,
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Abrir de nuevo'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.arrow_back, size: 18),
-                      label: const Text('Volver'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              Expanded(
+                child: _currentUrl != null
+                    ? Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          EmptyState(
+                            icon: Icons.open_in_browser,
+                            title: 'Panel Web Abierto',
+                            subtitle: _currentUrl,
+                            actionLabel: 'Abrir de nuevo',
+                            onAction: _loadAndOpen,
+                          ).animate().fadeIn(
+                            duration: 300.ms,
+                            curve: Curves.easeOut,
+                          ),
+                        ],
+                      )
+                    : const Center(child: CircularProgressIndicator()),
+              ),
+            ],
           ),
         ),
       ),

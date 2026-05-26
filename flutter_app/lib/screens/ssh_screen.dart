@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../app.dart';
+import '../design/components.dart';
+import '../design/tokens.dart';
 import '../services/ssh_service.dart';
 import 'packages_screen.dart';
 
@@ -339,29 +340,7 @@ class _SshScreenState extends State<SshScreen> {
   }
 
   Widget _card(ThemeData theme, List<Widget> children, {required String title, required IconData icon}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Row(
-            children: [
-              Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
-              const SizedBox(width: 6),
-              Text(
-                title,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Card(margin: EdgeInsets.zero, child: Column(children: children)),
-      ],
-    );
+    return SettingsCard(title: title, icon: icon, children: children);
   }
 
   Widget _infoRow(ThemeData theme, String label, String value) {

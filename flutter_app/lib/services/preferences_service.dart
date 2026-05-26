@@ -1,6 +1,10 @@
 import '../native/openclaw_native.dart';
 
 class PreferencesService {
+  static final PreferencesService _instance = PreferencesService._internal();
+  factory PreferencesService() => _instance;
+  PreferencesService._internal();
+
   static const _keyAutoStart = 'auto_start_gateway';
   static const _keySetupComplete = 'setup_complete';
   static const _keyFirstRun = 'first_run';
@@ -13,7 +17,7 @@ class PreferencesService {
   static const _keyNodeGatewayToken = 'node_gateway_token';
   static const _keyLastAppVersion = 'last_app_version';
 
-  // Cached values loaded in init()
+  // Cached values for zero-latency access
   bool _autoStartGateway = false;
   bool _setupComplete = false;
   bool _isFirstRun = true;
@@ -25,8 +29,12 @@ class PreferencesService {
   String? _nodePublicKey;
   String? _nodeGatewayToken;
   String? _lastAppVersion;
+  
+  bool _initialized = false;
 
   Future<void> init() async {
+    if (_initialized) return;
+    
     _autoStartGateway = await OpenClawNative.getBool(_keyAutoStart);
     _setupComplete = await OpenClawNative.getBool(_keySetupComplete);
     _isFirstRun = await OpenClawNative.getBool(_keyFirstRun);
@@ -38,28 +46,34 @@ class PreferencesService {
     _nodePublicKey = await OpenClawNative.getString(_keyNodePublicKey);
     _nodeGatewayToken = await OpenClawNative.getString(_keyNodeGatewayToken);
     _lastAppVersion = await OpenClawNative.getString(_keyLastAppVersion);
+    
+    _initialized = true;
   }
 
   bool get autoStartGateway => _autoStartGateway;
   set autoStartGateway(bool value) {
+    if (_autoStartGateway == value) return;
     _autoStartGateway = value;
     OpenClawNative.saveBool(_keyAutoStart, value);
   }
 
   bool get setupComplete => _setupComplete;
   set setupComplete(bool value) {
+    if (_setupComplete == value) return;
     _setupComplete = value;
     OpenClawNative.saveBool(_keySetupComplete, value);
   }
 
   bool get isFirstRun => _isFirstRun;
   set isFirstRun(bool value) {
+    if (_isFirstRun == value) return;
     _isFirstRun = value;
     OpenClawNative.saveBool(_keyFirstRun, value);
   }
 
   String? get dashboardUrl => _dashboardUrl;
   set dashboardUrl(String? value) {
+    if (_dashboardUrl == value) return;
     _dashboardUrl = value;
     if (value != null) {
       OpenClawNative.saveString(_keyDashboardUrl, value);
@@ -70,12 +84,14 @@ class PreferencesService {
 
   bool get nodeEnabled => _nodeEnabled;
   set nodeEnabled(bool value) {
+    if (_nodeEnabled == value) return;
     _nodeEnabled = value;
     OpenClawNative.saveBool(_keyNodeEnabled, value);
   }
 
   String? get nodeDeviceToken => _nodeDeviceToken;
   set nodeDeviceToken(String? value) {
+    if (_nodeDeviceToken == value) return;
     _nodeDeviceToken = value;
     if (value != null) {
       OpenClawNative.saveString(_keyNodeDeviceToken, value);
@@ -86,6 +102,7 @@ class PreferencesService {
 
   String? get nodeGatewayHost => _nodeGatewayHost;
   set nodeGatewayHost(String? value) {
+    if (_nodeGatewayHost == value) return;
     _nodeGatewayHost = value;
     if (value != null) {
       OpenClawNative.saveString(_keyNodeGatewayHost, value);
@@ -98,6 +115,7 @@ class PreferencesService {
 
   String? get nodeGatewayToken => _nodeGatewayToken;
   set nodeGatewayToken(String? value) {
+    if (_nodeGatewayToken == value) return;
     _nodeGatewayToken = value;
     if (value != null && value.isNotEmpty) {
       OpenClawNative.saveString(_keyNodeGatewayToken, value);
@@ -108,6 +126,7 @@ class PreferencesService {
 
   String? get lastAppVersion => _lastAppVersion;
   set lastAppVersion(String? value) {
+    if (_lastAppVersion == value) return;
     _lastAppVersion = value;
     if (value != null) {
       OpenClawNative.saveString(_keyLastAppVersion, value);
@@ -118,6 +137,7 @@ class PreferencesService {
 
   int? get nodeGatewayPort => _nodeGatewayPort;
   set nodeGatewayPort(int? value) {
+    if (_nodeGatewayPort == value) return;
     _nodeGatewayPort = value;
     if (value != null) {
       OpenClawNative.saveInt(_keyNodeGatewayPort, value);

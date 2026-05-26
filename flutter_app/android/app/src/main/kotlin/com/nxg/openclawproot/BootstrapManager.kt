@@ -1,5 +1,6 @@
 package com.nxg.openclawproot
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.LinkProperties
@@ -10,6 +11,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.security.MessageDigest
 import java.util.zip.GZIPInputStream
 import org.apache.commons.compress.archivers.ar.ArArchiveInputStream
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
@@ -17,6 +19,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.xz.XZCompressorInputStream
 import org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream
 
+@SuppressLint("SetWorldReadable", "SetWorldWritable", "SdCardPath")
 class BootstrapManager(
     private val context: Context,
     private val filesDir: String,
@@ -79,6 +82,29 @@ class BootstrapManager(
     }
 
     fun extractRootfs(tarPath: String) {
+        extractRootfs(tarPath, null)
+    }
+
+    fun extractRootfs(tarPath: String, expectedSha256: String? = null) {
+        val tarFile = File(tarPath)
+        
+        // 1. Verify SHA256 if provided — log warning on mismatch, never block installation.
+        //    Ubuntu may update the tarball (same filename, new content) between releases,
+        //    making the hardcoded hash stale (#114).
+        if (expectedSha256 != null) {
+            try {
+                val actualSha256 = calculateSha256(tarFile)
+                if (actualSha256 != expectedSha256.lowercase()) {
+                    android.util.Log.w("BootstrapManager",
+                        "SHA256 mismatch (non-fatal, continuing): " +
+                        "expected=$expectedSha256, actual=$actualSha256")
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("BootstrapManager",
+                    "SHA256 verification skipped: ${e.message}")
+            }
+        }
+
         val rootfs = File(rootfsDir)
         // Clean up any previous failed extraction
         if (rootfs.exists()) {
@@ -1308,6 +1334,7 @@ require('/root/.openclaw/proot-compat.js');
      * Read DNS servers from Android's active network. Falls back to
      * Google DNS (8.8.8.8, 8.8.4.4) if system DNS is unavailable (#60).
      */
+    @SuppressLint("MissingPermission")
     private fun getSystemDnsServers(): String {
         try {
             val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
@@ -1318,13 +1345,13 @@ require('/root/.openclaw/proot-compat.js');
                     val dnsServers = linkProps?.dnsServers
                     if (dnsServers != null && dnsServers.isNotEmpty()) {
                         val lines = dnsServers.joinToString("\n") { "nameserver ${it.hostAddress}" }
-                        // Always append Google DNS as fallback
-                        return "$lines\nnameserver 8.8.8.8\n"
+                        // Always append Google + Cloudflare DNS as fallback
+                        return "$lines\nnameserver 8.8.8.8\nnameserver 1.1.1.1\n"
                     }
                 }
             }
         } catch (_: Exception) {}
-        return "nameserver 8.8.8.8\nnameserver 8.8.4.4\n"
+        return "nameserver 8.8.8.8\nnameserver 1.1.1.1\nnameserver 8.8.4.4\nnameserver 1.0.0.1\n"
     }
 
     fun writeResolvConf() {
@@ -1467,5 +1494,18 @@ require('/root/.openclaw/proot-compat.js');
         } catch (e: Exception) {
             false
         }
+    }
+
+    private fun calculateSha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        FileInputStream(file).use { fis ->
+            val buffer = ByteArray(8192)
+            var bytesRead = fis.read(buffer)
+            while (bytesRead != -1) {
+                digest.update(buffer, 0, bytesRead)
+                bytesRead = fis.read(buffer)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 }

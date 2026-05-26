@@ -7,13 +7,12 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 
 class SetupService : Service() {
     companion object {
-        const val CHANNEL_ID = "openclaw_setup"
+        const val CHANNEL_ID = "openclaw_services"
         const val NOTIFICATION_ID = 4
         var isRunning = false
             private set
@@ -21,11 +20,7 @@ class SetupService : Service() {
 
         fun start(context: Context) {
             val intent = Intent(context, SetupService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startForegroundService(intent)
         }
 
         fun stop(context: Context) {
@@ -83,17 +78,16 @@ class SetupService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "OpenClaw Setup",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Shows progress during OpenClaw environment setup"
-            }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "Services",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "OpenClaw background services"
+            setShowBadge(false)
         }
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(channel)
     }
 
     /**
@@ -107,18 +101,14 @@ class SetupService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, CHANNEL_ID)
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-        }
+        val builder = Notification.Builder(this, CHANNEL_ID)
 
-        builder.setContentTitle("OpenClaw Setup")
+        builder.setContentTitle("Setup")
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
 
         if (progress in 0..100) {
             builder.setProgress(100, progress, false)

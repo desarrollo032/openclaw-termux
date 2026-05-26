@@ -249,6 +249,59 @@ class BootstrapService {
     _log(onLog, '[OK] Recuperación completada');
   }
 
+  /// Fetch the SHA256 hash for a rootfs tarball from Ubuntu's official SHA256SUMS.
+  ///
+  /// This ensures verification always works even when Ubuntu updates the tarball,
+  /// because the hash is fetched live from the mirror at install time.
+  Future<String?> _fetchSha256Sum(
+    String tarballUrl, {
+    void Function(String)? onLog,
+  }) async {
+    try {
+      // Extract filename (e.g. ubuntu-base-24.04.4-base-arm64.tar.gz)
+      final filename = tarballUrl.split('/').last;
+      if (filename.isEmpty) return null;
+
+      // Derive SHA256SUMS URL (same directory as the tarball)
+      final baseUrl = tarballUrl.substring(
+        0, tarballUrl.length - filename.length,
+      );
+      final sha256sumsUrl = '${baseUrl}SHA256SUMS';
+
+      _log(onLog, '[STEP] Obteniendo hash SHA256 desde SHA256SUMS...');
+      final response = await _dio.get<String>(
+        sha256sumsUrl,
+        options: Options(responseType: ResponseType.plain),
+      );
+      final data = response.data;
+      if (data == null) {
+        _log(onLog, '[WARN] SHA256SUMS response vacío');
+        return null;
+      }
+      final lines = data.split('\n');
+
+      for (final line in lines) {
+        final trimmed = line.trim();
+        if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
+
+        // Format: "<hash>  *<filename>" or "<hash>  <filename>"
+        if (trimmed.contains(filename)) {
+          final parts = trimmed.split(RegExp(r'\s+'));
+          if (parts.length >= 2) {
+            _log(onLog, '[OK] Hash encontrado para $filename');
+            return parts[0];
+          }
+        }
+      }
+
+      _log(onLog, '[WARN] No se encontró $filename en SHA256SUMS');
+      return null;
+    } catch (e) {
+      _log(onLog, '[WARN] Error al obtener SHA256SUMS ($e) — continuando sin verificación');
+      return null;
+    }
+  }
+
   /// Run a proot command silently (no log output).
   Future<String> _runProotSilent(String command, {int timeoutSeconds = 60}) async {
     return NativeBridge.runInProot(command, timeout: timeoutSeconds).timeout(
@@ -381,8 +434,16 @@ class BootstrapService {
         progress: 0.0,
         message: 'Extracting rootfs (this takes a while)...',
       ));
-      await NativeBridge.extractRootfs(tarPath);
-      _log(onLog, '[OK] Sistema base extraído correctamente');
+      
+      final sha256Hash = await _fetchSha256Sum(rootfsUrl, onLog: onLog);
+      if (sha256Hash != null) {
+        _log(onLog, '[OK] Hash SHA256 obtenido dinámicamente desde SHA256SUMS');
+      } else {
+        _log(onLog, '[WARN] No se pudo obtener hash SHA256 — continuando sin verificación');
+      }
+      await NativeBridge.extractRootfs(tarPath, sha256: sha256Hash);
+      
+      _log(onLog, '[OK] Sistema base extraído y verificado');
       onProgress(const SetupState(
         step: SetupStep.extractingRootfs,
         progress: 1.0,

@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -21,7 +20,7 @@ import java.net.Socket
 
 class GatewayService : Service() {
     companion object {
-        const val CHANNEL_ID = "openclaw_gateway"
+        const val CHANNEL_ID = "openclaw_services"
         const val NOTIFICATION_ID = 1
         var isRunning = false
             private set
@@ -49,11 +48,7 @@ class GatewayService : Service() {
 
         fun start(context: Context) {
             val intent = Intent(context, GatewayService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startForegroundService(intent)
         }
 
         fun stop(context: Context) {
@@ -398,17 +393,16 @@ class GatewayService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "OpenClaw Gateway",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Keeps the OpenClaw gateway running in the background"
-            }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "Services",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "OpenClaw background services"
+            setShowBadge(false)
         }
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(channel)
     }
 
     private fun buildNotification(text: String): Notification {
@@ -418,25 +412,14 @@ class GatewayService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, CHANNEL_ID)
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-        }
+        val builder = Notification.Builder(this, CHANNEL_ID)
 
-        builder.setContentTitle("OpenClaw Gateway")
+        builder.setContentTitle("Gateway")
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
-
-        // Show elapsed time chronometer when running
-        if (isRunning && startTime > 0) {
-            builder.setWhen(startTime)
-            builder.setShowWhen(true)
-            builder.setUsesChronometer(true)
-        }
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
 
         return builder.build()
     }

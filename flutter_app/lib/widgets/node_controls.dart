@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../app.dart';
+import '../design/components.dart';
+import '../design/tokens.dart';
 import '../models/node_state.dart';
 import '../providers/node_provider.dart';
 import '../screens/node_screen.dart';
@@ -56,7 +57,7 @@ class NodeControls extends StatelessWidget {
                         ],
                       ),
                     ),
-                    _statusBadge(state.status, theme),
+                    _statusBadge(state.status),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -187,58 +188,24 @@ class NodeControls extends StatelessWidget {
     );
   }
 
-  Widget _statusBadge(NodeStatus status, ThemeData theme) {
-    Color color;
-    String label;
-    IconData icon;
-
+  Widget _statusBadge(NodeStatus status) {
     switch (status) {
       case NodeStatus.paired:
-        color = AppColors.statusGreen;
-        label = 'Vinculado';
-        icon = Icons.check_circle;
+        return StatusBadge.active('Vinculado');
       case NodeStatus.connecting:
       case NodeStatus.challenging:
       case NodeStatus.pairing:
-        color = AppColors.statusAmber;
-        label = 'Conectando';
-        icon = Icons.hourglass_top;
+        return StatusBadge.loading('Conectando');
       case NodeStatus.error:
-        color = AppColors.statusRed;
-        label = 'Error';
-        icon = Icons.error_outline;
+        return StatusBadge.error('Error');
       case NodeStatus.disabled:
-        color = AppColors.statusGrey;
-        label = 'Deshabilitado';
-        icon = Icons.circle_outlined;
+        return StatusBadge.inactive('Deshabilitado');
       case NodeStatus.disconnected:
-        color = AppColors.statusGrey;
-        label = 'Sin conexión';
-        icon = Icons.link_off;
+        return const StatusBadge(
+          color: AppColors.statusGrey,
+          label: 'Sin conexión',
+          icon: Icons.link_off,
+        );
     }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withAlpha(20),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withAlpha(50)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.3,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

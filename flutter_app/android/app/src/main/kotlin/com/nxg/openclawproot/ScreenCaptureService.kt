@@ -129,39 +129,30 @@ class ScreenCaptureService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Screen Recording",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Screen recording in progress"
-            }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "Services",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "OpenClaw background services"
+            setShowBadge(false)
         }
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(channel)
     }
 
     private fun buildNotification(): Notification {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, CHANNEL_ID)
-                .setContentTitle("OpenClaw Node")
-                .setContentText("Recording screen...")
-                .setSmallIcon(android.R.drawable.ic_media_play)
-                .build()
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-                .setContentTitle("OpenClaw Node")
-                .setContentText("Recording screen...")
-                .setSmallIcon(android.R.drawable.ic_media_play)
-                .build()
-        }
+        return Notification.Builder(this, CHANNEL_ID)
+            .setContentTitle("Capture")
+            .setContentText("Recording...")
+            .setSmallIcon(R.drawable.ic_notification)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .build()
     }
 
     companion object {
         const val NOTIFICATION_ID = 6
-        const val CHANNEL_ID = "openclaw_screen_capture"
+        const val CHANNEL_ID = "openclaw_services"
 
         @Volatile
         var resultPath: String? = null

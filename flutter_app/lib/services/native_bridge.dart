@@ -70,8 +70,11 @@ class NativeBridge {
     return Map<String, dynamic>.from(result);
   }
 
-  static Future<bool> extractRootfs(String tarPath) async {
-    return await _channel.invokeMethod('extractRootfs', {'tarPath': tarPath});
+  static Future<bool> extractRootfs(String tarPath, {String? sha256}) async {
+    return await _channel.invokeMethod('extractRootfs', {
+      'tarPath': tarPath,
+      'sha256': sha256,
+    });
   }
 
   static Future<String> runInProot(String command, {int timeout = 900}) async {
@@ -124,6 +127,12 @@ class NativeBridge {
 
   static Future<bool> isTerminalServiceRunning() async {
     return await _channel.invokeMethod('isTerminalServiceRunning');
+  }
+
+  /// Renew the terminal wake lock with a fresh 30-second timeout.
+  /// Called on PTY output to keep CPU awake while user is actively typing.
+  static Future<bool> renewTerminalWakeLock() async {
+    return await _channel.invokeMethod('renewTerminalWakeLock');
   }
 
   static Future<bool> startNodeService() async {

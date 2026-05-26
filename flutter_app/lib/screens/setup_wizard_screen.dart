@@ -1,7 +1,9 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
-import '../app.dart';
+import '../design/components.dart';
+import '../design/tokens.dart';
 import '../constants.dart';
 import '../models/setup_state.dart';
 import '../models/optional_package.dart';
@@ -175,61 +177,13 @@ class SetupWizardScreen extends StatefulWidget {
   State<SetupWizardScreen> createState() => _SetupWizardScreenState();
 }
 
-class _SetupWizardScreenState extends State<SetupWizardScreen>
-    with TickerProviderStateMixin {
+class _SetupWizardScreenState extends State<SetupWizardScreen> {
   bool _started = false;
   Map<String, bool> _pkgStatuses = {};
-  late final AnimationController _fadeController;
-  late final Animation<double> _fadeAnimation;
-  late final Animation<Offset> _slideAnimation;
-
-  // Celebration animation
-  late final AnimationController _celebrationController;
-  late final Animation<double> _celebrationScale;
-  late final Animation<double> _celebrationRotate;
 
   @override
   void initState() {
     super.initState();
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    )..forward();
-    _fadeAnimation = CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeOutCubic,
-    );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.04),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeOutCubic,
-    ));
-
-    _celebrationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    _celebrationScale = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _celebrationController,
-        curve: Curves.elasticOut,
-      ),
-    );
-    _celebrationRotate = Tween<double>(begin: -0.1, end: 0).animate(
-      CurvedAnimation(
-        parent: _celebrationController,
-        curve: Curves.easeOut,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _fadeController.dispose();
-    _celebrationController.dispose();
-    super.dispose();
   }
 
   Future<void> _refreshPkgStatuses() async {
@@ -305,73 +259,61 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
             ),
             // Main content
             SafeArea(
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: SlideTransition(
-                  position: _slideAnimation,
-                  child: Consumer<SetupProvider>(
-                    builder: (context, provider, _) {
-                      final state = provider.state;
+              child: Consumer<SetupProvider>(
+                builder: (context, provider, _) {
+                  final state = provider.state;
 
-                      // Refresh package statuses on completion
-                      if (state.isComplete && _pkgStatuses.isEmpty) {
-                        _refreshPkgStatuses();
-                      }
+                  // Refresh package statuses on completion
+                  if (state.isComplete && _pkgStatuses.isEmpty) {
+                    _refreshPkgStatuses();
+                  }
 
-                      // Trigger celebration on completion
-                      if (state.isComplete &&
-                          !_celebrationController.isAnimating) {
-                        _celebrationController.forward();
-                      }
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: Spacing.sm),
+                        // ── Header ──
+                        _buildHeader(theme, cs, state, isDark),
+                        const SizedBox(height: Spacing.sm + 2),
 
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 10),
-                            // ── Header ──
-                            _buildHeader(theme, cs, state, isDark),
-                            const SizedBox(height: 12),
-
-                            // ── Main content area ──
-                            // No Expanded here during active install to avoid
-                            // white blocks — the console fills the space
-                            Expanded(
-                              child: _buildContentArea(
-                                state, provider, theme, cs, isDark,
-                              ),
-                            ),
-
-                            // ── Error card ──
-                            if (state.hasError) ...[
-                              const SizedBox(height: 8),
-                              _buildErrorCard(theme, cs, state, isDark),
-                            ],
-
-                            const SizedBox(height: 8),
-
-                            // ── Action buttons ──
-                            _buildActions(provider, state, theme, cs),
-
-                            const SizedBox(height: 6),
-
-                            // ── Footer ──
-                            Center(
-                              child: Text(
-                                '${AppConstants.orgName}/openclaw-termux',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: cs.onSurfaceVariant.withAlpha(100),
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                          ],
+                        // ── Main content area ──
+                        Expanded(
+                          child: _buildContentArea(
+                            state, provider, theme, cs, isDark,
+                          ),
                         ),
-                      );
-                    },
-                  ),
-                ),
+
+                        // ── Error card ──
+                        if (state.hasError) ...[
+                          const SizedBox(height: Spacing.sm),
+                          ErrorBox(
+                            message: state.error ?? 'Error desconocido',
+                          ),
+                        ],
+
+                        const SizedBox(height: Spacing.sm),
+
+                        // ── Action buttons ──
+                        _buildActions(provider, state, theme, cs),
+
+                        const SizedBox(height: Spacing.sm - 2),
+
+                        // ── Footer ──
+                        Center(
+                          child: Text(
+                            '${AppConstants.orgName}/openclaw-termux',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant.withAlpha(100),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: Spacing.xs),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ],
@@ -380,8 +322,83 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
     );
   }
 
-  // ─── Content Area ──────────────────────────────────────────────────────
-  // No white blocks: every branch fills the Expanded with dark-colored content.
+  // ─── Header ───────────────────────────────────────────────────────────────
+
+  Widget _buildHeader(ThemeData theme, ColorScheme cs, SetupState state, bool isDark) {
+    String subtitle;
+    Color subtitleColor;
+
+    if (_started && !state.isComplete && !state.hasError) {
+      final phaseName = _currentPhaseName(state);
+      subtitle = phaseName != null
+          ? 'Instalando: $phaseName...'
+          : 'Instalando...';
+      subtitleColor = cs.primary;
+    } else if (state.isComplete) {
+      subtitle = '¡Instalación completada!';
+      subtitleColor = AppColors.statusGreen;
+    } else if (state.hasError) {
+      subtitle = 'Error en la instalación';
+      subtitleColor = cs.error;
+    } else {
+      subtitle = 'Descargar Ubuntu, Node.js y OpenClaw';
+      subtitleColor = cs.onSurfaceVariant;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(Spacing.md),
+      decoration: BoxDecoration(
+        color: isDark ? cs.surfaceContainerLow : Colors.transparent,
+        borderRadius: BorderRadius.circular(RadiusTokens.lg),
+        border: Border.all(
+          color: isDark
+              ? cs.outlineVariant.withAlpha(80)
+              : cs.outlineVariant.withAlpha(160),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Logo
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: cs.primary.withAlpha(20),
+              borderRadius: BorderRadius.circular(RadiusTokens.md + 2),
+            ),
+            child: Icon(Icons.auto_awesome_rounded, size: 22, color: cs.primary),
+          ),
+          const SizedBox(width: Spacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Configurar OpenClaw',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: Spacing.xs - 2),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: subtitleColor,
+                    fontSize: 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: AppDurations.normal, curve: Curves.easeOut);
+  }
+
+  // ─── Content Area ─────────────────────────────────────────────────────────
 
   Widget _buildContentArea(
     SetupState state,
@@ -405,7 +422,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
         if (state.step != SetupStep.checkingStatus && !state.hasError)
           _buildCompactSteps(state, theme, cs, isDark),
 
-        // Live console fills remaining space (dark background, no white blocks)
+        // Live console fills remaining space
         Expanded(
           child: _buildConsoleSection(provider, cs, isDark),
         ),
@@ -413,22 +430,20 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
     );
   }
 
-  // ─── Pre-install info (before user clicks "Iniciar") ──────────────────
+  // ─── Pre-install info ──────────────────────────────────────────────────────
 
   Widget _buildPreInstallInfo(ThemeData theme, ColorScheme cs, bool isDark) {
-    // Light mode: transparent background, items sit directly on gradient.
-    // Dark mode: subtle dark card background for depth.
     return Center(
       child: SingleChildScrollView(
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(Spacing.xl),
           decoration: BoxDecoration(
             color: isDark ? cs.surfaceContainerLow.withAlpha(200) : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(RadiusTokens.xl),
             border: Border.all(
               color: isDark
-              ? cs.outlineVariant.withAlpha(60)
-              : cs.outlineVariant.withAlpha(160),
+                  ? cs.outlineVariant.withAlpha(60)
+                  : cs.outlineVariant.withAlpha(160),
             ),
           ),
           child: Column(
@@ -436,7 +451,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
             children: [
               // Icon
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(Spacing.md + 4),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
@@ -446,7 +461,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(RadiusTokens.xl - 4),
                 ),
                 child: Icon(
                   Icons.download_for_offline_rounded,
@@ -454,7 +469,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
                   color: cs.primary,
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: Spacing.xl),
 
               Text(
                 'Instalación del Entorno',
@@ -463,7 +478,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
                   letterSpacing: -0.3,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Spacing.sm),
 
               Text(
                 'Este proceso descargará e instalará Ubuntu rootfs, '
@@ -478,7 +493,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: Spacing.xl),
 
               // What will be installed - compact cards
               _buildInstallItem(
@@ -486,32 +501,29 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
                 'Ubuntu 24.04 Base',
                 'Sistema base ARM64',
                 const Color(0xFF6C63FF),
-                theme,
-                cs,
+                theme, cs,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Spacing.sm),
               _buildInstallItem(
                 Icons.javascript_rounded,
                 'Node.js 22',
                 'Entorno JavaScript',
                 const Color(0xFF22C55E),
-                theme,
-                cs,
+                theme, cs,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Spacing.sm),
               _buildInstallItem(
                 Icons.auto_awesome_rounded,
                 'OpenClaw',
                 'AI Gateway',
                 const Color(0xFFF59E0B),
-                theme,
-                cs,
+                theme, cs,
               ),
             ],
           ),
         ),
       ),
-    );
+    ).animate().fadeIn(duration: AppDurations.normal, curve: Curves.easeOut);
   }
 
   Widget _buildInstallItem(
@@ -522,19 +534,18 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
     ThemeData theme,
     ColorScheme cs,
   ) {
-    // Higher alpha in light mode for visibility on transparent card.
     final isLight = theme.brightness == Brightness.light;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm + 4, vertical: Spacing.sm + 2),
       decoration: BoxDecoration(
         color: color.withAlpha(isLight ? 12 : 8),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(RadiusTokens.md),
         border: Border.all(color: color.withAlpha(isLight ? 30 : 20)),
       ),
       child: Row(
         children: [
           Icon(icon, size: 20, color: color),
-          const SizedBox(width: 10),
+          const SizedBox(width: Spacing.sm + 2),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -559,7 +570,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
     );
   }
 
-  // ─── Compact steps during installation ────────────────────────────────
+  // ─── Compact steps during installation ────────────────────────────────────
 
   Widget _buildCompactSteps(
     SetupState state,
@@ -571,11 +582,11 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
     final progress = _overallProgress(state);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      margin: const EdgeInsets.only(bottom: Spacing.sm),
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm + 2),
       decoration: BoxDecoration(
         color: isDark ? cs.surfaceContainerLow : Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(RadiusTokens.md + 2),
         border: Border.all(
           color: isDark
               ? cs.outlineVariant.withAlpha(80)
@@ -584,19 +595,17 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
       ),
       child: Row(
         children: [
-          // Phase icon
           if (phaseName != null)
             Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(Spacing.xs + 2),
               decoration: BoxDecoration(
                 color: cs.primary.withAlpha(15),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(Spacing.sm),
               ),
               child: Icon(Icons.play_circle_rounded, size: 18, color: cs.primary),
             ),
-          if (phaseName != null) const SizedBox(width: 10),
+          if (phaseName != null) const SizedBox(width: Spacing.sm + 2),
 
-          // Phase name + progress percent
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -611,11 +620,11 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
                       color: cs.onSurface,
                     ),
                   ),
-                const SizedBox(height: 4),
+                const SizedBox(height: Spacing.xs),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(3),
                   child: TweenAnimationBuilder<double>(
-                    duration: const Duration(milliseconds: 400),
+                    duration: AppDurations.normal,
                     curve: Curves.easeOutCubic,
                     tween: Tween<double>(
                       begin: 0,
@@ -635,9 +644,26 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
             ),
           ),
 
-          const SizedBox(width: 10),
+          const SizedBox(width: Spacing.sm),
 
-          // Step counter
+          // Percentage
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.xs + 1, vertical: Spacing.xs - 2),
+            decoration: BoxDecoration(
+              color: cs.primary.withAlpha(15),
+              borderRadius: BorderRadius.circular(RadiusTokens.sm - 2),
+            ),
+            child: Text(
+              '${(progress.clamp(0.0, 1.0) * 100).toInt()}%',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: cs.primary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: Spacing.sm),
+
           Text(
             'Paso ${state.stepNumber}/${SetupState.totalSteps}',
             style: theme.textTheme.labelSmall?.copyWith(
@@ -651,7 +677,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
     );
   }
 
-  // ─── Live Console ─────────────────────────────────────────────────────
+  // ─── Live Console ─────────────────────────────────────────────────────────
 
   Widget _buildConsoleSection(
     SetupProvider provider,
@@ -660,14 +686,12 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
   ) {
     return Column(
       children: [
-        // The console takes all available space
         Expanded(
           child: LiveConsoleWidget(logs: provider.logs, isDark: isDark),
         ),
-        // Auto-scroll indicator
         if (provider.logs.isNotEmpty)
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -676,7 +700,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
                   size: 14,
                   color: cs.onSurfaceVariant.withAlpha(100),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: Spacing.xs),
                 Text(
                   'Consola en vivo',
                   style: TextStyle(
@@ -692,158 +716,16 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
     );
   }
 
-  // ─── Header ───────────────────────────────────────────────────────────
-
-  Widget _buildHeader(ThemeData theme, ColorScheme cs, SetupState state, bool isDark) {
-    String subtitle;
-    Color subtitleColor;
-
-    if (_started && !state.isComplete && !state.hasError) {
-      final phaseName = _currentPhaseName(state);
-      subtitle = phaseName != null
-          ? 'Instalando: $phaseName...'
-          : 'Instalando...';
-      subtitleColor = cs.primary;
-    } else if (state.isComplete) {
-      subtitle = '¡Instalación completada!';
-      subtitleColor = AppColors.statusGreen;
-    } else if (state.hasError) {
-      subtitle = 'Error en la instalación';
-      subtitleColor = cs.error;
-    } else {
-      subtitle = 'Descargar Ubuntu, Node.js y OpenClaw';
-      subtitleColor = cs.onSurfaceVariant;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark ? cs.surfaceContainerLow : Colors.transparent,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isDark
-              ? cs.outlineVariant.withAlpha(80)
-              : cs.outlineVariant.withAlpha(160),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Logo
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: cs.primary.withAlpha(20),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(Icons.auto_awesome_rounded, size: 22, color: cs.primary),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Configurar OpenClaw',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: subtitleColor,
-                    fontSize: 12,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Error card ───────────────────────────────────────────────────────
-
-  Widget _buildErrorCard(
-    ThemeData theme, ColorScheme cs, SetupState state, bool isDark,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cs.errorContainer.withAlpha(180),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.error.withAlpha(60)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: cs.error.withAlpha(25),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(Icons.error_outline_rounded, size: 18, color: cs.error),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'Error',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: cs.error,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            state.error ?? 'Error desconocido',
-            style: TextStyle(
-              color: cs.onErrorContainer,
-              fontSize: 12,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Icon(Icons.lightbulb_outline_rounded, size: 13, color: cs.error.withAlpha(160)),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'Verifica tu conexión a internet y espacio disponible (~500MB).',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.error.withAlpha(160),
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Completion content ───────────────────────────────────────────────
+  // ─── Completion content ────────────────────────────────────────────────────
 
   Widget _buildCompletionContent(ThemeData theme, ColorScheme cs, bool isDark) {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Column(
         children: [
-          const SizedBox(height: 8),
+          const SizedBox(height: Spacing.sm),
           _buildCompletionCelebration(theme, cs, isDark),
-          const SizedBox(height: 20),
+          const SizedBox(height: Spacing.xl),
           // Log console in compact mode
           SizedBox(
             height: 180,
@@ -853,55 +735,54 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
               },
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: Spacing.xl),
           _buildOptionalPackagesSection(theme, cs, isDark),
         ],
       ),
     );
   }
 
-  // ─── Celebration ──────────────────────────────────────────────────────
+  // ─── Celebration ──────────────────────────────────────────────────────────
 
   Widget _buildCompletionCelebration(ThemeData theme, ColorScheme cs, bool isDark) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: Spacing.xl, horizontal: Spacing.md + 4),
       decoration: BoxDecoration(
         color: isDark ? cs.surfaceContainerLow : Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(RadiusTokens.xl),
         border: Border.all(
-          color: isDark
-              ? AppColors.statusGreen.withAlpha(40)
-              : AppColors.statusGreen.withAlpha(80),
+          color: AppColors.statusGreen.withAlpha(isDark ? 40 : 80),
         ),
       ),
       child: Column(
         children: [
-          ScaleTransition(
-            scale: _celebrationScale,
-            child: RotationTransition(
-              turns: _celebrationRotate,
-              child: Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.statusGreen, Color(0xFF16A34A)],
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.statusGreen.withAlpha(60),
-                      blurRadius: 20,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.check_rounded, color: Colors.white, size: 30),
+          // Celebration checkmark with elastic animation
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.statusGreen, Color(0xFF16A34A)],
               ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.statusGreen.withAlpha(60),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 14),
+            child: const Icon(Icons.check_rounded, color: Colors.white, size: 30),
+          ).animate().scale(
+            duration: AppDurations.slow + 100.ms,
+            curve: Curves.elasticOut,
+            begin: const Offset(0, 0),
+            end: const Offset(1, 1),
+          ).then().shake(duration: 300.ms, hz: 2),
+
+          const SizedBox(height: Spacing.md + 2),
           Text(
             '¡Instalación completada!',
             style: theme.textTheme.titleMedium?.copyWith(
@@ -909,7 +790,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
               color: AppColors.statusGreen,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: Spacing.xs),
           Text(
             'Todo está listo. Ahora configura tus claves API.',
             style: theme.textTheme.bodySmall?.copyWith(
@@ -918,31 +799,24 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
           ),
         ],
       ),
+    ).animate().fadeIn(
+      duration: AppDurations.normal,
+      delay: 200.ms,
+      curve: Curves.easeOut,
     );
   }
 
-  // ─── Optional packages ────────────────────────────────────────────────
+  // ─── Optional packages ────────────────────────────────────────────────────
 
   Widget _buildOptionalPackagesSection(ThemeData theme, ColorScheme cs, bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Icon(Icons.extension_outlined, size: 16, color: cs.primary),
-            const SizedBox(width: 6),
-            Text(
-              'PAQUETES OPCIONALES',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: cs.primary,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-                fontSize: 10,
-              ),
-            ),
-          ],
+        const SectionHeader(
+          icon: Icons.extension_outlined,
+          title: 'Paquetes Opcionales',
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: Spacing.sm),
         ...OptionalPackage.all.map((pkg) => _buildPackageCard(theme, cs, pkg, isDark)),
       ],
     );
@@ -952,10 +826,10 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
     final installed = _pkgStatuses[package.id] ?? false;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: Spacing.sm),
       decoration: BoxDecoration(
         color: isDark ? cs.surfaceContainerLow : Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(RadiusTokens.md + 2),
         border: Border.all(
           color: installed
               ? AppColors.statusGreen.withAlpha(50)
@@ -965,10 +839,10 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
         ),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(RadiusTokens.md + 2),
         onTap: installed ? null : () => _installPackage(package),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(Spacing.md),
           child: Row(
             children: [
               Container(
@@ -976,7 +850,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
                 height: 42,
                 decoration: BoxDecoration(
                   color: (installed ? AppColors.statusGreen : package.color).withAlpha(18),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(Spacing.sm + 2),
                 ),
                 child: Icon(
                   installed ? Icons.check_circle_outline : package.icon,
@@ -984,7 +858,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
                   size: 20,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1002,12 +876,12 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
                           ),
                         ),
                         if (installed) ...[
-                          const SizedBox(width: 6),
-                          _buildBadge('Instalado', AppColors.statusGreen, theme),
+                          const SizedBox(width: Spacing.sm - 2),
+                          StatusBadge.active('Instalado'),
                         ],
                       ],
                     ),
-                    const SizedBox(height: 1),
+                    const SizedBox(height: Spacing.xs - 1),
                     Text(
                       '${package.description} (${package.estimatedSize})',
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -1020,7 +894,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: Spacing.sm),
               installed
                   ? Icon(Icons.check_circle, color: AppColors.statusGreen.withAlpha(160), size: 20)
                   : FilledButton.tonalIcon(
@@ -1028,7 +902,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
                       icon: const Icon(Icons.download, size: 14),
                       label: const Text('Instalar', style: TextStyle(fontSize: 11)),
                       style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: Spacing.md - 4, vertical: Spacing.sm - 2),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
@@ -1040,25 +914,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
     );
   }
 
-  Widget _buildBadge(String text, Color color, ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-      decoration: BoxDecoration(
-        color: color.withAlpha(25),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        text,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w700,
-          fontSize: 9,
-        ),
-      ),
-    );
-  }
-
-  // ─── Action buttons ───────────────────────────────────────────────────
+  // ─── Action buttons ───────────────────────────────────────────────────────
 
   Widget _buildActions(SetupProvider provider, SetupState state, ThemeData theme, ColorScheme cs) {
     if (state.isComplete) {
@@ -1069,9 +925,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
           icon: const Icon(Icons.arrow_forward_rounded, size: 18),
           label: const Text('Configurar Claves API'),
           style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(vertical: Spacing.md + 2),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(RadiusTokens.md + 2),
             ),
           ),
         ),
@@ -1094,9 +950,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
           ),
           label: Text(_started ? 'Reintentar' : 'Iniciar Instalación'),
           style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(vertical: Spacing.md + 2),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(RadiusTokens.md + 2),
             ),
           ),
         ),

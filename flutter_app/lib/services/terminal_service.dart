@@ -3,10 +3,15 @@ import 'native_bridge.dart';
 
 /// Provides proot shell configuration for the terminal and onboarding screens.
 /// Must match ProcessManager.kt's gateway mode (command_login) exactly.
+///
+/// Caches the resolved config after first call to avoid redundant
+/// MethodChannel IPC (~5-15ms) and file I/O on every terminal start.
 class TerminalService {
   static const _fakeKernelRelease = '6.17.0-PRoot-Distro';
   static const _fakeKernelVersion =
       '#1 SMP PREEMPT_DYNAMIC Fri, 10 Oct 2025 00:00:00 +0000';
+
+  static Map<String, String>? _cachedConfig;
 
   /// Get paths and host-side proot environment variables.
   /// Host env should ONLY contain proot-specific vars — guest env is
@@ -15,58 +20,69 @@ class TerminalService {
   /// Also ensures directories and resolv.conf exist — Android may clear
   /// them during an app update (#40). Every screen that uses proot calls
   /// this method, so it's the single place to guarantee the files exist.
+  ///
+  /// Static path values (filesDir, nativeLibDir, etc.) are cached after
+  /// first call since they never change for the lifetime of the app.
+  /// `storageGranted` is fetched fresh every call because the user can
+  /// grant permission at any time.
   static Future<Map<String, String>> getProotShellConfig() async {
     // Ensure dirs + resolv.conf exist before any proot operation (#40).
     try { await NativeBridge.ensureReady(); } catch (_) {}
 
-    final filesDir = await NativeBridge.getFilesDir();
-    final nativeLibDir = await NativeBridge.getNativeLibDir();
+    if (_cachedConfig == null) {
+      final filesDir = await NativeBridge.getFilesDir();
+      final nativeLibDir = await NativeBridge.getNativeLibDir();
 
-    final rootfsDir = '$filesDir/rootfs/ubuntu';
-    final tmpDir = '$filesDir/tmp';
-    final configDir = '$filesDir/config';
-    final homeDir = '$filesDir/home';
-    final prootPath = '$nativeLibDir/libproot.so';
-    final libDir = '$filesDir/lib';
+      final rootfsDir = '$filesDir/rootfs/ubuntu';
+      final tmpDir = '$filesDir/tmp';
+      final configDir = '$filesDir/config';
+      final homeDir = '$filesDir/home';
+      final prootPath = '$nativeLibDir/libproot.so';
+      final libDir = '$filesDir/lib';
 
-    // Direct Dart fallback: create resolv.conf if it still doesn't exist
-    // after the native method channel calls (#40).
-    const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
-    try {
-      final resolvFile = File('$configDir/resolv.conf');
-      if (!resolvFile.existsSync()) {
-        Directory(configDir).createSync(recursive: true);
-        resolvFile.writeAsStringSync(resolvContent);
-      }
-    } catch (_) {}
-    // Also write into rootfs /etc/ so DNS works even if bind-mount fails
-    try {
-      final rootfsResolv = File('$rootfsDir/etc/resolv.conf');
-      if (!rootfsResolv.existsSync()) {
-        rootfsResolv.parent.createSync(recursive: true);
-        rootfsResolv.writeAsStringSync(resolvContent);
-      }
-    } catch (_) {}
+      // Direct Dart fallback: create resolv.conf if it still doesn't exist
+      // after the native method channel calls (#40).
+      const resolvContent = 'nameserver 8.8.8.8\nnameserver 1.1.1.1\nnameserver 8.8.4.4\nnameserver 1.0.0.1\n';
+      try {
+        final resolvFile = File('$configDir/resolv.conf');
+        if (!resolvFile.existsSync()) {
+          Directory(configDir).createSync(recursive: true);
+          resolvFile.writeAsStringSync(resolvContent);
+        }
+      } catch (_) {}
+      // Also write into rootfs /etc/ so DNS works even if bind-mount fails
+      try {
+        final rootfsResolv = File('$rootfsDir/etc/resolv.conf');
+        if (!rootfsResolv.existsSync()) {
+          rootfsResolv.parent.createSync(recursive: true);
+          rootfsResolv.writeAsStringSync(resolvContent);
+        }
+      } catch (_) {}
 
+      _cachedConfig = {
+        'executable': prootPath,
+        'rootfsDir': rootfsDir,
+        'tmpDir': tmpDir,
+        'configDir': configDir,
+        'homeDir': homeDir,
+        'libDir': libDir,
+        'nativeLibDir': nativeLibDir,
+        // Host-side proot env — ONLY proot-specific vars.
+        // Do NOT set PROOT_NO_SECCOMP (proot-distro doesn't set it).
+        // Do NOT set HOME/TERM/LANG here (those go in guest env via env -i).
+        'PROOT_TMP_DIR': tmpDir,
+        'PROOT_LOADER': '$nativeLibDir/libprootloader.so',
+        'PROOT_LOADER_32': '$nativeLibDir/libprootloader32.so',
+        'LD_LIBRARY_PATH': '$libDir:$nativeLibDir',
+      };
+    }
+
+    // storageGranted can change at runtime (user grants permission),
+    // so always fetch fresh — don't cache it.
     final storageGranted = await NativeBridge.hasStoragePermission();
-
-    return {
-      'executable': prootPath,
-      'rootfsDir': rootfsDir,
-      'tmpDir': tmpDir,
-      'configDir': configDir,
-      'homeDir': homeDir,
-      'libDir': libDir,
-      'nativeLibDir': nativeLibDir,
-      'storageGranted': storageGranted.toString(),
-      // Host-side proot env — ONLY proot-specific vars.
-      // Do NOT set PROOT_NO_SECCOMP (proot-distro doesn't set it).
-      // Do NOT set HOME/TERM/LANG here (those go in guest env via env -i).
-      'PROOT_TMP_DIR': tmpDir,
-      'PROOT_LOADER': '$nativeLibDir/libprootloader.so',
-      'PROOT_LOADER_32': '$nativeLibDir/libprootloader32.so',
-      'LD_LIBRARY_PATH': '$libDir:$nativeLibDir',
-    };
+    final result = Map<String, String>.from(_cachedConfig!);
+    result['storageGranted'] = storageGranted.toString();
+    return result;
   }
 
   /// Build proot arguments matching ProcessManager.kt's gateway mode

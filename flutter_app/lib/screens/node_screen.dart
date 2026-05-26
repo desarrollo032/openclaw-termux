@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../app.dart';
+import '../design/components.dart';
+import '../design/tokens.dart';
 import '../providers/node_provider.dart';
 import '../services/preferences_service.dart';
 import '../widgets/node_controls.dart';
@@ -311,23 +312,7 @@ class _NodeScreenState extends State<NodeScreen> {
   }
 
   Widget _sectionHeader(ThemeData theme, IconData icon, String title) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(width: 6),
-          Text(
-            title,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ],
-      ),
-    );
+    return SectionHeader(icon: icon, title: title);
   }
 
   Widget _capabilityTile(ThemeData theme, String title, String subtitle, IconData icon, {bool available = true}) {

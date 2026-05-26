@@ -9,6 +9,8 @@ class AiProvider {
   final IconData icon;
   final Color color;
   final String baseUrl;
+  final String? fetchModelsUrl;
+  final String? apiKeyHeader;
   final List<String> defaultModels;
   final String apiKeyHint;
 
@@ -19,6 +21,8 @@ class AiProvider {
     required this.icon,
     required this.color,
     required this.baseUrl,
+    this.fetchModelsUrl,
+    this.apiKeyHeader,
     required this.defaultModels,
     required this.apiKeyHint,
   });
@@ -30,6 +34,8 @@ class AiProvider {
     icon: Icons.psychology,
     color: Color(0xFFD97706),
     baseUrl: 'https://api.anthropic.com/v1',
+    fetchModelsUrl: 'https://api.anthropic.com/v1/models',
+    apiKeyHeader: 'x-api-key',
     defaultModels: [
       'claude-sonnet-4-20250514',
       'claude-opus-4-20250514',
@@ -45,6 +51,8 @@ class AiProvider {
     icon: Icons.auto_awesome,
     color: Color(0xFF10A37F),
     baseUrl: 'https://api.openai.com/v1',
+    fetchModelsUrl: 'https://api.openai.com/v1/models',
+    apiKeyHeader: 'Authorization',
     defaultModels: [
       'gpt-4o',
       'gpt-4o-mini',
@@ -62,6 +70,8 @@ class AiProvider {
     icon: Icons.diamond,
     color: Color(0xFF4285F4),
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+    fetchModelsUrl: 'https://generativelanguage.googleapis.com/v1beta/models',
+    apiKeyHeader: 'query', // special: API key is ?key= query param
     defaultModels: [
       'gemini-2.5-pro',
       'gemini-2.5-flash',
@@ -78,6 +88,8 @@ class AiProvider {
     icon: Icons.route,
     color: Color(0xFF6366F1),
     baseUrl: 'https://openrouter.ai/api/v1',
+    fetchModelsUrl: 'https://openrouter.ai/api/v1/models',
+    apiKeyHeader: 'Authorization',
     defaultModels: [
       'anthropic/claude-sonnet-4',
       'openai/gpt-4o',
@@ -94,6 +106,8 @@ class AiProvider {
     icon: Icons.memory,
     color: Color(0xFF76B900),
     baseUrl: 'https://integrate.api.nvidia.com/v1',
+    fetchModelsUrl: 'https://integrate.api.nvidia.com/v1/models',
+    apiKeyHeader: 'Authorization',
     defaultModels: [
       'meta/llama-3.1-405b-instruct',
       'meta/llama-3.1-70b-instruct',
@@ -111,6 +125,8 @@ class AiProvider {
     icon: Icons.explore,
     color: Color(0xFF0EA5E9),
     baseUrl: 'https://api.deepseek.com/v1',
+    fetchModelsUrl: 'https://api.deepseek.com/v1/models',
+    apiKeyHeader: 'Authorization',
     defaultModels: [
       'deepseek-chat',
       'deepseek-reasoner',
@@ -125,6 +141,8 @@ class AiProvider {
     icon: Icons.bolt,
     color: Color(0xFFEF4444),
     baseUrl: 'https://api.x.ai/v1',
+    fetchModelsUrl: 'https://api.x.ai/v1/models',
+    apiKeyHeader: 'Authorization',
     defaultModels: [
       'grok-3',
       'grok-3-mini',

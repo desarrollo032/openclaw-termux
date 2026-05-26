@@ -10,6 +10,7 @@ import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbManager
+import androidx.core.content.ContextCompat
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.CompletableFuture
@@ -86,7 +87,11 @@ class UsbSerialHelper(private val context: Context) {
                     }
                 }
             }
-            context.registerReceiver(permissionReceiver, IntentFilter(ACTION_USB_PERMISSION))
+            ContextCompat.registerReceiver(
+                context, permissionReceiver,
+                IntentFilter(ACTION_USB_PERMISSION),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
             val pendingIntent = PendingIntent.getBroadcast(
                 context, 0, Intent(ACTION_USB_PERMISSION),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT

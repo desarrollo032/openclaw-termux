@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../native/openclaw_native.dart';
-import '../app.dart';
+import '../design/components.dart';
+import '../design/tokens.dart';
 import '../constants.dart';
 import '../providers/node_provider.dart';
 import '../services/native_bridge.dart';
@@ -87,272 +88,271 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               children: [
-                _settingsCard(theme, [
-                  _switchTile(
-                    theme,
-                    Icons.power_outlined,
-                    'Inicio automático',
-                    'Iniciar el gateway al abrir la app',
-                    _autoStart,
-                    AppColors.statusGreen,
-                    (value) {
-                      setState(() => _autoStart = value);
-                      _prefs.autoStartGateway = value;
-                    },
-                  ),
-                  _listTile(
-                    theme,
-                    Icons.battery_alert_outlined,
-                    'Optimización de Batería',
-                    _batteryOptimized
-                        ? 'Optimizado — puede cerrar sesiones en segundo plano'
-                        : 'Sin restricciones — recomendado',
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: (_batteryOptimized ? AppColors.statusAmber : AppColors.statusGreen)
-                            .withAlpha(20),
-                        borderRadius: BorderRadius.circular(12),
+                // General
+                SettingsCard(
+                  title: 'General',
+                  icon: Icons.tune_outlined,
+                  children: [
+                    SwitchListTile(
+                      secondary: const Icon(Icons.power_outlined, size: 22),
+                      title: const Text('Inicio automático', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      subtitle: Text('Iniciar el gateway al abrir la app', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                      value: _autoStart,
+                      onChanged: (value) {
+                        setState(() => _autoStart = value);
+                        _prefs.autoStartGateway = value;
+                      },
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.battery_alert_outlined, size: 22),
+                      title: const Text('Optimización de Batería', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      subtitle: Text(
+                        _batteryOptimized
+                            ? 'Optimizado — puede cerrar sesiones en segundo plano'
+                            : 'Sin restricciones — recomendado',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
-                      child: Text(
-                        _batteryOptimized ? 'Optimizado' : 'Sin restricciones',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: _batteryOptimized ? AppColors.statusAmber : AppColors.statusGreen,
-                          fontWeight: FontWeight.w600,
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: (_batteryOptimized ? AppColors.statusAmber : AppColors.statusGreen).withAlpha(20),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _batteryOptimized ? 'Optimizado' : 'Sin restricciones',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: _batteryOptimized ? AppColors.statusAmber : AppColors.statusGreen,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
+                      onTap: () async {
+                        await NativeBridge.requestBatteryOptimization();
+                        final optimized = await NativeBridge.isBatteryOptimized();
+                        setState(() => _batteryOptimized = optimized);
+                      },
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                     ),
-                    onTap: () async {
-                      await NativeBridge.requestBatteryOptimization();
-                      final optimized = await NativeBridge.isBatteryOptimized();
-                      setState(() => _batteryOptimized = optimized);
-                    },
-                  ),
-                  _listTile(
-                    theme,
-                    Icons.sd_storage_outlined,
-                    'Acceso a Almacenamiento',
-                    _storageGranted
-                        ? 'Concedido — proot puede acceder a /sdcard'
-                        : 'No concedido — recomendado por seguridad',
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: (_storageGranted ? AppColors.statusAmber : AppColors.statusGreen)
-                            .withAlpha(20),
-                        borderRadius: BorderRadius.circular(12),
+                    ListTile(
+                      leading: const Icon(Icons.sd_storage_outlined, size: 22),
+                      title: const Text('Acceso a Almacenamiento', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      subtitle: Text(
+                        _storageGranted
+                            ? 'Concedido — proot puede acceder a /sdcard'
+                            : 'No concedido — recomendado por seguridad',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
-                      child: Text(
-                        _storageGranted ? 'Concedido' : 'Restringido',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: _storageGranted ? AppColors.statusAmber : AppColors.statusGreen,
-                          fontWeight: FontWeight.w600,
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: (_storageGranted ? AppColors.statusAmber : AppColors.statusGreen).withAlpha(20),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _storageGranted ? 'Concedido' : 'Restringido',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: _storageGranted ? AppColors.statusAmber : AppColors.statusGreen,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
+                      onTap: () async {
+                        await NativeBridge.requestStoragePermission();
+                        final granted = await NativeBridge.hasStoragePermission();
+                        setState(() => _storageGranted = granted);
+                      },
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                     ),
-                    onTap: () async {
-                      await NativeBridge.requestStoragePermission();
-                      final granted = await NativeBridge.hasStoragePermission();
-                      setState(() => _storageGranted = granted);
-                    },
-                  ),
-                ], title: 'General', icon: Icons.tune_outlined),
+                  ],
+                ),
 
                 const SizedBox(height: 16),
-                _settingsCard(theme, [
-                  _switchTile(
-                    theme,
-                    Icons.devices_outlined,
-                    'Activar Nodo',
-                    'Proporcionar capacidades del dispositivo al gateway',
-                    _nodeEnabled,
-                    AppColors.statusGreen,
-                    (value) {
-                      setState(() => _nodeEnabled = value);
-                      _prefs.nodeEnabled = value;
-                      final nodeProvider = context.read<NodeProvider>();
-                      if (value) {
-                        nodeProvider.enable();
-                      } else {
-                        nodeProvider.disable();
-                      }
-                    },
-                  ),
-                  _listTile(
-                    theme,
-                    Icons.tune_outlined,
-                    'Configuración del Nodo',
-                    'Conexión, emparejamiento y capacidades',
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const NodeScreen()),
+
+                // Node
+                SettingsCard(
+                  title: 'Nodo',
+                  icon: Icons.devices_outlined,
+                  children: [
+                    SwitchListTile(
+                      secondary: const Icon(Icons.devices_outlined, size: 22),
+                      title: const Text('Activar Nodo', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      subtitle: Text(
+                        'Proporcionar capacidades del dispositivo al gateway',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      value: _nodeEnabled,
+                      onChanged: (value) {
+                        setState(() => _nodeEnabled = value);
+                        _prefs.nodeEnabled = value;
+                        final nodeProvider = context.read<NodeProvider>();
+                        if (value) {
+                          nodeProvider.enable();
+                        } else {
+                          nodeProvider.disable();
+                        }
+                      },
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                     ),
-                  ),
-                ], title: 'Nodo', icon: Icons.devices_outlined),
-
-                const SizedBox(height: 16),
-                _settingsCard(theme, [
-                  _infoRow(theme, 'Arquitectura', _arch, Icons.memory_outlined),
-                  _infoRow(theme, 'Ruta PRoot', _prootPath, Icons.folder_outlined),
-                  _infoRow(theme, 'Rootfs', _status['rootfsExists'] == true ? 'Instalado' : 'No instalado', Icons.storage_outlined),
-                  _infoRow(theme, 'Node.js', _status['nodeInstalled'] == true ? 'Instalado' : 'No instalado', Icons.code_outlined),
-                  _infoRow(theme, 'OpenClaw', _status['openclawInstalled'] == true ? 'Instalado' : 'No instalado', Icons.cloud_outlined),
-                  _infoRow(theme, 'Go (Golang)', _goInstalled ? 'Instalado' : 'No instalado', Icons.integration_instructions_outlined),
-                  _infoRow(theme, 'Homebrew', _brewInstalled ? 'Instalado' : 'No instalado', Icons.science_outlined),
-                  _infoRow(theme, 'OpenSSH', _sshInstalled ? 'Instalado' : 'No instalado', Icons.vpn_key_outlined),
-                ], title: 'Info del Sistema', icon: Icons.monitor_outlined),
-
-                const SizedBox(height: 16),
-                _settingsCard(theme, [
-                  _listTile(
-                    theme,
-                    Icons.upload_file_outlined,
-                    'Exportar Respaldo',
-                    'Respaldar configuración en Descargas',
-                    onTap: _exportSnapshot,
-                  ),
-                  _listTile(
-                    theme,
-                    Icons.download_outlined,
-                    'Importar Respaldo',
-                    'Restaurar configuración desde respaldo',
-                    onTap: _importSnapshot,
-                  ),
-                  _listTile(
-                    theme,
-                    Icons.build_outlined,
-                    'Re-ejecutar Instalación',
-                    'Reinstalar o reparar el entorno',
-                    onTap: () => Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const SetupWizardScreen()),
+                    ListTile(
+                      leading: const Icon(Icons.tune_outlined, size: 22),
+                      title: const Text('Configuración del Nodo', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      subtitle: Text(
+                        'Conexión, emparejamiento y capacidades',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const NodeScreen()),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                     ),
-                  ),
-                ], title: 'Mantenimiento', icon: Icons.build_outlined),
+                  ],
+                ),
 
                 const SizedBox(height: 16),
-                _settingsCard(theme, [
-                  const _AboutTile(),
-                  _listTile(
-                    theme,
-                    Icons.system_update_outlined,
-                    'Buscar Actualizaciones',
-                    'Verificar GitHub para nueva versión',
-                    trailing: _checkingUpdate
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : null,
-                    onTap: _checkingUpdate ? null : _checkForUpdates,
-                  ),
-                  _listTile(
-                    theme,
-                    Icons.person_outlined,
-                    'Desarrollador',
-                    AppConstants.orgName,
-                  ),
-                  _listTile(
-                    theme,
-                    Icons.code_outlined,
-                    'GitHub',
-                    'desarrollo032/openclaw-termux',
-                    onTap: () => OpenClawNative.openUrl(AppConstants.githubUrl),
-                  ),
-                  _listTile(
-                    theme,
-                    Icons.email_outlined,
-                    'Contacto',
-                    AppConstants.orgEmail,
-                    onTap: () => OpenClawNative.openUrl('mailto:${AppConstants.orgEmail}'),
-                  ),
-                  _listTile(
-                    theme,
-                    Icons.description_outlined,
-                    'Licencia',
-                    AppConstants.license,
-                    onTap: () => OpenClawNative.openUrl(AppConstants.licenseUrl),
-                  ),
-                ], title: 'Acerca de', icon: Icons.info_outline),
+
+                // System Info
+                SettingsCard(
+                  title: 'Info del Sistema',
+                  icon: Icons.monitor_outlined,
+                  children: [
+                    InfoRow(icon: Icons.memory_outlined, label: 'Arquitectura', value: _arch),
+                    InfoRow(icon: Icons.folder_outlined, label: 'Ruta PRoot', value: _prootPath),
+                    InfoRow(icon: Icons.storage_outlined, label: 'Rootfs', value: _status['rootfsExists'] == true ? 'Instalado' : 'No instalado'),
+                    InfoRow(icon: Icons.code_outlined, label: 'Node.js', value: _status['nodeInstalled'] == true ? 'Instalado' : 'No instalado'),
+                    InfoRow(icon: Icons.cloud_outlined, label: 'OpenClaw', value: _status['openclawInstalled'] == true ? 'Instalado' : 'No instalado'),
+                    InfoRow(icon: Icons.integration_instructions_outlined, label: 'Go (Golang)', value: _goInstalled ? 'Instalado' : 'No instalado'),
+                    InfoRow(icon: Icons.science_outlined, label: 'Homebrew', value: _brewInstalled ? 'Instalado' : 'No instalado'),
+                    InfoRow(icon: Icons.vpn_key_outlined, label: 'OpenSSH', value: _sshInstalled ? 'Instalado' : 'No instalado'),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // Maintenance
+                SettingsCard(
+                  title: 'Mantenimiento',
+                  icon: Icons.build_outlined,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.upload_file_outlined, size: 22),
+                      title: const Text('Exportar Respaldo', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      subtitle: Text(
+                        'Respaldar configuración en Descargas',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: _exportSnapshot,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.download_outlined, size: 22),
+                      title: const Text('Importar Respaldo', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      subtitle: Text(
+                        'Restaurar configuración desde respaldo',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: _importSnapshot,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.build_outlined, size: 22),
+                      title: const Text('Re-ejecutar Instalación', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      subtitle: Text(
+                        'Reinstalar o reparar el entorno',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(builder: (_) => const SetupWizardScreen()),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // About
+                SettingsCard(
+                  title: 'Acerca de',
+                  icon: Icons.info_outline,
+                  children: [
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withAlpha(15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(Icons.bolt, size: 20, color: theme.colorScheme.primary),
+                      ),
+                      title: const Text('OpenClaw', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        'AI Gateway para Android\nVersión ${AppConstants.version}',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      isThreeLine: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.system_update_outlined, size: 22),
+                      title: const Text('Buscar Actualizaciones', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      subtitle: Text(
+                        'Verificar GitHub para nueva versión',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      trailing: _checkingUpdate
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.chevron_right, size: 20),
+                      onTap: _checkingUpdate ? null : _checkForUpdates,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.person_outlined, size: 22),
+                      title: const Text('Desarrollador', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      subtitle: Text(AppConstants.orgName, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.code_outlined, size: 22),
+                      title: const Text('GitHub', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      subtitle: Text(
+                        'desarrollo032/openclaw-termux',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => OpenClawNative.openUrl(AppConstants.githubUrl),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.email_outlined, size: 22),
+                      title: const Text('Contacto', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      subtitle: Text(
+                        AppConstants.orgEmail,
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => OpenClawNative.openUrl('mailto:${AppConstants.orgEmail}'),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.description_outlined, size: 22),
+                      title: const Text('Licencia', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      subtitle: Text(
+                        AppConstants.license,
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => OpenClawNative.openUrl(AppConstants.licenseUrl),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                  ],
+                ),
               ],
             ),
-    );
-  }
-
-  Widget _settingsCard(ThemeData theme, List<Widget> children, {required String title, required IconData icon}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Row(
-            children: [
-              Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
-              const SizedBox(width: 6),
-              Text(
-                title.toUpperCase(),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Card(
-          margin: EdgeInsets.zero,
-          child: Column(
-            children: List.generate(children.length, (i) {
-              return Column(
-                children: [
-                  if (i > 0)
-                    const Divider(height: 1),
-                  children[i],
-                ],
-              );
-            }),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _switchTile(ThemeData theme, IconData icon, String title, String subtitle, bool value, Color toggleColor, ValueChanged<bool> onChanged) {
-    return SwitchListTile(
-      secondary: Icon(icon, size: 22),
-      title: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-      subtitle: Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-      value: value,
-      onChanged: onChanged,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-    );
-  }
-
-  Widget _listTile(ThemeData theme, IconData icon, String title, String subtitle, {VoidCallback? onTap, Widget? trailing}) {
-    return ListTile(
-      leading: Icon(icon, size: 22),
-      title: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-      subtitle: Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-      trailing: trailing ?? (onTap != null ? const Icon(Icons.chevron_right, size: 20) : null),
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-    );
-  }
-
-  Widget _infoRow(ThemeData theme, String label, String value, IconData icon) {
-    return ListTile(
-      leading: Icon(icon, size: 22, color: theme.colorScheme.onSurfaceVariant),
-      title: Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-      trailing: Text(
-        value,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w500,
-        ),
-        overflow: TextOverflow.ellipsis,
-        maxLines: 1,
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
     );
   }
 
@@ -460,9 +460,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Update Available'),
-            content: Text(
-              'Current: ${AppConstants.version}\nLatest: ${result.latest}',
-            ),
+            content: Text('Current: ${AppConstants.version}\nLatest: ${result.latest}'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
@@ -491,31 +489,5 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       if (mounted) setState(() => _checkingUpdate = false);
     }
-  }
-}
-
-class _AboutTile extends StatelessWidget {
-  const _AboutTile();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.primary.withAlpha(15),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(Icons.bolt, size: 20, color: theme.colorScheme.primary),
-      ),
-      title: const Text('OpenClaw', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-      subtitle: Text(
-        'AI Gateway for Android\nVersion ${AppConstants.version}',
-        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-      ),
-      isThreeLine: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-    );
   }
 }

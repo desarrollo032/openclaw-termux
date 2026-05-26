@@ -1,5 +1,6 @@
 package com.nxg.openclawproot
 
+import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Environment
 import java.io.BufferedReader
@@ -85,6 +86,7 @@ class ProcessManager(
         } catch (_: Exception) {}
     }
 
+    @SuppressLint("SdCardPath")
     private fun commonProotFlags(): List<String> {
         // Guarantee resolv.conf exists before building the bind-mount list
         ensureResolvConf()

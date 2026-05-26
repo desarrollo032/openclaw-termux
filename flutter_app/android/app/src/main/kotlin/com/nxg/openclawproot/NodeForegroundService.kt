@@ -7,13 +7,12 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 
 class NodeForegroundService : Service() {
     companion object {
-        const val CHANNEL_ID = "openclaw_node"
+        const val CHANNEL_ID = "openclaw_services"
         const val NOTIFICATION_ID = 3
         var isRunning = false
             private set
@@ -21,11 +20,7 @@ class NodeForegroundService : Service() {
 
         fun start(context: Context) {
             val intent = Intent(context, NodeForegroundService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startForegroundService(intent)
         }
 
         fun stop(context: Context) {
@@ -92,17 +87,16 @@ class NodeForegroundService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "OpenClawX Node",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Keeps the OpenClawX Node connected in the background"
-            }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "Services",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "OpenClaw background services"
+            setShowBadge(false)
         }
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(channel)
     }
 
     private fun buildNotification(text: String): Notification {
@@ -112,24 +106,14 @@ class NodeForegroundService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, CHANNEL_ID)
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-        }
+        val builder = Notification.Builder(this, CHANNEL_ID)
 
-        builder.setContentTitle("OpenClawX Node")
+        builder.setContentTitle("Node")
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_menu_compass)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
-
-        if (startTime > 0) {
-            builder.setWhen(startTime)
-            builder.setShowWhen(true)
-            builder.setUsesChronometer(true)
-        }
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
 
         return builder.build()
     }

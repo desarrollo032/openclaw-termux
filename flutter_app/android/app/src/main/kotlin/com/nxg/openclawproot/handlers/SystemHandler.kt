@@ -102,12 +102,7 @@ class SystemHandler(private val context: Context, private val activity: MainActi
                     val info = hashMapOf<String, Any>(
                         "packageName" to context.packageName,
                         "versionName" to (pkgInfo.versionName ?: ""),
-                        "versionCode" to (
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-                                pkgInfo.longVersionCode
-                            else
-                                pkgInfo.versionCode.toLong()
-                            )
+                        "versionCode" to pkgInfo.longVersionCode
                     )
                     result.success(info)
                 } catch (e: Exception) {
@@ -222,12 +217,7 @@ class SystemHandler(private val context: Context, private val activity: MainActi
             } else {
                 @Suppress("DEPRECATION")
                 val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    vibrator.vibrate(VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE))
-                } else {
-                    @Suppress("DEPRECATION")
-                    vibrator.vibrate(durationMs)
-                }
+            vibrator.vibrate(VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE))
             }
             result.success(true)
         } catch (e: Exception) {

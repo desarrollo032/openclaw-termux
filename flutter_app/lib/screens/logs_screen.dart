@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../app.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import '../design/components.dart';
+import '../design/tokens.dart';
 import '../providers/gateway_provider.dart';
 import '../services/screenshot_service.dart';
 
@@ -32,7 +34,24 @@ class _LogsScreenState extends State<LogsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Registros del Gateway'),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withAlpha(20),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.article_outlined,
+                size: 16,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text('Registros del Gateway'),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.camera_alt_outlined),
@@ -54,14 +73,14 @@ class _LogsScreenState extends State<LogsScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Buscar registros...',
+                hintText: 'Buscar en registros...',
                 prefixIcon: const Icon(Icons.search, size: 20),
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 suffixIcon: _filter.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear, size: 18),
@@ -88,22 +107,15 @@ class _LogsScreenState extends State<LogsScreen> {
 
                   if (filtered.isEmpty) {
                     return Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            logs.isEmpty ? Icons.article_outlined : Icons.search_off,
-                            size: 40,
-                            color: theme.colorScheme.onSurfaceVariant.withAlpha(80),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            logs.isEmpty ? 'Sin registros aún. Inicia el gateway.' : 'Sin registros coincidentes.',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: EmptyState(
+                          icon: logs.isEmpty ? Icons.article_outlined : Icons.search_off,
+                          title: logs.isEmpty ? 'Sin registros' : 'Sin coincidencias',
+                          subtitle: logs.isEmpty
+                              ? 'Inicia el gateway para ver los registros aquí.'
+                              : 'Prueba con otro término de búsqueda.',
+                        ).animate().fadeIn(duration: 300.ms, curve: Curves.easeOut),
                       ),
                     );
                   }
@@ -118,7 +130,7 @@ class _LogsScreenState extends State<LogsScreen> {
 
                   return ListView.builder(
                     controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     itemCount: filtered.length,
                     itemBuilder: (context, index) {
                       final line = filtered[index];
@@ -128,25 +140,24 @@ class _LogsScreenState extends State<LogsScreen> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (logStyle.badge != null) ...[
-                              Container(
-                                margin: const EdgeInsets.only(right: 6, top: 2),
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: logStyle.color.withAlpha(30),
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                                child: Text(
-                                  logStyle.badge!,
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700,
-                                    color: logStyle.color,
-                                    fontFamily: 'monospace',
+                            if (logStyle.badge != null) ...{
+                              Padding(
+                                padding: const EdgeInsets.only(right: 6, top: 2),
+                                child: SizedBox(
+                                  width: 40,
+                                  child: Text(
+                                    logStyle.badge!,
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                      color: logStyle.color,
+                                      fontFamily: 'monospace',
+                                      letterSpacing: 0.5,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ],
+                            },
                             Expanded(
                               child: Text(
                                 logStyle.badge != null
@@ -176,13 +187,13 @@ class _LogsScreenState extends State<LogsScreen> {
 
   _LogStyle _logStyle(String line, ThemeData theme) {
     if (line.contains('[ERR]') || line.contains('ERROR')) {
-      return _LogStyle(theme.colorScheme.error, '[ERR]');
+      return _LogStyle(theme.colorScheme.error, 'ERR');
     }
     if (line.contains('[WARN]') || line.contains('WARNING')) {
-      return const _LogStyle(AppColors.statusAmber, '[WRN]');
+      return const _LogStyle(AppColors.statusAmber, 'WRN');
     }
     if (line.contains('[INFO]')) {
-      return const _LogStyle(AppColors.mutedText, '[INF]');
+      return const _LogStyle(AppColors.mutedText, 'INF');
     }
     return _LogStyle(theme.colorScheme.onSurface.withAlpha(180), null);
   }
@@ -192,8 +203,8 @@ class _LogsScreenState extends State<LogsScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(path != null
-          ? 'Screenshot saved: ${path.split('/').last}'
-          : 'Failed to capture screenshot')),
+          ? 'Screenshot guardado: ${path.split('/').last}'
+          : 'Error al capturar screenshot')),
     );
   }
 

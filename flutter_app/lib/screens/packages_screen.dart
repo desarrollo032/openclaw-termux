@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../app.dart';
+import '../design/components.dart';
+import '../design/tokens.dart';
 import '../models/optional_package.dart';
 import '../services/package_service.dart';
 import 'package_install_screen.dart';
@@ -242,11 +243,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
                             ),
                             const SizedBox(width: 8),
                             if (installed)
-                              _buildBadge(
-                                'Instalado',
-                                AppColors.statusGreen,
-                                theme,
-                              ),
+                              StatusBadge.active('Instalado'),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -316,21 +313,5 @@ class _PackagesScreenState extends State<PackagesScreen> {
     );
   }
 
-  Widget _buildBadge(String text, Color color, ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withAlpha(20),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        text,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w700,
-          fontSize: 10,
-        ),
-      ),
-    );
-  }
+
 }

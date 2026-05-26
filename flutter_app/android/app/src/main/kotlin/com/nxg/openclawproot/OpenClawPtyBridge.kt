@@ -212,6 +212,9 @@ class OpenClawPtyBridge(private val flutterEngine: FlutterEngine) {
         }
 
         override fun run() {
+            val outputBuffer = java.io.ByteArrayOutputStream()
+            var lastPostTime = 0L
+
             while (active.get()) {
                 try {
                     // Check exit status
@@ -247,17 +250,28 @@ class OpenClawPtyBridge(private val flutterEngine: FlutterEngine) {
                     // Read available data (non-blocking)
                     val data = nativeReadPty(sessionId)
                     if (data != null && data.isNotEmpty()) {
-                        val sink = eventSink
-                        if (sink != null) {
-                            val event = HashMap<String, Any>()
-                            event["type"] = "output"
-                            event["data"] = data
-                            mainHandler.post { sink.success(event) }
+                        outputBuffer.write(data)
+                        
+                        val now = System.currentTimeMillis()
+                        // Real-time batching: flush if buffer > 4KB or > 1ms elapsed
+                        // Higher buffer threshold reduces main-thread posts (expensive),
+                        // lower time threshold keeps latency <2ms for responsiveness.
+                        // Flutter side writes immediately (no batch timer) so no double-buffering.
+                        if (outputBuffer.size() > 4096 || (now - lastPostTime) > 1) {
+                            flushToSink(outputBuffer)
+                            lastPostTime = now
                         }
+                        // If data is flowing, don't sleep, read again immediately
+                        continue
+                    } else {
+                        // No data available right now, flush any remaining bytes
+                        if (outputBuffer.size() > 0) {
+                            flushToSink(outputBuffer)
+                            lastPostTime = System.currentTimeMillis()
+                        }
+                        // Idle sleep: 2ms — low latency but saves battery
+                        Thread.sleep(2)
                     }
-
-                    // Sleep to avoid busy-waiting
-                    Thread.sleep(16) // ~60fps polling rate
                 } catch (e: Exception) {
                     if (active.get()) {
                         Log.e(TAG, "Reader error for session $sessionId: ${e.message}")
@@ -273,6 +287,18 @@ class OpenClawPtyBridge(private val flutterEngine: FlutterEngine) {
                     sessionReaders.remove(sessionId)
                     return
                 }
+            }
+        }
+
+        private fun flushToSink(buffer: java.io.ByteArrayOutputStream) {
+            val data = buffer.toByteArray()
+            buffer.reset()
+            val sink = eventSink
+            if (sink != null) {
+                val event = HashMap<String, Any>()
+                event["type"] = "output"
+                event["data"] = data
+                mainHandler.post { sink.success(event) }
             }
         }
 

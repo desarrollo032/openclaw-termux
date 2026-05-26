@@ -7,7 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.os.Build
+import android.annotation.SuppressLint
 import android.os.IBinder
 import android.os.PowerManager
 import android.net.ConnectivityManager
@@ -22,7 +22,7 @@ import java.net.NetworkInterface
  */
 class SshForegroundService : Service() {
     companion object {
-        const val CHANNEL_ID = "openclaw_ssh"
+        const val CHANNEL_ID = "openclaw_services"
         const val NOTIFICATION_ID = 5
         const val EXTRA_PORT = "port"
         var isRunning = false
@@ -35,11 +35,7 @@ class SshForegroundService : Service() {
             val intent = Intent(context, SshForegroundService::class.java).apply {
                 putExtra(EXTRA_PORT, port)
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startForegroundService(intent)
         }
 
         fun stop(context: Context) {
@@ -195,6 +191,7 @@ class SshForegroundService : Service() {
         }
     }
 
+    @SuppressLint("MissingPermission")
     private fun getSystemDnsContent(): String {
         try {
             val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
@@ -231,17 +228,16 @@ class SshForegroundService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "OpenClaw SSH",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Keeps the SSH server running in the background"
-            }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "Services",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "OpenClaw background services"
+            setShowBadge(false)
         }
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(channel)
     }
 
     private fun buildNotification(text: String): Notification {
@@ -251,18 +247,14 @@ class SshForegroundService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, CHANNEL_ID)
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-        }
+        val builder = Notification.Builder(this, CHANNEL_ID)
 
-        builder.setContentTitle("OpenClaw SSH")
+        builder.setContentTitle("SSH")
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
 
         return builder.build()
     }

@@ -16,6 +16,11 @@ import '../screens/node_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/setup_wizard_screen.dart';
+import '../screens/web_dashboard_screen.dart';
+import '../screens/package_install_screen.dart';
+import '../screens/provider_detail_screen.dart';
+import '../models/optional_package.dart';
+import '../models/ai_provider.dart';
 
 // =============================================================================
 // TEMA COMPARTIDO
@@ -333,6 +338,78 @@ Widget setupWizardDark() {
       themeMode: ThemeMode.dark,
       home: const SetupWizardScreen(),
     ),
+  );
+}
+
+// =============================================================================
+// WEB DASHBOARD
+// =============================================================================
+
+@Preview(name: 'Web Dashboard - Light')
+Widget webDashboardLight() {
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    theme: _lightTheme,
+    home: const WebDashboardScreen(url: 'http://localhost:18789'),
+  );
+}
+
+@Preview(name: 'Web Dashboard - Dark')
+Widget webDashboardDark() {
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    theme: _lightTheme,
+    darkTheme: _darkTheme,
+    themeMode: ThemeMode.dark,
+    home: const WebDashboardScreen(url: 'http://localhost:18789'),
+  );
+}
+
+// =============================================================================
+// PACKAGE INSTALL
+// =============================================================================
+
+@Preview(name: 'Package Install - Light')
+Widget packageInstallLight() {
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    theme: _lightTheme,
+    home: const PackageInstallScreen(package: OptionalPackage.goPackage),
+  );
+}
+
+@Preview(name: 'Package Install - Dark')
+Widget packageInstallDark() {
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    theme: _lightTheme,
+    darkTheme: _darkTheme,
+    themeMode: ThemeMode.dark,
+    home: const PackageInstallScreen(package: OptionalPackage.goPackage),
+  );
+}
+
+// =============================================================================
+// PROVIDER DETAIL
+// =============================================================================
+
+@Preview(name: 'Provider Detail - Light')
+Widget providerDetailLight() {
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    theme: _lightTheme,
+    home: const ProviderDetailScreen(provider: AiProvider.anthropic),
+  );
+}
+
+@Preview(name: 'Provider Detail - Dark')
+Widget providerDetailDark() {
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    theme: _lightTheme,
+    darkTheme: _darkTheme,
+    themeMode: ThemeMode.dark,
+    home: const ProviderDetailScreen(provider: AiProvider.anthropic),
   );
 }
 

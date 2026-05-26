@@ -86,7 +86,7 @@ class GatewayService {
     try { await NativeBridge.ensureReady(); } catch (_) {}
     try {
       final filesDir = await NativeBridge.getFilesDir();
-      const resolvContent = 'nameserver 8.8.8.8\nnameserver 8.8.4.4\n';
+      const resolvContent = 'nameserver 8.8.8.8\nnameserver 1.1.1.1\nnameserver 8.8.4.4\nnameserver 1.0.0.1\n';
       final resolvFile = File('$filesDir/config/resolv.conf');
       if (!resolvFile.existsSync()) {
         Directory('$filesDir/config').createSync(recursive: true);
