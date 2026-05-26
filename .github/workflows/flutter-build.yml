@@ -9,7 +9,6 @@ on:
       - 'flutter_app/**'
       - 'scripts/fetch-proot-binaries.sh'
       - 'scripts/build-apk.sh'
-      - 'scripts/sync_local_plugins.dart'
       - '.github/workflows/flutter-build.yml'
   pull_request:
     branches: [main]
@@ -17,7 +16,6 @@ on:
       - 'flutter_app/**'
       - 'scripts/fetch-proot-binaries.sh'
       - 'scripts/build-apk.sh'
-      - 'scripts/sync_local_plugins.dart'
       - '.github/workflows/flutter-build.yml'
   workflow_dispatch:
     inputs:
@@ -104,9 +102,6 @@ jobs:
               test -f "$file" || (echo "Missing $file" && exit 1)
             done
           done
-
-      - name: Sync patched local plugins
-        run: dart run scripts/sync_local_plugins.dart --skip-pub-get
 
       - name: Get Flutter dependencies
         working-directory: flutter_app
