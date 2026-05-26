@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../design/components.dart';
 import '../services/native_bridge.dart';
 import '../services/screenshot_service.dart';
 import '../services/terminal_service.dart';
@@ -17,6 +18,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
   final _terminalModuleKey = GlobalKey<TerminalViewModuleState>();
 
   bool _initialized = false;
+  String? _error;
   String _shell = '/bin/sh';
   List<String> _args = [];
   Map<String, String> _env = {};
@@ -37,14 +39,20 @@ class _TerminalScreenState extends State<TerminalScreen> {
         rows: 24,
       );
 
+      if (!mounted) return;
       setState(() {
         _shell = config['executable'] as String;
         _args = args;
         _env = TerminalService.buildHostEnv(config);
         _initialized = true;
+        _error = null;
       });
-    } catch (e) {
-      debugPrint('Error preparing terminal config: $e');
+    } catch (e, st) {
+      debugPrint('Error preparing terminal config: $e\n$st');
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudo preparar la terminal: $e';
+      });
     }
   }
 
@@ -105,17 +113,38 @@ class _TerminalScreenState extends State<TerminalScreen> {
           ),
         ],
       ),
-      body: !_initialized
-          ? const Center(child: CircularProgressIndicator())
-          : RepaintBoundary(
-              key: _screenshotKey,
-              child: TerminalViewModule(
-                key: _terminalModuleKey,
-                shell: _shell,
-                arguments: _args,
-                environment: _env,
+      body: _error != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ErrorBox(message: _error!),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: () {
+                        setState(() => _error = null);
+                        _prepareConfig();
+                      },
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('Reintentar'),
+                    ),
+                  ],
+                ),
               ),
-            ).animate().fadeIn(duration: 300.ms, curve: Curves.easeOut),
+            )
+          : !_initialized
+              ? const Center(child: CircularProgressIndicator())
+              : RepaintBoundary(
+                  key: _screenshotKey,
+                  child: TerminalViewModule(
+                    key: _terminalModuleKey,
+                    shell: _shell,
+                    arguments: _args,
+                    environment: _env,
+                  ),
+                ).animate().fadeIn(duration: 300.ms, curve: Curves.easeOut),
     );
   }
 }
