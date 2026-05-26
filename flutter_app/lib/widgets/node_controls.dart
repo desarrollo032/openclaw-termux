@@ -7,7 +7,9 @@ import '../providers/node_provider.dart';
 import '../screens/node_screen.dart';
 
 class NodeControls extends StatelessWidget {
-  const NodeControls({super.key});
+  const NodeControls({super.key, this.showConfigButton = true});
+
+  final bool showConfigButton;
 
   @override
   Widget build(BuildContext context) {
@@ -171,13 +173,14 @@ class NodeControls extends StatelessWidget {
                           label: const Text('Reconectar'),
                         ),
                     ],
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const NodeScreen()),
+                    if (showConfigButton)
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const NodeScreen()),
+                        ),
+                        icon: const Icon(Icons.settings, size: 18),
+                        label: const Text('Configurar'),
                       ),
-                      icon: const Icon(Icons.settings, size: 18),
-                      label: const Text('Configurar'),
-                    ),
                   ],
                 ),
               ],

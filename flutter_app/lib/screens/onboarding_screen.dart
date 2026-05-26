@@ -42,7 +42,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       onboardingArgs.addAll([
         '/bin/bash',
         '-lc',
-        'echo "=== OpenClaw Onboarding === && openclaw onboard; echo "Onboarding complete!"',
+        'echo "=== OpenClaw Onboarding ===" && openclaw onboard && echo "Onboarding complete!"',
       ]);
 
       setState(() {

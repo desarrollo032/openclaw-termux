@@ -346,13 +346,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                       trailing: const Icon(Icons.chevron_right, size: 20),
-                      onTap: () => OpenClawNative.openUrl(AppConstants.licenseUrl),
+                      onTap: () => _showLicenseDialog(context),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                     ),
                   ],
                 ),
               ],
             ),
+    );
+  }
+
+  void _showLicenseDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.description_outlined, size: 22),
+            const SizedBox(width: 8),
+            const Text('Licencia MIT'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: SelectableText(
+            AppConstants.licenseText,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontFamily: 'monospace',
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              OpenClawNative.openUrl(AppConstants.licenseUrl);
+            },
+            child: const Text('Ver en GitHub'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
     );
   }
 

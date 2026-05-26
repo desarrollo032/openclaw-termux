@@ -64,7 +64,7 @@ class _NodeScreenState extends State<NodeScreen> {
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                   children: [
-                    const NodeControls(),
+                    const NodeControls(showConfigButton: false),
                     const SizedBox(height: 24),
 
                     // Gateway Connection
