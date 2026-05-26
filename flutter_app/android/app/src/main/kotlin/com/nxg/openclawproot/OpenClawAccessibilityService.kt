@@ -1,17 +1,15 @@
 package com.nxg.openclawproot
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityService.ScreenshotResult
 import android.accessibilityservice.GestureDescription
 import android.graphics.Bitmap
 import android.graphics.Path
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import java.io.File
 import java.io.FileOutputStream
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Accessibility service that enables screen interaction macros:
@@ -50,25 +48,17 @@ class OpenClawAccessibilityService : AccessibilityService() {
     @Suppress("OVERRIDE_DEPRECATION")
     private inner class TakeScreenshotCallback :
         android.accessibilityservice.AccessibilityService.TakeScreenshotCallback {
-        override fun onSuccess(screenshot: Any) {
+        override fun onSuccess(screenshot: ScreenshotResult) {
             try {
-                // In API 35+, screenshot is ScreenshotResult; in API 34 it's Bitmap
-                val bitmap = when (screenshot) {
-                    is Bitmap -> screenshot
-                    else -> {
-                        try {
-                            val m = screenshot.javaClass.getMethod("getBitmap")
-                            m.invoke(screenshot) as? Bitmap
-                        } catch (_: Exception) { null }
-                    }
+                val bitmap = screenshot.getBitmap()
+                val file = File(cacheDir, "screenshot_${System.currentTimeMillis()}.png")
+                val fos = FileOutputStream(file)
+                try {
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 90, fos)
+                } finally {
+                    fos.close()
                 }
-                if (bitmap != null) {
-                    val file = File(cacheDir, "screenshot_${System.currentTimeMillis()}.png")
-                    FileOutputStream(file).use { out ->
-                        bitmap.compress(Bitmap.CompressFormat.PNG, 90, out)
-                    }
-                    lastScreenshotPath = file.absolutePath
-                }
+                lastScreenshotPath = file.absolutePath
             } catch (_: Exception) {}
         }
 
@@ -142,16 +132,11 @@ class OpenClawAccessibilityService : AccessibilityService() {
             val svc = instance ?: return
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 lastScreenshotPath = null
-                if (Build.VERSION.SDK_INT >= 35) {
-                    // API 35+ uses Executor + consumer pattern
-                    svc.takeScreenshot(
-                        0,
-                        java.util.concurrent.Executors.newSingleThreadExecutor(),
-                        svc.screenshotCallback
-                    )
-                } else {
-                    svc.takeScreenshot(svc.screenshotCallback, Handler(Looper.getMainLooper()))
-                }
+                svc.takeScreenshot(
+                    0,
+                    java.util.concurrent.Executors.newSingleThreadExecutor(),
+                    svc.screenshotCallback
+                )
             }
         }
     }
