@@ -375,30 +375,53 @@ class BootstrapService {
         message: 'Downloading Ubuntu rootfs...',
       ));
 
+      // Throttle helpers to avoid excessive UI/log updates during download
+      int lastLoggedDownloadPct = -10; // ensure first threshold fires
+      String lastNotifMb = '';
+      DateTime lastOnProgressUpdate = DateTime(2000);
+      int lastOnProgressPct = -10;
+
+
       await Future.wait([
         _dio.download(
           rootfsUrl,
           tarPath,
           onReceiveProgress: (received, total) {
-            if (total > 0) {
-              final pct = received / total;
-              final mb = (received / 1024 / 1024).toStringAsFixed(1);
-              final totalMb = (total / 1024 / 1024).toStringAsFixed(1);
+            if (total <= 0) return;
+
+            final pct = received / total;
+            final mb = (received / 1024 / 1024).toStringAsFixed(1);
+            final totalMb = (total / 1024 / 1024).toStringAsFixed(1);
+            final pctInt = (pct * 100).floor();
+
+            // ── Log: only when crossing a new 5% threshold ──
+            if (pctInt >= lastLoggedDownloadPct + 5 || pct >= 1.0) {
+              lastLoggedDownloadPct = pctInt;
+              _log(onLog,
+                  '[DOWNLOAD] rootfs: $mb MB / $totalMb MB (${(pct * 100).toInt()}%)');
+            }
+
+            // ── Notification: only when MB value changes ──
+            if (mb != lastNotifMb) {
+              lastNotifMb = mb;
               final notifProgress = 5 + (pct * 20).round();
               _updateSetupNotification(
                 'Downloading rootfs: $mb / $totalMb MB',
                 progress: notifProgress,
               );
+            }
+
+            // ── UI state: at most every 500ms or every 10% threshold ──
+            final now = DateTime.now();
+            if (now.difference(lastOnProgressUpdate).inMilliseconds >= 500 ||
+                pctInt >= lastOnProgressPct + 10) {
+              lastOnProgressUpdate = now;
+              lastOnProgressPct = pctInt;
               onProgress(SetupState(
                 step: SetupStep.downloadingRootfs,
                 progress: pct,
                 message: 'Downloading rootfs: $mb MB / $totalMb MB',
               ));
-              final prevPct = (pct * 100).floor();
-              if (prevPct % 5 == 0 || pct >= 1.0) {
-                _log(onLog,
-                    '[DOWNLOAD] rootfs: $mb MB / $totalMb MB (${(pct * 100).toInt()}%)');
-              }
             }
           },
         ),
@@ -417,6 +440,8 @@ class BootstrapService {
         ),
       ]);
 
+      // ── Final 100% state ──
+      _log(onLog, '[DOWNLOAD] rootfs: 100% completado');
       _log(onLog, '[OK] Descargas completadas');
       onProgress(const SetupState(
         step: SetupStep.downloadingRootfs,

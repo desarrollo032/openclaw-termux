@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../design/components.dart';
 import '../design/tokens.dart';
+import '../native/openclaw_native.dart';
 import '../models/gateway_state.dart';
 import '../constants.dart';
 import '../providers/gateway_provider.dart';
@@ -393,13 +394,8 @@ class _GatewaySection extends StatelessWidget {
                         Expanded(
                           child: GestureDetector(
                             onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => WebDashboardScreen(
-                                    url: state.dashboardUrl,
-                                  ),
-                                ),
-                              );
+                              final url = state.dashboardUrl ?? AppConstants.gatewayUrl;
+                              OpenClawNative.openUrl(url);
                             },
                             child: Text(
                               state.dashboardUrl ?? AppConstants.gatewayUrl,
@@ -430,16 +426,11 @@ class _GatewaySection extends StatelessWidget {
                           },
                         ),
                         IconActionButton(
-                          icon: Icons.open_in_new,
-                          tooltip: 'Abrir',
+                          icon: Icons.open_in_browser,
+                          tooltip: 'Abrir en navegador',
                           onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => WebDashboardScreen(
-                                  url: state.dashboardUrl,
-                                ),
-                              ),
-                            );
+                            final url = state.dashboardUrl ?? AppConstants.gatewayUrl;
+                            OpenClawNative.openUrl(url);
                           },
                         ),
                       ],
