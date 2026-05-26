@@ -50,15 +50,19 @@ class OpenClawAccessibilityService : AccessibilityService() {
         android.accessibilityservice.AccessibilityService.TakeScreenshotCallback {
         override fun onSuccess(screenshot: ScreenshotResult) {
             try {
-                val bitmap = screenshot.getBitmap()
-                val file = File(cacheDir, "screenshot_${System.currentTimeMillis()}.png")
-                val fos = FileOutputStream(file)
-                try {
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 90, fos)
-                } finally {
-                    fos.close()
+                val hardwareBuffer = screenshot.hardwareBuffer
+                val colorSpace = screenshot.colorSpace
+                val bitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, colorSpace)
+                if (bitmap != null) {
+                    val file = File(cacheDir, "screenshot_${System.currentTimeMillis()}.png")
+                    val fos = FileOutputStream(file)
+                    try {
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 90, fos)
+                    } finally {
+                        fos.close()
+                    }
+                    lastScreenshotPath = file.absolutePath
                 }
-                lastScreenshotPath = file.absolutePath
             } catch (_: Exception) {}
         }
 

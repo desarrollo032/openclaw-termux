@@ -1271,8 +1271,12 @@ class SystemHandler(private val context: Context, private val activity: MainActi
     }
 
     private fun webSearch(call: MethodCall, result: MethodChannel.Result) {
+        val query = call.argument<String>("query")
+        if (query == null) {
+            result.error("INVALID_ARGS", "query required", null)
+            return
+        }
         try {
-            val query = call.argument<String>("query") ?: return result.error("INVALID_ARGS", "query required", null)
             val intent = Intent(Intent.ACTION_WEB_SEARCH).apply {
                 putExtra("query", query)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
