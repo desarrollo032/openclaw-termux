@@ -16,6 +16,7 @@ class PreferencesService {
   static const _keyNodePublicKey = 'node_ed25519_public';
   static const _keyNodeGatewayToken = 'node_gateway_token';
   static const _keyLastAppVersion = 'last_app_version';
+  static const _keyPrivacyMode = 'privacy_mode';
 
   // Cached values for zero-latency access
   bool _autoStartGateway = false;
@@ -29,6 +30,7 @@ class PreferencesService {
   String? _nodePublicKey;
   String? _nodeGatewayToken;
   String? _lastAppVersion;
+  String _privacyMode = 'high';
   
   bool _initialized = false;
 
@@ -46,6 +48,7 @@ class PreferencesService {
     _nodePublicKey = await OpenClawNative.getString(_keyNodePublicKey);
     _nodeGatewayToken = await OpenClawNative.getString(_keyNodeGatewayToken);
     _lastAppVersion = await OpenClawNative.getString(_keyLastAppVersion);
+    _privacyMode = (await OpenClawNative.getString(_keyPrivacyMode)) ?? 'high';
     
     _initialized = true;
   }
@@ -133,6 +136,13 @@ class PreferencesService {
     } else {
       OpenClawNative.removeKey(_keyLastAppVersion);
     }
+  }
+
+  String get privacyMode => _privacyMode;
+  set privacyMode(String value) {
+    if (_privacyMode == value) return;
+    _privacyMode = value;
+    OpenClawNative.saveString(_keyPrivacyMode, value);
   }
 
   int? get nodeGatewayPort => _nodeGatewayPort;

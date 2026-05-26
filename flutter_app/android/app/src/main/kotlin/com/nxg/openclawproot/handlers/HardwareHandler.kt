@@ -316,6 +316,15 @@ class HardwareHandler(
                     "gyroscope" -> Sensor.TYPE_GYROSCOPE
                     "magnetometer" -> Sensor.TYPE_MAGNETIC_FIELD
                     "barometer" -> Sensor.TYPE_PRESSURE
+                    "light" -> Sensor.TYPE_LIGHT
+                    "proximity" -> Sensor.TYPE_PROXIMITY
+                    "gravity" -> Sensor.TYPE_GRAVITY
+                    "linear_acceleration" -> Sensor.TYPE_LINEAR_ACCELERATION
+                    "rotation_vector" -> Sensor.TYPE_ROTATION_VECTOR
+                    "humidity" -> Sensor.TYPE_RELATIVE_HUMIDITY
+                    "ambient_temperature" -> Sensor.TYPE_AMBIENT_TEMPERATURE
+                    "step_counter" -> Sensor.TYPE_STEP_COUNTER
+                    "heart_rate" -> Sensor.TYPE_HEART_RATE
                     else -> Sensor.TYPE_ACCELEROMETER
                 }
                 val sensor = sensorManager.getDefaultSensor(type)
@@ -337,13 +346,38 @@ class HardwareHandler(
                             "accuracy" to event.accuracy
                         )
                         when (sensorType) {
-                            "accelerometer", "gyroscope", "magnetometer" -> {
+                            "accelerometer", "gyroscope", "magnetometer",
+                            "gravity", "linear_acceleration" -> {
                                 data["x"] = event.values[0].toDouble()
                                 data["y"] = event.values[1].toDouble()
                                 data["z"] = event.values[2].toDouble()
                             }
-                            "barometer" -> {
+                            "barometer", "ambient_temperature" -> {
                                 data["pressure"] = event.values[0].toDouble()
+                            }
+                            "light" -> {
+                                data["lux"] = event.values[0].toDouble()
+                            }
+                            "proximity" -> {
+                                data["distanceCm"] = event.values[0].toDouble()
+                            }
+                            "humidity" -> {
+                                data["relativeHumidity"] = event.values[0].toDouble()
+                            }
+                            "rotation_vector" -> {
+                                data["x"] = event.values[0].toDouble()
+                                data["y"] = event.values[1].toDouble()
+                                data["z"] = event.values[2].toDouble()
+                                if (event.values.size > 3) {
+                                    data["cos"] = event.values[3].toDouble()
+                                }
+                            }
+                            "step_counter" -> {
+                                data["steps"] = event.values[0].toInt()
+                            }
+                            "heart_rate" -> {
+                                data["bpm"] = event.values[0].toDouble()
+                                data["status"] = event.accuracy
                             }
                         }
                         activity.runOnUiThread { result.success(data) }

@@ -143,5 +143,6 @@ class CameraCapability extends CapabilityHandler {
     }
   }
 
+  @override
   void dispose() {}
 }

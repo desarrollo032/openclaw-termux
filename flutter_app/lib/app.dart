@@ -5,6 +5,7 @@ import 'providers/setup_provider.dart';
 import 'providers/gateway_provider.dart';
 import 'providers/node_provider.dart';
 import 'screens/splash_screen.dart';
+import 'widgets/orb/constellation_banner_controller.dart';
 
 class OpenClawApp extends StatelessWidget {
   const OpenClawApp({super.key});
@@ -29,7 +30,9 @@ class OpenClawApp extends StatelessWidget {
         theme: buildOpenClawTheme(isDark: false),
         darkTheme: buildOpenClawTheme(isDark: true),
         themeMode: ThemeMode.system,
-        home: const SplashScreen(),
+        home: const _BannerInitializer(
+          child: SplashScreen(),
+        ),
       ),
     );
   }
@@ -56,4 +59,28 @@ class OpenClawApp extends StatelessWidget {
       transitionDuration: AppDurations.pageTransition,
     );
   }
+}
+
+/// Small stateful widget that initializes the [ConstellationBannerController]
+/// with a [BuildContext] that is inside the MaterialApp's Navigator tree.
+/// This ensures [Overlay.of] works correctly when showing the banner.
+class _BannerInitializer extends StatefulWidget {
+  final Widget child;
+  const _BannerInitializer({required this.child});
+
+  @override
+  State<_BannerInitializer> createState() => _BannerInitializerState();
+}
+
+class _BannerInitializerState extends State<_BannerInitializer> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ConstellationBannerController.instance.init(context);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

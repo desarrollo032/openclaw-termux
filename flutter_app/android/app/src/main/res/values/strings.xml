@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OpenClaw</string>
+    <string name="accessibility_service_description">Permite que OpenClaw interactúe con la pantalla: tocar, deslizar, escribir texto y navegar. Usado por macros de automatización del nodo.</string>
+</resources>

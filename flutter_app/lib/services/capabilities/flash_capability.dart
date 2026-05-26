@@ -63,5 +63,6 @@ class FlashCapability extends CapabilityHandler {
     }
   }
 
+  @override
   void dispose() {}
 }

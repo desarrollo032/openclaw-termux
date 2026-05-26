@@ -1,6 +1,7 @@
 plugins {
     id "com.android.application"
     id "dev.flutter.flutter-gradle-plugin"
+    id "org.jetbrains.kotlin.plugin.serialization"
 }
 
 def localProperties = new Properties()
@@ -93,6 +94,17 @@ dependencies {
     implementation 'org.tukaani:xz:1.12'
     implementation 'com.github.luben:zstd-jni:1.5.7-9@aar'
     implementation 'androidx.appcompat:appcompat:1.7.1'
+
+    // Ktor embedded server (CIO engine)
+    def ktor_version = '3.1.0'
+    implementation "io.ktor:ktor-server-core:$ktor_version"
+    implementation "io.ktor:ktor-server-cio:$ktor_version"
+    implementation "io.ktor:ktor-server-websockets:$ktor_version"
+    implementation "io.ktor:ktor-server-content-negotiation:$ktor_version"
+    implementation "io.ktor:ktor-serialization-kotlinx-json:$ktor_version"
+
+    // Kotlinx Serialization
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0'
 }
 
 flutter {

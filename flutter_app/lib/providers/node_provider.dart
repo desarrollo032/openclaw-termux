@@ -8,9 +8,24 @@ import '../services/capabilities/canvas_capability.dart';
 import '../services/capabilities/battery_capability.dart';
 import '../services/capabilities/flash_capability.dart';
 import '../services/capabilities/location_capability.dart';
+import '../models/node_frame.dart';
+import '../services/capabilities/audio_capability.dart';
+import '../services/capabilities/bluetooth_capability.dart';
+import '../services/capabilities/clipboard_capability.dart';
+import '../services/capabilities/device_capability.dart';
+import '../services/capabilities/display_capability.dart';
+import '../services/capabilities/file_capability.dart';
+import '../services/capabilities/hotspot_capability.dart';
+import '../services/capabilities/macros_capability.dart';
+import '../services/capabilities/network_capability.dart';
+import '../services/capabilities/nfc_capability.dart';
+import '../services/capabilities/privacy_filter.dart';
+import '../services/capabilities/ringer_capability.dart';
+import '../services/capabilities/tts_capability.dart';
 import '../services/capabilities/screen_capability.dart';
 import '../services/capabilities/sensor_capability.dart';
 import '../services/capabilities/serial_capability.dart';
+import '../services/capabilities/telephony_capability.dart';
 import '../services/capabilities/vibration_capability.dart';
 import '../services/native_bridge.dart';
 import '../services/node_service.dart';
@@ -24,15 +39,31 @@ class NodeProvider extends ChangeNotifier with WidgetsBindingObserver {
   GatewayState? _lastGatewayState;
   Timer? _watchdog;
 
+  // Privacy Filter — wraps capability execution to protect user data
+  final PrivacyFilter privacyFilter = PrivacyFilter();
+
   // Capabilities — lazily initialized only when node is enabled
+  AudioCapability? _audioCapability;
+  BluetoothCapability? _bluetoothCapability;
   CameraCapability? _cameraCapability;
   CanvasCapability? _canvasCapability;
+  ClipboardCapability? _clipboardCapability;
+  DeviceCapability? _deviceCapability;
+  DisplayCapability? _displayCapability;
+  FileCapability? _fileCapability;
+  TtsCapability? _ttsCapability;
+  HotspotCapability? _hotspotCapability;
   BatteryCapability? _batteryCapability;
+  MacrosCapability? _macrosCapability;
   FlashCapability? _flashCapability;
   LocationCapability? _locationCapability;
+  NetworkCapability? _networkCapability;
+  NfcCapability? _nfcCapability;
+  RingerCapability? _ringerCapability;
   ScreenCapability? _screenCapability;
   SensorCapability? _sensorCapability;
   SerialCapability? _serialCapability;
+  TelephonyCapability? _telephonyCapability;
   VibrationCapability? _vibrationCapability;
   bool _capabilitiesReady = false;
 
@@ -52,14 +83,27 @@ class NodeProvider extends ChangeNotifier with WidgetsBindingObserver {
   void _ensureCapabilities() {
     if (_capabilitiesReady) return;
     _capabilitiesReady = true;
+    _audioCapability = AudioCapability();
+    _bluetoothCapability = BluetoothCapability();
     _cameraCapability = CameraCapability();
     _canvasCapability = CanvasCapability();
+    _clipboardCapability = ClipboardCapability();
+    _deviceCapability = DeviceCapability();
+    _displayCapability = DisplayCapability();
+    _fileCapability = FileCapability();
+    _ttsCapability = TtsCapability();
+    _hotspotCapability = HotspotCapability();
     _batteryCapability = BatteryCapability();
+    _macrosCapability = MacrosCapability();
     _flashCapability = FlashCapability();
     _locationCapability = LocationCapability();
+    _networkCapability = NetworkCapability();
+    _nfcCapability = NfcCapability();
+    _ringerCapability = RingerCapability();
     _screenCapability = ScreenCapability();
     _sensorCapability = SensorCapability();
     _serialCapability = SerialCapability();
+    _telephonyCapability = TelephonyCapability();
     _vibrationCapability = VibrationCapability();
     _registerCapabilities();
   }
@@ -142,51 +186,150 @@ class NodeProvider extends ChangeNotifier with WidgetsBindingObserver {
     } catch (_) {}
   }
 
+  /// Wrap a capability handler with the PrivacyFilter.
+  ///
+  /// 1. [beforeInvoke] checks if the command is allowed and sanitises params.
+  /// 2. The real handler runs.
+  /// 3. [afterInvoke] sanitises the response payload before sending to gateway.
+  Future<NodeFrame> Function(String, Map<String, dynamic>) _wrapWithPrivacy(
+    Future<NodeFrame> Function(String, Map<String, dynamic>) handler,
+  ) {
+    return (String command, Map<String, dynamic> params) async {
+      // 1. Pre-filter — check if command is allowed, sanitise params
+      final sanitizedParams = privacyFilter.beforeInvoke(command, params);
+      if (sanitizedParams == null) {
+        return privacyFilter.blockedFrame(command);
+      }
+
+      // 2. Run the real capability handler
+      final result = await handler(command, sanitizedParams);
+
+      // 3. Post-filter — sanitise the response payload
+      if (result.payload != null) {
+        final sanitized = privacyFilter.afterInvoke(command, result.payload);
+        if (sanitized == null) {
+          return privacyFilter.blockedFrame(command);
+        }
+        return NodeFrame.response(
+          result.id ?? '',
+          payload: sanitized,
+        );
+      }
+
+      return result;
+    };
+  }
+
   void _registerCapabilities() {
+    _nodeService.registerCapability(
+      _audioCapability!.name,
+      _audioCapability!.commands.map((c) => '${_audioCapability!.name}.$c').toList(),
+      _wrapWithPrivacy((cmd, params) => _audioCapability!.handleWithPermission(cmd, params)),
+    );
     _nodeService.registerCapability(
       _cameraCapability!.name,
       _cameraCapability!.commands.map((c) => '${_cameraCapability!.name}.$c').toList(),
-      (cmd, params) => _cameraCapability!.handleWithPermission(cmd, params),
+      _wrapWithPrivacy((cmd, params) => _cameraCapability!.handleWithPermission(cmd, params)),
     );
     _nodeService.registerCapability(
       _canvasCapability!.name,
       _canvasCapability!.commands.map((c) => '${_canvasCapability!.name}.$c').toList(),
-      (cmd, params) => _canvasCapability!.handle(cmd, params),
+      _wrapWithPrivacy((cmd, params) => _canvasCapability!.handle(cmd, params)),
+    );
+    _nodeService.registerCapability(
+      _ttsCapability!.name,
+      _ttsCapability!.commands.map((c) => '${_ttsCapability!.name}.$c').toList(),
+      _wrapWithPrivacy((cmd, params) => _ttsCapability!.handle(cmd, params)),
+    );
+    _nodeService.registerCapability(
+      _deviceCapability!.name,
+      _deviceCapability!.commands.map((c) => '${_deviceCapability!.name}.$c').toList(),
+      _wrapWithPrivacy((cmd, params) => _deviceCapability!.handle(cmd, params)),
     );
     _nodeService.registerCapability(
       _batteryCapability!.name,
       _batteryCapability!.commands.map((c) => '${_batteryCapability!.name}.$c').toList(),
-      (cmd, params) => _batteryCapability!.handle(cmd, params),
+      _wrapWithPrivacy((cmd, params) => _batteryCapability!.handle(cmd, params)),
     );
     _nodeService.registerCapability(
       _locationCapability!.name,
       _locationCapability!.commands.map((c) => '${_locationCapability!.name}.$c').toList(),
-      (cmd, params) => _locationCapability!.handleWithPermission(cmd, params),
+      _wrapWithPrivacy((cmd, params) => _locationCapability!.handleWithPermission(cmd, params)),
+    );
+    _nodeService.registerCapability(
+      _networkCapability!.name,
+      _networkCapability!.commands.map((c) => '${_networkCapability!.name}.$c').toList(),
+      _wrapWithPrivacy((cmd, params) => _networkCapability!.handleWithPermission(cmd, params)),
     );
     _nodeService.registerCapability(
       _screenCapability!.name,
       _screenCapability!.commands.map((c) => '${_screenCapability!.name}.$c').toList(),
-      (cmd, params) => _screenCapability!.handle(cmd, params),
+      _wrapWithPrivacy((cmd, params) => _screenCapability!.handle(cmd, params)),
+    );
+    _nodeService.registerCapability(
+      _bluetoothCapability!.name,
+      _bluetoothCapability!.commands.map((c) => '${_bluetoothCapability!.name}.$c').toList(),
+      _wrapWithPrivacy((cmd, params) => _bluetoothCapability!.handleWithPermission(cmd, params)),
+    );
+    _nodeService.registerCapability(
+      _clipboardCapability!.name,
+      _clipboardCapability!.commands.map((c) => '${_clipboardCapability!.name}.$c').toList(),
+      _wrapWithPrivacy((cmd, params) => _clipboardCapability!.handle(cmd, params)),
+    );
+    _nodeService.registerCapability(
+      _displayCapability!.name,
+      _displayCapability!.commands.map((c) => '${_displayCapability!.name}.$c').toList(),
+      _wrapWithPrivacy((cmd, params) => _displayCapability!.handle(cmd, params)),
+    );
+    _nodeService.registerCapability(
+      _fileCapability!.name,
+      _fileCapability!.commands.map((c) => '${_fileCapability!.name}.$c').toList(),
+      _wrapWithPrivacy((cmd, params) => _fileCapability!.handle(cmd, params)),
+    );
+    _nodeService.registerCapability(
+      _hotspotCapability!.name,
+      _hotspotCapability!.commands.map((c) => '${_hotspotCapability!.name}.$c').toList(),
+      _wrapWithPrivacy((cmd, params) => _hotspotCapability!.handle(cmd, params)),
+    );
+    _nodeService.registerCapability(
+      _macrosCapability!.name,
+      _macrosCapability!.commands.map((c) => '${_macrosCapability!.name}.$c').toList(),
+      _wrapWithPrivacy((cmd, params) => _macrosCapability!.handle(cmd, params)),
+    );
+    _nodeService.registerCapability(
+      _nfcCapability!.name,
+      _nfcCapability!.commands.map((c) => '${_nfcCapability!.name}.$c').toList(),
+      _wrapWithPrivacy((cmd, params) => _nfcCapability!.handleWithPermission(cmd, params)),
+    );
+    _nodeService.registerCapability(
+      _ringerCapability!.name,
+      _ringerCapability!.commands.map((c) => '${_ringerCapability!.name}.$c').toList(),
+      _wrapWithPrivacy((cmd, params) => _ringerCapability!.handle(cmd, params)),
+    );
+    _nodeService.registerCapability(
+      _telephonyCapability!.name,
+      _telephonyCapability!.commands.map((c) => '${_telephonyCapability!.name}.$c').toList(),
+      _wrapWithPrivacy((cmd, params) => _telephonyCapability!.handleWithPermission(cmd, params)),
     );
     _nodeService.registerCapability(
       _flashCapability!.name,
       _flashCapability!.commands.map((c) => '${_flashCapability!.name}.$c').toList(),
-      (cmd, params) => _flashCapability!.handleWithPermission(cmd, params),
+      _wrapWithPrivacy((cmd, params) => _flashCapability!.handleWithPermission(cmd, params)),
     );
     _nodeService.registerCapability(
       _vibrationCapability!.name,
       _vibrationCapability!.commands.map((c) => '${_vibrationCapability!.name}.$c').toList(),
-      (cmd, params) => _vibrationCapability!.handle(cmd, params),
+      _wrapWithPrivacy((cmd, params) => _vibrationCapability!.handle(cmd, params)),
     );
     _nodeService.registerCapability(
       _sensorCapability!.name,
       _sensorCapability!.commands.map((c) => '${_sensorCapability!.name}.$c').toList(),
-      (cmd, params) => _sensorCapability!.handleWithPermission(cmd, params),
+      _wrapWithPrivacy((cmd, params) => _sensorCapability!.handleWithPermission(cmd, params)),
     );
     _nodeService.registerCapability(
       _serialCapability!.name,
       _serialCapability!.commands.map((c) => '${_serialCapability!.name}.$c').toList(),
-      (cmd, params) => _serialCapability!.handleWithPermission(cmd, params),
+      _wrapWithPrivacy((cmd, params) => _serialCapability!.handleWithPermission(cmd, params)),
     );
   }
 
@@ -194,6 +337,10 @@ class NodeProvider extends ChangeNotifier with WidgetsBindingObserver {
     await _nodeService.init();
     final prefs = PreferencesService();
     await prefs.init();
+
+    // Restore privacy mode from preferences
+    _applyPrivacyMode(prefs.privacyMode);
+
     if (prefs.nodeEnabled) {
       _ensureCapabilities();
       await _requestNodePermissions();
@@ -297,6 +444,22 @@ class NodeProvider extends ChangeNotifier with WidgetsBindingObserver {
     _watchdog = null;
   }
 
+  /// Set the privacy mode and persist it.
+  Future<void> setPrivacyMode(PrivacyMode mode) async {
+    privacyFilter.mode = mode;
+    final prefs = PreferencesService();
+    await prefs.init();
+    prefs.privacyMode = mode.name;
+    notifyListeners();
+  }
+
+  void _applyPrivacyMode(String name) {
+    privacyFilter.mode = PrivacyMode.values.firstWhere(
+      (m) => m.name == name,
+      orElse: () => PrivacyMode.high,
+    );
+  }
+
   Future<void> enable() async {
     final prefs = PreferencesService();
     await prefs.init();
@@ -347,9 +510,21 @@ class NodeProvider extends ChangeNotifier with WidgetsBindingObserver {
     _subscription?.cancel();
     _nodeService.dispose();
     // Only dispose capabilities that were actually created
+    _audioCapability?.dispose();
+    _bluetoothCapability?.dispose();
     _cameraCapability?.dispose();
+    _clipboardCapability?.dispose();
+    _ttsCapability?.dispose();
+    _deviceCapability?.dispose();
+    _displayCapability?.dispose();
+    _fileCapability?.dispose();
     _flashCapability?.dispose();
+    _hotspotCapability?.dispose();
+    _macrosCapability?.dispose();
+    _nfcCapability?.dispose();
+    _ringerCapability?.dispose();
     _serialCapability?.dispose();
+    _telephonyCapability?.dispose();
     NativeBridge.stopNodeService();
     super.dispose();
   }

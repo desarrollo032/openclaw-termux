@@ -1,8 +1,10 @@
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../design/components.dart';
 import '../design/tokens.dart';
 import '../providers/node_provider.dart';
+import '../services/capabilities/privacy_filter.dart';
 import '../services/preferences_service.dart';
 import '../widgets/node_controls.dart';
 
@@ -156,6 +158,100 @@ class _NodeScreenState extends State<NodeScreen> {
                     ),
                     const SizedBox(height: 24),
 
+                    // Privacy Mode
+                    _sectionHeader(theme, Icons.security_outlined, 'PRIVACIDAD'),
+                    const SizedBox(height: 4),
+                    Card(
+                      margin: EdgeInsets.zero,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.shield_outlined,
+                                    size: 20, color: theme.colorScheme.primary),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Modo de privacidad: ${provider.privacyFilter.modeLabel}',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              provider.privacyFilter.modeDescription,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SegmentedButton<PrivacyMode>(
+                              segments: const [
+                                ButtonSegment(
+                                  value: PrivacyMode.high,
+                                  label: Text('Alta', style: TextStyle(fontSize: 12)),
+                                  icon: Icon(Icons.shield, size: 16),
+                                ),
+                                ButtonSegment(
+                                  value: PrivacyMode.medium,
+                                  label: Text('Media', style: TextStyle(fontSize: 12)),
+                                  icon: Icon(Icons.shield_outlined, size: 16),
+                                ),
+                                ButtonSegment(
+                                  value: PrivacyMode.low,
+                                  label: Text('Baja', style: TextStyle(fontSize: 12)),
+                                  icon: Icon(Icons.lock_open, size: 16),
+                                ),
+                              ],
+                              selected: {provider.privacyFilter.mode},
+                              onSelectionChanged: (modes) {
+                                provider.setPrivacyMode(modes.first);
+                              },
+                              showSelectedIcon: false,
+                              style: ButtonStyle(
+                                visualDensity: VisualDensity.compact,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: _privacyColor(provider.privacyFilter.mode)
+                                    .withAlpha(10),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _privacyIcon(provider.privacyFilter.mode),
+                                    size: 18,
+                                    color: _privacyColor(provider.privacyFilter.mode),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _privacyInfo(provider.privacyFilter.mode),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
                     // Pairing Status
                     if (state.pairingCode != null) ...[
                       _sectionHeader(theme, Icons.qr_code, 'EMPAREJAMIENTO'),
@@ -215,21 +311,47 @@ class _NodeScreenState extends State<NodeScreen> {
                       margin: EdgeInsets.zero,
                       child: Column(
                         children: [
+                          _capabilityTile(theme, 'Audio', 'Grabar audio, controlar volumen y altavoz', Icons.mic),
+                          const Divider(height: 1),
+                          _capabilityTile(theme, 'Bluetooth', 'Estado, emparejados, escaneo, encender/apagar', Icons.bluetooth),
+                          const Divider(height: 1),
                           _capabilityTile(theme, 'Cámara', 'Capturar fotos y videos', Icons.camera_alt),
                           const Divider(height: 1),
                           _capabilityTile(theme, 'Canvas', 'No disponible en móvil', Icons.web, available: false),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Ubicación', 'Obtener coordenadas GPS', Icons.location_on),
+                          _capabilityTile(theme, 'Clipboard', 'Leer y escribir en el portapapeles', Icons.content_paste),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Grabación de Pantalla', 'Grabar pantalla (requiere consentimiento)', Icons.screen_share),
+                          _capabilityTile(theme, 'Display', 'Brillo, tiempo de pantalla, orientación', Icons.brightness_medium),
+                          const Divider(height: 1),
+                          _capabilityTile(theme, 'Dispositivo', 'Modelo, RAM, almacenamiento, versión Android', Icons.phone_android),
+                          const Divider(height: 1),
+                          _capabilityTile(theme, 'Archivos', 'Listar, leer, escribir y eliminar archivos', Icons.folder_open),
                           const Divider(height: 1),
                           _capabilityTile(theme, 'Linterna', 'Encender/apagar el flash', Icons.flashlight_on),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Vibración', 'Activar respuesta háptica', Icons.vibration),
+                          _capabilityTile(theme, 'Hotspot', 'Activar/desactivar punto de acceso WiFi', Icons.wifi_tethering),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Sensores', 'Acelerómetro, giroscopio, magnetómetro', Icons.sensors),
+                          _capabilityTile(theme, 'Ubicación', 'Obtener coordenadas GPS', Icons.location_on),
+                          const Divider(height: 1),
+                          _capabilityTile(theme, 'Macros', 'Automatización: tap, swipe, apps, búsqueda, settings', Icons.auto_fix_high),
+                          const Divider(height: 1),
+                          _capabilityTile(theme, 'Red', 'WiFi, datos móviles, IPs y estado de red', Icons.wifi),
+                          const Divider(height: 1),
+                          _capabilityTile(theme, 'NFC', 'Estado, habilitar/deshabilitar NFC', Icons.nfc),
+                          const Divider(height: 1),
+                          _capabilityTile(theme, 'Tono', 'Modo normal/silencio/vibración y volumen', Icons.volume_up),
+                          const Divider(height: 1),
+                          _capabilityTile(theme, 'Grabación de Pantalla', 'Grabar pantalla (requiere consentimiento)', Icons.screen_share),
+                          const Divider(height: 1),
+                          _capabilityTile(theme, 'Sensores', 'Acelerómetro, giroscopio, magnetómetro, luz, proximidad', Icons.sensors),
                           const Divider(height: 1),
                           _capabilityTile(theme, 'Serial', 'Bluetooth y USB serie', Icons.usb),
+                          const Divider(height: 1),
+                          _capabilityTile(theme, 'Telefonía', 'Llamadas, SMS, contactos y tipo de red', Icons.phone),
+                          const Divider(height: 1),
+                          _capabilityTile(theme, 'TTS', 'Síntesis de voz (text-to-speech)', Icons.record_voice_over),
+                          const Divider(height: 1),
+                          _capabilityTile(theme, 'Vibración', 'Activar respuesta háptica', Icons.vibration),
                         ],
                       ),
                     ),
@@ -270,21 +392,21 @@ class _NodeScreenState extends State<NodeScreen> {
                         padding: const EdgeInsets.all(12),
                         child: state.logs.isEmpty
                             ? Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.article_outlined, size: 32,
-                                        color: theme.colorScheme.onSurfaceVariant.withAlpha(80)),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Sin registros aún',
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: theme.colorScheme.onSurfaceVariant,
-                                      ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.article_outlined, size: 32,
+                                      color: theme.colorScheme.onSurfaceVariant.withAlpha(80)),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Sin registros aún',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
                                     ),
-                                  ],
-                                ),
-                              )
+                                  ),
+                                ],
+                              ),
+                            )
                             : ListView.builder(
                                 reverse: true,
                                 itemCount: state.logs.length,
@@ -309,6 +431,39 @@ class _NodeScreenState extends State<NodeScreen> {
               },
             ),
     );
+  }
+
+  Color _privacyColor(PrivacyMode mode) {
+    switch (mode) {
+      case PrivacyMode.high:
+        return AppColors.statusGreen;
+      case PrivacyMode.medium:
+        return AppColors.statusAmber;
+      case PrivacyMode.low:
+        return Colors.redAccent;
+    }
+  }
+
+  IconData _privacyIcon(PrivacyMode mode) {
+    switch (mode) {
+      case PrivacyMode.high:
+        return Icons.check_circle;
+      case PrivacyMode.medium:
+        return Icons.info_outline;
+      case PrivacyMode.low:
+        return Icons.warning_amber_rounded;
+    }
+  }
+
+  String _privacyInfo(PrivacyMode mode) {
+    switch (mode) {
+      case PrivacyMode.high:
+        return 'La IA solo puede ver datos del sistema (batería, sensores básicos). Sin cámara ni ubicación.';
+      case PrivacyMode.medium:
+        return 'La IA puede ver datos del sistema y del dispositivo. La ubicación tiene precisión reducida. La cámara requiere aprobación manual.';
+      case PrivacyMode.low:
+        return 'La IA tiene acceso casi completo. Datos personales (IMEI, contactos) nunca se comparten.';
+    }
   }
 
   Widget _sectionHeader(ThemeData theme, IconData icon, String title) {

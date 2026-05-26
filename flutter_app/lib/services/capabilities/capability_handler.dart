@@ -14,6 +14,9 @@ abstract class CapabilityHandler {
   /// Used by [handleWithPermission] to detect permanently denied state.
   List<String> get requiredPermissionNames => [];
 
+  /// Optional cleanup. Override if the capability holds native resources.
+  void dispose() {}
+
   /// Ensures permission is granted before handling. Returns error frame if denied.
   Future<NodeFrame> handleWithPermission(
       String command, Map<String, dynamic> params) async {

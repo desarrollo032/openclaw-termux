@@ -11,10 +11,17 @@ class SensorCapability extends CapabilityHandler {
   String get name => 'sensor';
 
   @override
-  List<String> get commands => ['read', 'list'];
+  List<String> get commands => [
+        'read',
+        'list',
+        'light',
+        'proximity',
+      ];
 
   @override
-  List<String> get requiredPermissionNames => ['android.permission.BODY_SENSORS'];
+  List<String> get requiredPermissionNames => [
+        'android.permission.BODY_SENSORS',
+      ];
 
   @override
   Future<bool> checkPermission() async {
@@ -33,6 +40,10 @@ class SensorCapability extends CapabilityHandler {
         return _read(params);
       case 'sensor.list':
         return _list();
+      case 'sensor.light':
+        return _read({'sensor': 'light'});
+      case 'sensor.proximity':
+        return _read({'sensor': 'proximity'});
       default:
         return NodeFrame.response('', error: {
           'code': 'UNKNOWN_COMMAND',
@@ -41,15 +52,44 @@ class SensorCapability extends CapabilityHandler {
     }
   }
 
+  /// Available sensor types on Android.
+  static const _allSensors = [
+    'accelerometer',
+    'gyroscope',
+    'magnetometer',
+    'barometer',
+    'light',
+    'proximity',
+    'gravity',
+    'linear_acceleration',
+    'rotation_vector',
+    'humidity',
+    'ambient_temperature',
+    'step_counter',
+    'heart_rate',
+  ];
+
   Future<NodeFrame> _list() async {
-    return NodeFrame.response('', payload: {
-      'sensors': [
-        'accelerometer',
-        'gyroscope',
-        'magnetometer',
-        'barometer',
-      ],
-    });
+    // Read all available sensors to check which ones are present
+    final available = <Map<String, dynamic>>[];
+    for (final sensor in _allSensors) {
+      try {
+        final data = await _channel.invokeMethod('readSensor', {'sensor': sensor});
+        if (data != null) {
+          final info = Map<String, dynamic>.from(data as Map);
+          available.add({
+            'type': sensor,
+            'available': true,
+            if (info['accuracy'] != null) 'accuracy': info['accuracy'],
+          });
+        }
+      } catch (_) {
+        // Sensor not available
+        available.add({'type': sensor, 'available': false});
+      }
+    }
+
+    return NodeFrame.response('', payload: {'sensors': available});
   }
 
   Future<NodeFrame> _read(Map<String, dynamic> params) async {
@@ -60,10 +100,9 @@ class SensorCapability extends CapabilityHandler {
       if (data != null) {
         return NodeFrame.response('', payload: Map<String, dynamic>.from(data as Map));
       }
-      return NodeFrame.response('', payload: {
-        'sensor': sensor,
-        'status': 'no_data',
-        'message': 'Sensor data not available. Sensor reading requires native integration.',
+      return NodeFrame.response('', error: {
+        'code': 'SENSOR_UNAVAILABLE',
+        'message': 'Sensor "$sensor" not available on this device',
       });
     } catch (e) {
       return NodeFrame.response('', error: {

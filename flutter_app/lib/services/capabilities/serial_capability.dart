@@ -294,6 +294,7 @@ class SerialCapability extends CapabilityHandler {
     }
   }
 
+  @override
   void dispose() {
     // Disconnect all on dispose
     for (final deviceId in _connectedDevices.toList()) {

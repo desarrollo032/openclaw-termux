@@ -6,4 +6,11 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+
+    <!-- WebView theme — AppCompatActivity requires an AppCompat/Material theme.
+         Using Theme.AppCompat.Light.NoActionBar for a clean full-screen WebView
+         with an ActionBar (set by the WebViewActivity). -->
+    <style name="WebViewTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
 </resources>
