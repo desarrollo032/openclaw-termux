@@ -146,7 +146,6 @@ class SystemHandler(private val context: Context, private val activity: MainActi
                 val url = call.argument<String>("url") ?: "http://localhost:9090"
                 val intent = Intent(activity, WebViewActivity::class.java).apply {
                     putExtra(WebViewActivity.EXTRA_URL, url)
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
                 }
                 activity.startActivity(intent)
                 result.success(true)
@@ -1605,4 +1604,4 @@ class SystemHandler(private val context: Context, private val activity: MainActi
             }
         }
     }
-}
+}

@@ -13,16 +13,25 @@
 ├─────────────────────────────────────────┤
 │        MethodChannel (Puente Nativo)    │
 ├─────────────────────────────────────────┤
-│      Kotlin (Servicios Foreground)      │
-│  Gateway · Node · Terminal · SSH        │
-│  Sensores · Batería · Almacenamiento    │
+│  Kotlin (Handlers + Servicios FG)       │
+│  ┌──────────┬──────────┬─────────────┐  │
+│  │ System   │ Hardware │ Process     │  │
+│  │ Handler  │ Handler  │ Handler     │  │
+│  ├──────────┴──────────┴─────────────┤  │
+│  │ Bootstrap · Gateway · Node · SSH  │  │
+│  │ PTY · Camera · BLE · USB Serial   │  │
+│  │ Sensores · Batería · Almacenam.   │  │
+│  └───────────────────────────────────┘  │
 └─────────────────────────────────────────┘
 ```
 
 ### 🔄 Flujo de Comunicación
 
-1. **Flutter** invoca métodos nativos mediante `NativeBridge`
-2. **MainActivity** enruta llamadas a `BootstrapManager`, `ProcessManager` y servicios foreground
+1. **Flutter** invoca métodos nativos mediante `NativeBridge` (`MethodChannel`)
+2. **MainActivity** delega a los handlers especializados según el método:
+   - `SystemHandler` — Sistema, batería, permisos, webview
+   - `HardwareHandler` — Cámara, sensores, BLE, USB Serial, ubicación
+   - `ProcessHandler` — Proot, bootstrap, servicios foreground (Gateway, Node, SSH, Terminal)
 3. Los logs del gateway regresan por `EventChannel` para visualización en tiempo real
 
 ---
@@ -77,9 +86,14 @@ Se realizó una revisión completa del proyecto documentada en [`docs/mobile-aud
 - ✅ Sistema de diseño unificado con tokens y componentes
 - ✅ Tema Material You con `buildOpenClawTheme(isDark:)`
 - ✅ Componentes reutilizables (`StatusBadge`, `PressableCard`, etc.)
-- ✅ Terminal unificada vía `TerminalViewModule`
-- ✅ SHA256 verification para descargas de rootfs
-- ✅ Optimización `epoll` en el PTY nativo (C++)
+- ✅ **MainActivity refactorizada** — Dividida en 3 handlers (`SystemHandler`, `HardwareHandler`, `ProcessHandler`) para eliminar la clase dios
+- ✅ **Terminal unificada** vía `TerminalViewModule` reutilizado en Terminal, Onboarding y Package Install
+- ✅ **Verificación SHA256** dinámica desde SHA256SUMS de Ubuntu para descargas de rootfs
+- ✅ **Optimización epoll** en el PTY nativo (C++) para menor consumo de batería
+- ✅ **Throttling de progreso** en descarga rootfs — solo 1 línea cada 5% (~20 líneas totales)
+- ✅ **Dashboard: URL del Gateway** abre navegador externo; Panel Web en Herramientas usa WebView interno
+- ✅ **WebViewActivity** con tema AppCompat — corrige crash al abrir panel web
+- ✅ **SingleTask launchMode** — evita duplicados de la app
 
 ---
 

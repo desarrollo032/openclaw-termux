@@ -36,6 +36,12 @@ class _WebDashboardScreenState extends State<WebDashboardScreen> {
       _currentUrl = finalUrl;
 
       final opened = await OpenClawNative.openWebDashboard(finalUrl);
+      if (opened) {
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+        return;
+      }
       if (!opened && mounted) {
         setState(() {
           _error = 'No se pudo abrir el panel web';

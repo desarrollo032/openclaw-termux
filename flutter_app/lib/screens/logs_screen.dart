@@ -49,7 +49,12 @@ class _LogsScreenState extends State<LogsScreen> {
               ),
             ),
             const SizedBox(width: 10),
-            const Text('Registros del Gateway'),
+            const Flexible(
+              child: Text(
+                'Registros',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         actions: [

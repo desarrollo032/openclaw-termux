@@ -7,6 +7,7 @@
 [![Descargar APK](https://img.shields.io/badge/Descargar-APK-green?style=for-the-badge&logo=android)](https://github.com/desarrollo032/openclaw-termux/releases/latest)
 [![Build](https://github.com/desarrollo032/openclaw-termux/actions/workflows/flutter-build.yml/badge.svg)](https://github.com/desarrollo032/openclaw-termux/actions/workflows/flutter-build.yml)
 [![npm](https://img.shields.io/npm/v/openclaw-termux?color=blue&label=npm)](https://www.npmjs.com/package/openclaw-termux)
+[![Versión](https://img.shields.io/badge/versión-1.8.9--beta-blue?style=flat-square)](https://github.com/desarrollo032/openclaw-termux/releases)
 [![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-22-green?logo=node.js)](https://nodejs.org/)
 [![Android](https://img.shields.io/badge/Android-10%2B-brightgreen?logo=android)](https://www.android.com/)
@@ -74,12 +75,27 @@ OpenClaw lleva la puerta de enlace de IA [OpenClaw](https://github.com/anthropic
 - **🔧 Menú Configurar** — Ejecutar `openclaw configure` en terminal integrada
 - **📡 Capacidades de nodo** — 7 capacidades (15 comandos) expuestas a IA vía WebSocket
 - **🔑 Captura de token** — Autenticación automática desde onboarding
-- **🌐 Panel Web** — WebView integrado con token de autenticación
+- **🌐 Panel Web** — WebView integrado con token de autenticación (accesible desde Herramientas)
 - **📋 Visor de registros** — Logs de gateway en tiempo real con búsqueda/filtro
 - **📦 Paquetes opcionales** — Instalar Go, Homebrew y OpenSSH
 - **⚙️ Configuración** — Auto-start, batería, info del sistema, re-ejecutar setup
 - **🔔 Servicio foreground** — Gateway activa en segundo plano con notificaciones
-- **📊 Barra de progreso** — Notificaciones durante configuración del entorno
+- **📊 Barra de progreso optimizada** — Progreso de descarga con throttling inteligente (~20 líneas totales)
+
+### 🏗️ Arquitectura Modular (v1.8.9-beta)
+
+- **MainActivity refactorizada** — La lógica nativa se dividió en 3 handlers especializados:
+  - `SystemHandler` — Sistema, batería, permisos, webview
+  - `HardwareHandler` — Cámara, sensores, BLE, USB Serial
+  - `ProcessHandler` — Proot, bootstrap, servicios foreground
+- **TerminalViewModule unificado** — Componente reutilizable de terminal compartido entre Terminal, Onboarding y Package Install
+- **Optimización PTY con epoll** — Menor consumo de batería al leer datos de terminal
+
+### 🐛 Correcciones Recientes (v1.8.9-beta)
+
+- **WebViewActivity** ya no crashea — tema AppCompat corregido
+- **Sin duplicados de app** — `launchMode="singleTask"` elimina copias múltiples
+- **Gateway URL** abre navegador externo; Panel Web en Herramientas usa WebView interno
 
 ### 💻 CLI de Termux
 
@@ -114,6 +130,10 @@ bash scripts/build-apk.sh
 ### 🔧 Desarrollo
 
 #### Plugins locales con Kotlin Built-in
+
+> ⚡ **Nuevo en v1.8.9-beta:** Build release verificado sin errores. Todos los fixes de arquitectura, WebView y terminal están incluidos.
+
+> Si compilas desde fuente, asegúrate de tener Flutter 3.24+ y Android SDK API 29+.
 
 Algunos plugins de Flutter aún aplican el **Kotlin Gradle Plugin (KGP)** de forma tradicional, lo cual será incompatible con futuras versiones de AGP. Para evitarlo, estos plugins se mantienen como **copias locales parcheadas** en `flutter_app/local_plugins/` con KGP eliminado y migrados a Kotlin built-in (`kotlin { compilerOptions { ... } }`).
 

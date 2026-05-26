@@ -4,6 +4,36 @@
 
 ---
 
+## 🚦 v1.8.9-beta <small>— WebView Fix, Arquitectura Modular & Terminal Optimizada</small>
+
+### 🐛 Correcciones
+
+- **WebViewActivity Crash** — El panel web crasheaba al abrirse por tema incompatible. Corregido: nuevo `WebViewTheme` heredando de `Theme.AppCompat.Light.NoActionBar`.
+- **Duplicados de App** — `taskAffinity=""` causaba múltiples copias de la app al abrir enlaces. Corregido: `launchMode="singleTask"` y eliminación de `taskAffinity`.
+- **AccessibilityService API 35+** — `TakeScreenshotCallback` usaba `getBitmap()` eliminado en API 35. Corregido: usa `ScreenshotResult.hardwareBuffer` + `Bitmap.wrapHardwareBuffer()`.
+- **SystemHandler webSearch** — Variable `query` fuera de scope en bloque catch. Corregida declaración movida fuera del try-catch.
+- **canControlFlashlight** — Atributo no disponible eliminado de `accessibility_service_config.xml`.
+
+### 🚀 Nuevas Funcionalidades
+
+- **Dashboard: Gateway URL abre navegador externo** — La URL con token y botón "Abrir" en la tarjeta del Gateway ahora abren Chrome/navegador predeterminado. "Panel Web" en Herramientas sigue usando el WebView interno.
+- **Verificación SHA256 dinámica** — El hash SHA256 del rootfs se obtiene automáticamente desde `SHA256SUMS` de Ubuntu al instalar, garantizando integridad incluso si el tarball se actualiza.
+- **Throttling de descarga rootfs** — El progreso de descarga ya no genera cientos de líneas. Ahora solo loguea al cruzar cada 5% (~20 líneas totales) y actualiza la UI como máximo cada 500ms.
+
+### 🏗️ Arquitectura
+
+- **MainActivity refactorizada en handlers** — La "clase dios" `MainActivity.kt` se dividió en `SystemHandler`, `HardwareHandler` y `ProcessHandler`, mejorando mantenibilidad y testabilidad.
+- **TerminalViewModule unificado** — Nuevo widget reutilizable `TerminalViewModule` que encapsula la lógica PTY. Ahora compartido entre las pantallas Terminal, Onboarding y Package Install.
+- **Optimización PTY con epoll** — El native C++ (`openclaw_pty.cpp`) ahora usa `epoll` para lectura eficiente, eliminando polling y reduciendo consumo de batería.
+
+### 🔧 Mejoras
+
+- **Logs de instalación limpios** — El progreso de descarga del rootfs se muestra con throttling inteligente, eliminando el spam en la consola en vivo.
+- **Código Kotlin más modular** — Handlers especializados reemplazan el monolithic switch en MainActivity.
+- **Componente de terminal consistente** — Misma experiencia de terminal en todas las pantallas que usan PTY.
+
+---
+
 ## 🚦 v1.8.8-beta <small>— Auto-Recovery System & Instalación Resiliente</small>
 
 ### 🚀 Nuevas Funcionalidades
