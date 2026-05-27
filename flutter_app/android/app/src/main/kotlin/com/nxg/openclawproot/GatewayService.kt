@@ -5,9 +5,11 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.Intent
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
@@ -27,21 +29,21 @@ class GatewayService : Service() {
         var logSink: EventChannel.EventSink? = null
         private var instance: GatewayService? = null
         private val mainHandler = Handler(Looper.getMainLooper())
+        private var logHandlerThread: HandlerThread? = null
+        private var logHandler: Handler? = null
 
-        /** Check if the gateway process is actually alive (not just the flag).
-         *  Safe to call from the main thread — no blocking I/O. */
+        init {
+            logHandlerThread = HandlerThread("gateway-log-emitter").apply { start() }
+            logHandler = Handler(logHandlerThread!!.looper)
+        }
+
         fun isProcessAlive(): Boolean {
             val inst = instance ?: return false
             if (!isRunning) return false
             val proc = inst.gatewayProcess
-            // If we have a process reference, check if it's actually alive
             if (proc != null) return proc.isAlive
-            // No process ref yet — still in setup phase.
-            // If the gateway thread is alive, setup is ongoing — report true.
-            // This covers slow devices where dir setup takes a long time.
             val thread = inst.gatewayThread
             if (thread != null && thread.isAlive) return true
-            // Fallback: within startup window (120s)
             val elapsed = System.currentTimeMillis() - inst.startTime
             return elapsed < 120_000
         }
@@ -54,6 +56,12 @@ class GatewayService : Service() {
         fun stop(context: Context) {
             val intent = Intent(context, GatewayService::class.java)
             context.stopService(intent)
+        }
+
+        fun releaseResources() {
+            logHandlerThread?.quitSafely()
+            logHandlerThread = null
+            logHandler = null
         }
     }
 
@@ -80,12 +88,13 @@ class GatewayService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification("Starting..."))
         if (isRunning) {
             updateNotificationRunning()
-            return START_STICKY
+            return START_REDELIVER_INTENT
         }
         stopping = false
         acquireWakeLock()
+        ensureDnsConfig()
         startGateway()
-        return START_STICKY
+        return START_REDELIVER_INTENT
     }
 
     override fun onDestroy() {
@@ -95,12 +104,41 @@ class GatewayService : Service() {
         uptimeThread = null
         watchdogThread?.interrupt()
         watchdogThread = null
-        stopGateway()
+        stopGateway(force = true)
         releaseWakeLock()
         super.onDestroy()
     }
 
-    /** Check if gateway port is already in use (another instance running). */
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
+            // Android is under severe memory pressure — evict cached configs
+            // but keep the gateway alive. The log buffer can be cleared first.
+            android.util.Log.w("GatewayService", "TRIM_MEMORY_CRITICAL received")
+        }
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE) {
+            // Process is about to be killed — release all non-essential resources
+            releaseWakeLock()
+        }
+    }
+
+    private fun ensureDnsConfig() {
+        try {
+            val filesDir = applicationContext.filesDir.absolutePath
+            val resolvContent = "nameserver 8.8.8.8\nnameserver 8.8.4.4\nnameserver 1.1.1.1\nnameserver 1.0.0.1\n"
+            val resolvFile = File("$filesDir/config/resolv.conf")
+            resolvFile.parentFile?.mkdirs()
+            if (!resolvFile.exists() || resolvFile.length() == 0L) {
+                resolvFile.writeText(resolvContent)
+            }
+            val rootfsResolv = File("$filesDir/rootfs/ubuntu/etc/resolv.conf")
+            rootfsResolv.parentFile?.mkdirs()
+            if (!rootfsResolv.exists() || rootfsResolv.length() == 0L) {
+                rootfsResolv.writeText(resolvContent)
+            }
+        } catch (_: Exception) {}
+    }
+
     private fun isPortInUse(port: Int = 18789): Boolean {
         return try {
             Socket().use { socket ->
@@ -116,7 +154,6 @@ class GatewayService : Service() {
         synchronized(lock) {
             if (stopping) return
             if (gatewayProcess?.isAlive == true) return
-
             isRunning = true
             instance = this
             startTime = System.currentTimeMillis()
@@ -124,8 +161,6 @@ class GatewayService : Service() {
 
         gatewayThread = Thread {
             try {
-                // Check if an existing gateway is already listening on the port.
-                // Moved inside thread to avoid blocking the main thread (#60).
                 if (isPortInUse()) {
                     emitLog("[INFO] Gateway already running on port 18789, adopting existing instance")
                     updateNotificationRunning()
@@ -139,9 +174,6 @@ class GatewayService : Service() {
                 val nativeLibDir = applicationContext.applicationInfo.nativeLibraryDir
                 val pm = ProcessManager(filesDir, nativeLibDir)
 
-                // Recreate all directories (config, tmp, home, lib, proc/sys fakes)
-                // in case Android cleared them after an app update (#40).
-                // This must run before proot — it needs bind-mount targets.
                 val bootstrapManager = BootstrapManager(applicationContext, filesDir, nativeLibDir)
                 try {
                     bootstrapManager.setupDirectories()
@@ -155,7 +187,6 @@ class GatewayService : Service() {
                     emitLog("[WARN] writeResolvConf failed: ${e.message}")
                 }
 
-                // Last-resort: verify resolv.conf exists, create inline if not
                 val resolvContent = "nameserver 8.8.8.8\nnameserver 8.8.4.4\n"
                 try {
                     val resolvFile = File(filesDir, "config/resolv.conf")
@@ -167,7 +198,6 @@ class GatewayService : Service() {
                 } catch (e: Exception) {
                     emitLog("[WARN] inline resolv.conf fallback failed: ${e.message}")
                 }
-                // Also write into rootfs /etc/ so DNS works even if bind-mount fails
                 try {
                     val rootfsResolv = File(filesDir, "rootfs/ubuntu/etc/resolv.conf")
                     if (!rootfsResolv.exists() || rootfsResolv.length() == 0L) {
@@ -176,11 +206,8 @@ class GatewayService : Service() {
                     }
                 } catch (_: Exception) {}
 
-                // Abort if stop was requested during setup
                 if (stopping) return@Thread
 
-                // Final check right before launch — another instance may have
-                // started between the first check and now
                 if (isPortInUse()) {
                     emitLog("Gateway already running on port 18789, skipping launch")
                     updateNotificationRunning()
@@ -188,6 +215,11 @@ class GatewayService : Service() {
                     startWatchdog()
                     return@Thread
                 }
+
+                emitLog("[INFO] Cleaning stale /tmp before launch...")
+                try {
+                    pm.runInProotSync("/bin/rm -rf /tmp/* /tmp/.* 2>/dev/null; /bin/mkdir -p /tmp /tmp/npm-cache 2>/dev/null", 15)
+                } catch (_: Exception) {}
 
                 emitLog("[INFO] Spawning proot process...")
                 synchronized(lock) {
@@ -200,7 +232,6 @@ class GatewayService : Service() {
                 startUptimeTicker()
                 startWatchdog()
 
-                // Read stdout
                 val proc = gatewayProcess!!
                 val stdoutReader = BufferedReader(InputStreamReader(proc.inputStream))
                 Thread {
@@ -213,7 +244,6 @@ class GatewayService : Service() {
                     } catch (_: Exception) {}
                 }.start()
 
-                // Read stderr — log all lines on first attempt for debugging visibility
                 val stderrReader = BufferedReader(InputStreamReader(proc.errorStream))
                 val currentRestartCount = restartCount
                 Thread {
@@ -234,17 +264,14 @@ class GatewayService : Service() {
                 val uptimeSec = uptimeMs / 1000
                 emitLog("[INFO] Gateway exited with code $exitCode (uptime: ${uptimeSec}s)")
 
-                // If stop was requested, don't auto-restart
                 if (stopping) return@Thread
 
-                // If the gateway ran for >60s, it was a transient crash — reset counter
                 if (uptimeMs > 60_000) {
                     restartCount = 0
                 }
 
                 if (isRunning && restartCount < maxRestarts) {
                     restartCount++
-                    // Cap delay at 16s to avoid excessively long waits
                     val delayMs = minOf(2000L * (1 shl (restartCount - 1)), 16000L)
                     emitLog("[INFO] Auto-restarting in ${delayMs / 1000}s (attempt $restartCount/$maxRestarts)...")
                     updateNotification("Restarting in ${delayMs / 1000}s (attempt $restartCount)...")
@@ -268,64 +295,68 @@ class GatewayService : Service() {
         }.also { it.start() }
     }
 
-    private fun stopGateway() {
+    private fun stopGateway(force: Boolean = false) {
         val procToStop: Process?
         synchronized(lock) {
             stopping = true
-            restartCount = maxRestarts // Prevent auto-restart
+            if (!force) restartCount = maxRestarts
             uptimeThread?.interrupt()
             uptimeThread = null
             watchdogThread?.interrupt()
             watchdogThread = null
-            // Interrupt the gateway thread in case it is sleeping during an
-            // auto-restart delay so it wakes up and sees stopping=true.
             gatewayThread?.interrupt()
             gatewayThread = null
             procToStop = gatewayProcess
             gatewayProcess = null
         }
         emitLog("Gateway stopped by user")
-        // Gracefully terminate proot via SIGTERM first, allowing its --kill-on-exit
-        // handler to kill child processes (node.js / openclaw daemon) before proot
-        // exits.  destroyForcibly() (SIGKILL) bypasses proot's exit handler, which
-        // can leave the gateway daemon alive even after proot is killed.
         procToStop?.let { proc ->
             Thread({
                 try {
-                    proc.destroy() // SIGTERM — lets proot clean up its children
-                    if (!proc.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)) {
-                        // proot did not exit cleanly; force-kill it.
+                    // First attempt: SIGTERM — lets proot --kill-on-exit clean up children
+                    // This triggers proot's exit handler which sends SIGTERM to all
+                    // tracked child PIDs (Node.js, openclaw, etc.)
+                    proc.destroy()
+                    if (!proc.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                        // Second attempt: SIGKILL after grace period.
+                        // proot is tracked as Android child process too, so if proot
+                        // doesn't respond to SIGTERM within 5s, force-kill it.
+                        // Note: this bypasses proot's --kill-on-exit handler, so
+                        // Node.js may be orphaned — Android's process cgroup will
+                        // eventually clean it up.
                         proc.destroyForcibly()
+                        proc.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)
                     }
                 } catch (_: Exception) {
                     try { proc.destroyForcibly() } catch (_: Exception) {}
                 }
+                // Post-cleanup: remove stale temp files from previous session
+                try {
+                    val pm = ProcessManager(
+                        applicationContext.filesDir.absolutePath,
+                        applicationContext.applicationInfo.nativeLibraryDir
+                    )
+                    pm.runInProotSync("/bin/rm -rf /tmp/openclaw-* 2>/dev/null", 10)
+                } catch (_: Exception) {}
             }, "gateway-stop").apply { isDaemon = true }.start()
         }
     }
 
-    /** Watchdog: periodically checks if the proot process is alive.
-     *  If the process dies and the waitFor() thread hasn't noticed yet,
-     *  this ensures isRunning is updated promptly. */
     private fun startWatchdog() {
         watchdogThread?.interrupt()
         watchdogThread = Thread {
             try {
-                // Wait 25s before first check — reduced from 45s for faster detection
                 Thread.sleep(25_000)
                 while (!Thread.interrupted() && isRunning && !stopping) {
                     val proc = gatewayProcess
                     if (proc != null && !proc.isAlive) {
-                        // Process died — the waitFor() thread should handle restart,
-                        // but update the flag in case it's stuck
                         emitLog("[WARN] Watchdog: gateway process not alive")
                         break
                     }
-                    // Also check if port is still responding after initial startup
                     if (proc != null && !isPortInUse()) {
                         emitLog("[WARN] Watchdog: port 18789 not responding")
                     }
-                    Thread.sleep(15_000) // Check every 15s
+                    Thread.sleep(15_000)
                 }
             } catch (_: InterruptedException) {}
         }.apply { isDaemon = true; start() }
@@ -336,7 +367,7 @@ class GatewayService : Service() {
         uptimeThread = Thread {
             try {
                 while (!Thread.interrupted() && isRunning) {
-                    Thread.sleep(60_000) // Update every minute
+                    Thread.sleep(60_000)
                     if (isRunning) {
                         updateNotificationRunning()
                     }
@@ -361,18 +392,51 @@ class GatewayService : Service() {
         updateNotification("Running on port 18789 \u2022 ${formatUptime()}")
     }
 
-    /** Emit a log message to the Flutter EventChannel.
-     *  MUST post to main thread — EventSink.success() is not thread-safe. */
+    private val logBuffer = mutableListOf<String>()
+    private val logBufferLock = Any()
+    private var logFlushPosted = false
+    private val logFlushRunnable = Runnable { flushLogBuffer() }
+
     private fun emitLog(message: String) {
         try {
             val ts = java.time.Instant.now().toString()
             val formatted = "$ts $message"
-            mainHandler.post {
-                try {
-                    logSink?.success(formatted)
-                } catch (_: Exception) {}
+            val h = logHandler
+            if (h != null) {
+                synchronized(logBufferLock) {
+                    logBuffer.add(formatted)
+                    if (!logFlushPosted && logBuffer.size < 50) {
+                        logFlushPosted = true
+                        h.postDelayed(logFlushRunnable, 100)
+                    }
+                    if (logBuffer.size >= 50) {
+                        flushLogBuffer()
+                    }
+                }
+            } else {
+                mainHandler.post {
+                    try {
+                        logSink?.success(formatted)
+                    } catch (_: Exception) {}
+                }
             }
         } catch (_: Exception) {}
+    }
+
+    private fun flushLogBuffer() {
+        val batch: List<String>
+        synchronized(logBufferLock) {
+            batch = logBuffer.toList()
+            logBuffer.clear()
+            logFlushPosted = false
+        }
+        if (batch.isEmpty()) return
+        val sink = logSink ?: return
+        for (line in batch) {
+            try {
+                sink.success(line)
+            } catch (_: Exception) { break }
+        }
     }
 
     private fun acquireWakeLock() {
@@ -382,7 +446,7 @@ class GatewayService : Service() {
             PowerManager.PARTIAL_WAKE_LOCK,
             "OpenClaw::GatewayWakeLock"
         )
-        wakeLock?.acquire(24 * 60 * 60 * 1000L) // 24 hours max
+        wakeLock?.acquire(24 * 60 * 60 * 1000L)
     }
 
     private fun releaseWakeLock() {
@@ -395,11 +459,12 @@ class GatewayService : Service() {
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Services",
+            "OpenClaw Services",
             NotificationManager.IMPORTANCE_LOW
         ).apply {
             description = "OpenClaw background services"
             setShowBadge(false)
+            lockscreenVisibility = Notification.VISIBILITY_PRIVATE
         }
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
@@ -420,6 +485,7 @@ class GatewayService : Service() {
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
 
         return builder.build()
     }

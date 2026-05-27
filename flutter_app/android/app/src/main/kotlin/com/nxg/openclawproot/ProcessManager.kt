@@ -276,9 +276,24 @@ class ProcessManager(
             "\\$FAKE_KERNEL_VERSION\\$machine\\localdomain\\-1\\"
         flags.add(3, "--kernel-release=$kernelRelease")
 
-        val nodeOptions = "--require /root/.openclaw/bionic-bypass.js"
-
         // Guest environment via env -i (matching proot-distro command_login)
+        // The command launches the optimized start-gateway.sh script, which
+        // sets NODE_OPTIONS, NODE_COMPILE_CACHE, OPENCLAW_NO_RESPAWN, etc.
+        val startScript = "$rootfsDir/root/.openclaw/start-gateway.sh"
+        val resolvedCommand = if (File(startScript).exists()) {
+            // Use optimized startup script if it exists
+            if (command == "openclaw gateway --verbose") {
+                "/root/.openclaw/start-gateway.sh"
+            } else {
+                command
+            }
+        } else {
+            // Fallback: use inline env vars (pre-optimized bootstrap)
+            command
+        }
+
+        val nodeOptions = "--require /root/.openclaw/bionic-bypass.js --max-old-space-size=400 --optimize-for-size --max-semi-space-size=32"
+
         flags.addAll(listOf(
             "/usr/bin/env", "-i",
             "HOME=/root",
@@ -288,11 +303,16 @@ class ProcessManager(
             "TERM=xterm-256color",
             "TMPDIR=/tmp",
             "NODE_OPTIONS=$nodeOptions",
-            "CHOKIDAR_USEPOLLING=true",
+            "NODE_COMPILE_CACHE=/root/.cache/node/compile_cache",
+            "OPENCLAW_NO_RESPAWN=1",
+            "OPENCLAW_NO_WATCHDOG=1",
+            "UV_THREADPOOL_SIZE=4",
+            "CHOKIDAR_USEPOLLING=false",
+            "CHOKIDAR_INTERVAL=2000",
             "NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt",
             "UV_USE_IO_URING=0",
             "/bin/bash", "-c",
-            command,
+            resolvedCommand,
         ))
 
         return flags

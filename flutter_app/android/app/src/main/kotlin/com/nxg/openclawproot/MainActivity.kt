@@ -11,6 +11,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.Handler
+import android.os.HandlerThread
 import android.provider.Settings
 import android.Manifest
 import androidx.core.app.ActivityCompat
@@ -42,11 +44,16 @@ class MainActivity : FlutterActivity() {
     private var setupDone = false
     private val executor = Executors.newCachedThreadPool()
 
+    private val channelHandlerThread = HandlerThread("method-channel-dispatcher").apply { start() }
+    private val channelHandler = Handler(channelHandlerThread.looper)
+
     private val handlers = mutableListOf<BaseHandler>()
 
     override fun onDestroy() {
         ptyBridge.destroy()
         executor.shutdownNow()
+        channelHandlerThread.quitSafely()
+        GatewayService.releaseResources()
         super.onDestroy()
     }
 
@@ -80,7 +87,6 @@ class MainActivity : FlutterActivity() {
         usbSerialHelper = UsbSerialHelper(applicationContext)
         ptyBridge = OpenClawPtyBridge(flutterEngine).register()
 
-        // Initialize Handlers
         handlers.add(SystemHandler(applicationContext, this))
         handlers.add(HardwareHandler(applicationContext, this, executor, cameraHelper, locationHelper, bleHelper, usbSerialHelper))
         handlers.add(ProcessHandler(applicationContext, this, executor, bootstrapManager, processManager))
@@ -93,13 +99,21 @@ class MainActivity : FlutterActivity() {
             }
         }
 
+        // All MethodChannel operations are dispatched to a dedicated background thread
+        // to prevent ANY blocking operation from reaching Flutter's UI thread.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-            for (handler in handlers) {
-                if (handler.handleMethodCall(call, result)) {
-                    return@setMethodCallHandler
+            channelHandler.post {
+                var handled = false
+                for (handler in handlers) {
+                    if (handler.handleMethodCall(call, result)) {
+                        handled = true
+                        break
+                    }
+                }
+                if (!handled) {
+                    activity.runOnUiThread { result.notImplemented() }
                 }
             }
-            result.notImplemented()
         }
 
         createUrlNotificationChannel()
@@ -227,7 +241,6 @@ class MainActivity : FlutterActivity() {
                     putExtra("durationMs", screenCaptureDurationMs)
                 }
                 startForegroundService(intent)
-                // Poll for result
                 executor.execute {
                     val startTime = System.currentTimeMillis()
                     val timeout = screenCaptureDurationMs + 5000L

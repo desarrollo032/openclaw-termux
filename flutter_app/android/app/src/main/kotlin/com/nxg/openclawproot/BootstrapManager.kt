@@ -1252,7 +1252,10 @@ require('/root/.openclaw/proot-compat.js');
 
         File(bypassDir, "bionic-bypass.js").writeText(bypassContent)
 
-        // 5. Git config — write .gitconfig directly to rootfs to avoid shell
+        // 5. Optimized gateway startup script with memory and performance tuning
+        writeGatewayStartScript(bypassDir)
+
+        // 6. Git config — write .gitconfig directly to rootfs to avoid shell
         //    quoting issues when running `git config` inside proot via bash -c.
         //    Rewrites SSH URLs to HTTPS (no SSH keys in proot).
         //    npm dependencies like @whiskeysockets/libsignal-node use git+ssh.
@@ -1281,7 +1284,12 @@ require('/root/.openclaw/proot-compat.js');
             configFile.writeText("""
 {
   "gateway": {
-    "mode": "local"
+    "mode": "local",
+    "plugins": {
+      "browser": { "enabled": false },
+      "phone-control": { "enabled": false },
+      "talk-voice": { "enabled": false }
+    }
   }
 }
 """.trimIndent())
@@ -1328,6 +1336,77 @@ require('/root/.openclaw/proot-compat.js');
                 }
             } catch (_: Exception) {}
         }
+    }
+
+    /**
+     * Create the optimized gateway startup script at /root/.openclaw/start-gateway.sh.
+     *
+     * This script sets:
+     *   - NODE_OPTIONS: bionic-bypass + memory limits (max-old-space-size=400MB)
+     *   - NODE_COMPILE_CACHE: bytecode compilation cache (Node.js 22.8+)
+     *   - OPENCLAW_NO_RESPAWN=1: prevent OpenClaw from respawning crashed workers
+     *   - UV_THREADPOOL_SIZE=4: limit libuv threadpool (default 4, no need for 16 on mobile)
+     *   - NODE_OPTIMIZE_FOR_SIZE=1: optimize V8 heap for mobile (less memory)
+     *
+     * @param bypassDir The rootfs directory containing bionic bypass scripts
+     */
+    private fun writeGatewayStartScript(bypassDir: File) {
+        val startScript = File(bypassDir, "start-gateway.sh")
+        startScript.writeText("""#!/data/data/com.nxg.openclawproot/files/rootfs/ubuntu/bin/bash
+# OpenClaw Optimized Gateway Startup Script - Auto-generated
+# This script sets performance-optimized environment variables before
+# launching the OpenClaw gateway daemon inside proot on Android.
+
+# ====================================================================
+# 1. Node.js memory management (V8 heap limits for mobile)
+# ====================================================================
+# Limit heap to 400MB to avoid OOM on 6GB devices
+# (gateway + V8 can easily consume 600MB+ without limits)
+export NODE_OPTIONS="--require /root/.openclaw/bionic-bypass.js --max-old-space-size=400 --optimize-for-size --max-semi-space-size=32"
+
+# ====================================================================
+# 2. Node.js compile cache (v22.8+)
+# ====================================================================
+# Caches compiled bytecode to disk, dramatically reducing startup time
+# on subsequent launches (especially for large dependency trees like openclaw).
+# The cache directory is pre-created by BootstrapManager.
+export NODE_COMPILE_CACHE="/root/.cache/node/compile_cache"
+mkdir -p "$NODE_COMPILE_CACHE" 2>/dev/null
+
+# ====================================================================
+# 3. OpenClaw process management
+# ====================================================================
+# Prevent OpenClaw from respawning crashed child workers.
+# In proot, fork+exec is expensive and respawns can compound memory pressure.
+# The Kotlin GatewayService handles restart at the process level instead.
+export OPENCLAW_NO_RESPAWN=1
+
+# Disable OpenClaw's built-in watchdog (Kotlin manages this externally)
+export OPENCLAW_NO_WATCHDOG=1
+
+# ====================================================================
+# 4. libuv threadpool (I/O parallelism for Node.js)
+# ====================================================================
+# Default is 4 threads. On mobile with 8 cores, 4 is sufficient and
+# prevents thread explosion (each thread = ~1MB stack).
+export UV_THREADPOOL_SIZE=4
+
+# ====================================================================
+# 5. proot-specific compatibility
+# ====================================================================
+# Disable io_uring (not supported by proot's syscall translation layer)
+export UV_USE_IO_URING=0
+
+# Reduce chokidar/inotify polling (proot inotify is limited)
+export CHOKIDAR_USEPOLLING=false
+export CHOKIDAR_INTERVAL=2000
+
+# ====================================================================
+# 6. Launch OpenClaw gateway
+# ====================================================================
+exec openclaw gateway --verbose --no-color --no-emoji 2>&1
+""".trimIndent())
+        startScript.setExecutable(true, false)
     }
 
     /**

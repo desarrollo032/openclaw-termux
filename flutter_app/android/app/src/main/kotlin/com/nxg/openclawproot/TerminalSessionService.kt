@@ -16,8 +16,6 @@ class TerminalSessionService : Service() {
         var isRunning = false
             private set
 
-        // Shared wake lock reference accessible from MethodChannel.
-        // Owned by companion so both instance and static renewWakeLock() can use it.
         private var _wakeLock: PowerManager.WakeLock? = null
 
         fun start(context: Context) {
@@ -30,12 +28,6 @@ class TerminalSessionService : Service() {
             context.stopService(intent)
         }
 
-        /**
-         * Renew the terminal wake lock with a fresh 30-second timeout.
-         * Called from the MethodChannel on each PTY output event.
-         * If there's no activity for 30s, the wake lock auto-releases
-         * and the CPU can enter deep sleep.
-         */
         @JvmStatic
         fun renewWakeLock(context: Context) {
             _wakeLock?.let { if (it.isHeld) it.release() }
@@ -44,7 +36,7 @@ class TerminalSessionService : Service() {
                 PowerManager.PARTIAL_WAKE_LOCK,
                 "OpenClaw::TerminalWakeLock"
             )
-            wl.acquire(30_000L) // 30 seconds, renewable on activity
+            wl.acquire(30_000L)
             _wakeLock = wl
         }
     }
@@ -59,11 +51,11 @@ class TerminalSessionService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification())
         if (isRunning) {
-            return START_STICKY
+            return START_REDELIVER_INTENT
         }
         isRunning = true
         acquireWakeLock()
-        return START_STICKY
+        return START_REDELIVER_INTENT
     }
 
     override fun onDestroy() {
@@ -79,7 +71,7 @@ class TerminalSessionService : Service() {
             PowerManager.PARTIAL_WAKE_LOCK,
             "OpenClaw::TerminalWakeLock"
         )
-        wl.acquire(30_000L) // 30 seconds — renewable on PTY activity
+        wl.acquire(30_000L)
         _wakeLock = wl
     }
 
@@ -91,11 +83,12 @@ class TerminalSessionService : Service() {
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             "openclaw_services",
-            "Services",
+            "OpenClaw Services",
             NotificationManager.IMPORTANCE_LOW
         ).apply {
             description = "OpenClaw background services"
             setShowBadge(false)
+            lockscreenVisibility = Notification.VISIBILITY_PRIVATE
         }
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
@@ -115,6 +108,7 @@ class TerminalSessionService : Service() {
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
 }

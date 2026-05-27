@@ -45,12 +45,12 @@ class SetupService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification("Setting up environment...", -1))
         if (isRunning) {
-            return START_STICKY
+            return START_REDELIVER_INTENT
         }
         isRunning = true
         instance = this
         acquireWakeLock()
-        return START_STICKY
+        return START_REDELIVER_INTENT
     }
 
     override fun onDestroy() {
@@ -67,7 +67,7 @@ class SetupService : Service() {
             PowerManager.PARTIAL_WAKE_LOCK,
             "OpenClaw::SetupWakeLock"
         )
-        wakeLock?.acquire(60 * 60 * 1000L) // 1 hour max
+        wakeLock?.acquire(60 * 60 * 1000L)
     }
 
     private fun releaseWakeLock() {
@@ -80,20 +80,17 @@ class SetupService : Service() {
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Services",
+            "OpenClaw Services",
             NotificationManager.IMPORTANCE_LOW
         ).apply {
             description = "OpenClaw background services"
             setShowBadge(false)
+            lockscreenVisibility = Notification.VISIBILITY_PRIVATE
         }
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
     }
 
-    /**
-     * Build notification with optional progress bar.
-     * @param progress 0-100 for determinate bar, -1 for indeterminate spinner
-     */
     private fun buildNotification(text: String, progress: Int): Notification {
         val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
@@ -109,6 +106,7 @@ class SetupService : Service() {
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
 
         if (progress in 0..100) {
             builder.setProgress(100, progress, false)

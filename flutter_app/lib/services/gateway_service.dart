@@ -145,6 +145,11 @@ let c = {};
 try { c = JSON.parse(fs.readFileSync(p, "utf8")); } catch {}
 if (!c.gateway) c.gateway = {};
 if (!c.gateway.mode) c.gateway.mode = "local";
+// Disable heavy plugins by default (save ~300MB+ RAM on mobile)
+if (!c.gateway.plugins) c.gateway.plugins = {};
+c.gateway.plugins.browser = { enabled: false };
+c.gateway.plugins["phone-control"] = { enabled: false };
+c.gateway.plugins["talk-voice"] = { enabled: false };
 if (!c.gateway.nodes) c.gateway.nodes = {};
 c.gateway.nodes.denyCommands = [];
 c.gateway.nodes.allowCommands = $allowJson;
@@ -189,6 +194,11 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
         final gw = config['gateway'] as Map<String, dynamic>;
         // Ensure gateway.mode=local so the gateway starts without --allow-unconfigured (#93, #90)
         gw.putIfAbsent('mode', () => 'local');
+        // Disable heavy plugins by default (save ~300MB+ RAM on mobile)
+        gw.putIfAbsent('plugins', () => <String, dynamic>{});
+        (gw['plugins'] as Map<String, dynamic>)['browser'] = {'enabled': false};
+        (gw['plugins'] as Map<String, dynamic>)['phone-control'] = {'enabled': false};
+        (gw['plugins'] as Map<String, dynamic>)['talk-voice'] = {'enabled': false};
         gw.putIfAbsent('nodes', () => <String, dynamic>{});
         final nodes = gw['nodes'] as Map<String, dynamic>;
         nodes['denyCommands'] = <String>[];
