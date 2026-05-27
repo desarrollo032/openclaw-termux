@@ -321,7 +321,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
           const SizedBox(height: 28),
 
           // API Key section
-          SectionHeader(icon: Icons.key, title: 'CLAVE API'),
+          const SectionHeader(icon: Icons.key, title: 'CLAVE API'),
           const SizedBox(height: 8),
           Text(
             'Ingresa tu clave de API de ${widget.provider.name}.',
@@ -345,7 +345,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
           const SizedBox(height: 28),
 
           // Model section
-          SectionHeader(icon: Icons.model_training, title: 'MODELO'),
+          const SectionHeader(icon: Icons.model_training, title: 'MODELO'),
           const SizedBox(height: 8),
           Text(
             'Selecciona qué modelo usar con este proveedor.',

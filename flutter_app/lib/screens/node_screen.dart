@@ -79,39 +79,40 @@ class _NodeScreenState extends State<NodeScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            ListTile(
-                              leading: Radio<bool>(
-                                value: true,
-                                groupValue: _isLocal,
-                                onChanged: (value) =>
-                                    setState(() => _isLocal = value ?? true),
+                            RadioGroup<bool>(
+                              groupValue: _isLocal,
+                              onChanged: (value) =>
+                                  setState(() => _isLocal = value ?? true),
+                              child: Column(
+                                children: [
+                                  ListTile(
+                                    leading: const Radio<bool>(value: true),
+                                    title: const Text('Gateway Local',
+                                        style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w500)),
+                                    subtitle: const Text(
+                                        'Emparejar automáticamente con el gateway en este dispositivo'),
+                                    contentPadding: EdgeInsets.zero,
+                                    onTap: () =>
+                                        setState(() => _isLocal = true),
+                                    dense: true,
+                                  ),
+                                  ListTile(
+                                    leading: const Radio<bool>(value: false),
+                                    title: const Text('Gateway Remoto',
+                                        style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w500)),
+                                    subtitle: const Text(
+                                        'Conectar a un gateway en otro dispositivo'),
+                                    contentPadding: EdgeInsets.zero,
+                                    onTap: () =>
+                                        setState(() => _isLocal = false),
+                                    dense: true,
+                                  ),
+                                ],
                               ),
-                              title: const Text('Gateway Local',
-                                  style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500)),
-                              subtitle: const Text(
-                                  'Emparejar automáticamente con el gateway en este dispositivo'),
-                              contentPadding: EdgeInsets.zero,
-                              onTap: () => setState(() => _isLocal = true),
-                              dense: true,
-                            ),
-                            ListTile(
-                              leading: Radio<bool>(
-                                value: false,
-                                groupValue: _isLocal,
-                                onChanged: (value) =>
-                                    setState(() => _isLocal = value ?? false),
-                              ),
-                              title: const Text('Gateway Remoto',
-                                  style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500)),
-                              subtitle: const Text(
-                                  'Conectar a un gateway en otro dispositivo'),
-                              contentPadding: EdgeInsets.zero,
-                              onTap: () => setState(() => _isLocal = false),
-                              dense: true,
                             ),
                             if (!_isLocal) ...[
                               const SizedBox(height: 12),
@@ -245,7 +246,7 @@ class _NodeScreenState extends State<NodeScreen> {
                                 }
                               },
                               showSelectedIcon: false,
-                              style: ButtonStyle(
+                              style: const ButtonStyle(
                                 visualDensity: VisualDensity.compact,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),

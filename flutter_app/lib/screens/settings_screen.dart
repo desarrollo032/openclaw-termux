@@ -386,11 +386,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Row(
+        title: const Row(
           children: [
-            const Icon(Icons.description_outlined, size: 22),
-            const SizedBox(width: 8),
-            const Text('Licencia MIT'),
+            Icon(Icons.description_outlined, size: 22),
+            SizedBox(width: 8),
+            Text('Licencia MIT'),
           ],
         ),
         content: SingleChildScrollView(
