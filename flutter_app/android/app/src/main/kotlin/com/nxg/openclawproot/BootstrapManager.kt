@@ -1371,7 +1371,7 @@ export NODE_OPTIONS="--require /root/.openclaw/bionic-bypass.js --max-old-space-
 # on subsequent launches (especially for large dependency trees like openclaw).
 # The cache directory is pre-created by BootstrapManager.
 export NODE_COMPILE_CACHE="/root/.cache/node/compile_cache"
-mkdir -p "$NODE_COMPILE_CACHE" 2>/dev/null
+mkdir -p "${'$'}NODE_COMPILE_CACHE" 2>/dev/null
 
 # ====================================================================
 # 3. OpenClaw process management
