@@ -1252,10 +1252,7 @@ require('/root/.openclaw/proot-compat.js');
 
         File(bypassDir, "bionic-bypass.js").writeText(bypassContent)
 
-        // 5. Optimized gateway startup script with memory and performance tuning
-        writeGatewayStartScript(bypassDir)
-
-        // 6. Git config — write .gitconfig directly to rootfs to avoid shell
+        // 5. Git config — write .gitconfig directly to rootfs to avoid shell
         //    quoting issues when running `git config` inside proot via bash -c.
         //    Rewrites SSH URLs to HTTPS (no SSH keys in proot).
         //    npm dependencies like @whiskeysockets/libsignal-node use git+ssh.
@@ -1284,12 +1281,7 @@ require('/root/.openclaw/proot-compat.js');
             configFile.writeText("""
 {
   "gateway": {
-    "mode": "local",
-    "plugins": {
-      "browser": { "enabled": false },
-      "phone-control": { "enabled": false },
-      "talk-voice": { "enabled": false }
-    }
+    "mode": "local"
   }
 }
 """.trimIndent())
