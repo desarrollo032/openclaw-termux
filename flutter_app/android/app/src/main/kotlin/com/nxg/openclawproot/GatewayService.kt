@@ -191,6 +191,12 @@ class GatewayService : Service() {
                 } catch (e: Exception) {
                     emitLog("[WARN] writeResolvConf failed: ${e.message}")
                 }
+                try {
+                    bootstrapManager.ensureGatewayRuntimeOptimizations()
+                    emitLog("[INFO] Gateway runtime optimized")
+                } catch (e: Exception) {
+                    emitLog("[WARN] Gateway runtime optimization skipped: ${e.message}")
+                }
 
                 val resolvContent = "nameserver 8.8.8.8\nnameserver 8.8.4.4\n"
                 try {
@@ -221,16 +227,16 @@ class GatewayService : Service() {
                     return@Thread
                 }
 
-                emitLog("[INFO] Cleaning stale /tmp before launch...")
+                emitLog("[INFO] Cleaning stale gateway temp files...")
                 try {
-                    pm.runInProotSync("/bin/rm -rf /tmp/* /tmp/.* 2>/dev/null; /bin/mkdir -p /tmp /tmp/npm-cache 2>/dev/null", 15)
+                    pm.cleanupGatewayTempFiles()
                 } catch (_: Exception) {}
 
                 emitLog("[INFO] Spawning proot process...")
                 synchronized(lock) {
                     if (stopping) return@Thread
                     processStartTime = System.currentTimeMillis()
-                    gatewayProcess = pm.startProotProcess("openclaw gateway --verbose")
+                    gatewayProcess = pm.startProotProcess("openclaw gateway")
                 }
                 updateNotificationRunning()
                 emitLog("[INFO] Gateway process spawned")

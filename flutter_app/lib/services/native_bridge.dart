@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/services.dart';
 import '../constants.dart';
 
 class NativeBridge {
   static const _channel = MethodChannel(AppConstants.channelName);
   static const _eventChannel = EventChannel(AppConstants.eventChannelName);
+  static const _defaultTimeout = Duration(seconds: 10);
 
   // Cache for immutable OS-level values (never change during app lifetime).
   // Avoids redundant MethodChannel IPC (~5-15ms per call).
@@ -13,6 +15,34 @@ class NativeBridge {
   static String? _cachedProotPath;
   static bool _envReady = false;
 
+  static Future<T?> _invokeNullable<T>(
+    String method, [
+    Map<String, dynamic>? args,
+    Duration timeout = _defaultTimeout,
+  ]) {
+    return _channel.invokeMethod<T>(method, args).timeout(
+          timeout,
+          onTimeout: () => throw TimeoutException(
+            'MethodChannel $method timed out after $timeout',
+          ),
+        );
+  }
+
+  static Future<T> _invokeRequired<T>(
+    String method, [
+    Map<String, dynamic>? args,
+    Duration timeout = _defaultTimeout,
+  ]) async {
+    final result = await _invokeNullable<T>(method, args, timeout);
+    if (result == null) {
+      throw PlatformException(
+        code: 'NULL_RESULT',
+        message: 'MethodChannel $method returned null',
+      );
+    }
+    return result;
+  }
+
   /// Ensure environment directories and resolv.conf exist.
   /// Cached: only performs real work once (one-shot). Android may clear
   /// filesDir during APK updates but that is handled by the Kotlin services
@@ -20,8 +50,12 @@ class NativeBridge {
   static Future<void> ensureReady() async {
     if (_envReady) return;
     try {
-      await _channel.invokeMethod('setupDirs');
-      await _channel.invokeMethod('writeResolv');
+      await _invokeRequired<bool>(
+        'setupDirs',
+        null,
+        const Duration(seconds: 30),
+      );
+      await _invokeRequired<bool>('writeResolv');
       _envReady = true;
     } catch (_) {
       // Non-fatal: Kotlin services also call setupDirectories on start
@@ -30,25 +64,25 @@ class NativeBridge {
 
   static Future<String> getProotPath() async {
     if (_cachedProotPath != null) return _cachedProotPath!;
-    _cachedProotPath = await _channel.invokeMethod('getProotPath');
+    _cachedProotPath = await _invokeRequired<String>('getProotPath');
     return _cachedProotPath!;
   }
 
   static Future<String> getArch() async {
     if (_cachedArch != null) return _cachedArch!;
-    _cachedArch = await _channel.invokeMethod('getArch');
+    _cachedArch = await _invokeRequired<String>('getArch');
     return _cachedArch!;
   }
 
   static Future<String> getFilesDir() async {
     if (_cachedFilesDir != null) return _cachedFilesDir!;
-    _cachedFilesDir = await _channel.invokeMethod('getFilesDir');
+    _cachedFilesDir = await _invokeRequired<String>('getFilesDir');
     return _cachedFilesDir!;
   }
 
   static Future<String> getNativeLibDir() async {
     if (_cachedNativeLibDir != null) return _cachedNativeLibDir!;
-    _cachedNativeLibDir = await _channel.invokeMethod('getNativeLibDir');
+    _cachedNativeLibDir = await _invokeRequired<String>('getNativeLibDir');
     return _cachedNativeLibDir!;
   }
 
@@ -62,122 +96,182 @@ class NativeBridge {
   }
 
   static Future<bool> isBootstrapComplete() async {
-    return await _channel.invokeMethod('isBootstrapComplete');
+    return _invokeRequired<bool>('isBootstrapComplete');
   }
 
   static Future<Map<String, dynamic>> getBootstrapStatus() async {
-    final result = await _channel.invokeMethod('getBootstrapStatus');
+    final result = await _invokeRequired<Map>('getBootstrapStatus');
     return Map<String, dynamic>.from(result);
   }
 
   static Future<bool> extractRootfs(String tarPath, {String? sha256}) async {
-    return await _channel.invokeMethod('extractRootfs', {
+    return _invokeRequired<bool>('extractRootfs', {
       'tarPath': tarPath,
       'sha256': sha256,
-    });
+    }, const Duration(minutes: 15));
   }
 
   static Future<String> runInProot(String command, {int timeout = 900}) async {
-    return await _channel.invokeMethod('runInProot', {'command': command, 'timeout': timeout});
+    return _invokeRequired<String>(
+      'runInProot',
+      {'command': command, 'timeout': timeout},
+      Duration(seconds: timeout + 10),
+    );
   }
 
   static Future<bool> startGateway() async {
-    return await _channel.invokeMethod('startGateway');
+    return _invokeRequired<bool>('startGateway', null, const Duration(seconds: 5));
   }
 
   static Future<bool> stopGateway() async {
-    return await _channel.invokeMethod('stopGateway');
+    return _invokeRequired<bool>('stopGateway', null, const Duration(seconds: 5));
   }
 
   static Future<bool> isGatewayRunning() async {
-    return await _channel.invokeMethod('isGatewayRunning');
+    return _invokeRequired<bool>('isGatewayRunning', null, const Duration(seconds: 3));
   }
 
   static Future<bool> setupDirs() async {
-    return await _channel.invokeMethod('setupDirs');
+    return _invokeRequired<bool>('setupDirs', null, const Duration(seconds: 30));
   }
 
   static Future<bool> installBionicBypass() async {
-    return await _channel.invokeMethod('installBionicBypass');
+    return _invokeRequired<bool>(
+      'installBionicBypass',
+      null,
+      const Duration(seconds: 30),
+    );
   }
 
   static Future<bool> writeResolv() async {
-    return await _channel.invokeMethod('writeResolv');
+    return _invokeRequired<bool>('writeResolv');
   }
 
   static Future<int> extractDebPackages() async {
-    return await _channel.invokeMethod('extractDebPackages');
+    return _invokeRequired<int>(
+      'extractDebPackages',
+      null,
+      const Duration(minutes: 10),
+    );
   }
 
   static Future<bool> extractNodeTarball(String tarPath) async {
-    return await _channel.invokeMethod('extractNodeTarball', {'tarPath': tarPath});
+    return _invokeRequired<bool>(
+      'extractNodeTarball',
+      {'tarPath': tarPath},
+      const Duration(minutes: 5),
+    );
   }
 
   static Future<bool> createBinWrappers(String packageName) async {
-    return await _channel.invokeMethod('createBinWrappers', {'packageName': packageName});
+    return _invokeRequired<bool>(
+      'createBinWrappers',
+      {'packageName': packageName},
+      const Duration(seconds: 30),
+    );
   }
 
   static Future<bool> startTerminalService() async {
-    return await _channel.invokeMethod('startTerminalService');
+    return _invokeRequired<bool>(
+      'startTerminalService',
+      null,
+      const Duration(seconds: 5),
+    );
   }
 
   static Future<bool> stopTerminalService() async {
-    return await _channel.invokeMethod('stopTerminalService');
+    return _invokeRequired<bool>(
+      'stopTerminalService',
+      null,
+      const Duration(seconds: 5),
+    );
   }
 
   static Future<bool> isTerminalServiceRunning() async {
-    return await _channel.invokeMethod('isTerminalServiceRunning');
+    return _invokeRequired<bool>(
+      'isTerminalServiceRunning',
+      null,
+      const Duration(seconds: 3),
+    );
   }
 
   /// Renew the terminal wake lock with a fresh 30-second timeout.
   /// Called on PTY output to keep CPU awake while user is actively typing.
   static Future<bool> renewTerminalWakeLock() async {
-    return await _channel.invokeMethod('renewTerminalWakeLock');
+    return _invokeRequired<bool>(
+      'renewTerminalWakeLock',
+      null,
+      const Duration(seconds: 3),
+    );
   }
 
   static Future<bool> startNodeService() async {
-    return await _channel.invokeMethod('startNodeService');
+    return _invokeRequired<bool>('startNodeService', null, const Duration(seconds: 5));
   }
 
   static Future<bool> stopNodeService() async {
-    return await _channel.invokeMethod('stopNodeService');
+    return _invokeRequired<bool>('stopNodeService', null, const Duration(seconds: 5));
   }
 
   static Future<bool> isNodeServiceRunning() async {
-    return await _channel.invokeMethod('isNodeServiceRunning');
+    return _invokeRequired<bool>('isNodeServiceRunning', null, const Duration(seconds: 3));
   }
 
   static Future<Map<String, dynamic>> getBatteryStatus() async {
-    final result = await _channel.invokeMethod('getBatteryStatus');
-    return Map<String, dynamic>.from(result as Map);
+    final result = await _invokeRequired<Map>(
+      'getBatteryStatus',
+      null,
+      const Duration(seconds: 5),
+    );
+    return Map<String, dynamic>.from(result);
   }
 
   static Future<bool> updateNodeNotification(String text) async {
-    return await _channel.invokeMethod('updateNodeNotification', {'text': text});
+    return _invokeRequired<bool>(
+      'updateNodeNotification',
+      {'text': text},
+      const Duration(seconds: 3),
+    );
   }
 
   static Future<bool> requestBatteryOptimization() async {
-    return await _channel.invokeMethod('requestBatteryOptimization');
+    return _invokeRequired<bool>(
+      'requestBatteryOptimization',
+      null,
+      const Duration(seconds: 10),
+    );
   }
 
   static Future<bool> isBatteryOptimized() async {
-    return await _channel.invokeMethod('isBatteryOptimized');
+    return _invokeRequired<bool>(
+      'isBatteryOptimized',
+      null,
+      const Duration(seconds: 5),
+    );
   }
 
   static Future<bool> startSetupService() async {
-    return await _channel.invokeMethod('startSetupService');
+    return _invokeRequired<bool>('startSetupService', null, const Duration(seconds: 5));
   }
 
   static Future<bool> updateSetupNotification(String text, {int progress = -1}) async {
-    return await _channel.invokeMethod('updateSetupNotification', {'text': text, 'progress': progress});
+    return _invokeRequired<bool>(
+      'updateSetupNotification',
+      {'text': text, 'progress': progress},
+      const Duration(seconds: 3),
+    );
   }
 
   static Future<bool> stopSetupService() async {
-    return await _channel.invokeMethod('stopSetupService');
+    return _invokeRequired<bool>('stopSetupService', null, const Duration(seconds: 5));
   }
 
   static Future<bool> showUrlNotification(String url, {String title = 'URL Detected'}) async {
-    return await _channel.invokeMethod('showUrlNotification', {'url': url, 'title': title});
+    return _invokeRequired<bool>(
+      'showUrlNotification',
+      {'url': url, 'title': title},
+      const Duration(seconds: 3),
+    );
   }
 
   static Stream<String> get gatewayLogStream {
@@ -185,60 +279,92 @@ class NativeBridge {
   }
 
   static Future<String?> requestScreenCapture(int durationMs) async {
-    return await _channel.invokeMethod('requestScreenCapture', {'durationMs': durationMs});
+    return _invokeNullable<String>(
+      'requestScreenCapture',
+      {'durationMs': durationMs},
+      const Duration(minutes: 5),
+    );
   }
 
   static Future<bool> stopScreenCapture() async {
-    return await _channel.invokeMethod('stopScreenCapture');
+    return _invokeRequired<bool>('stopScreenCapture', null, const Duration(seconds: 5));
   }
 
   static Future<bool> requestStoragePermission() async {
-    return await _channel.invokeMethod('requestStoragePermission');
+    return _invokeRequired<bool>(
+      'requestStoragePermission',
+      null,
+      const Duration(seconds: 10),
+    );
   }
 
   static Future<bool> hasStoragePermission() async {
-    return await _channel.invokeMethod('hasStoragePermission');
+    return _invokeRequired<bool>('hasStoragePermission', null, const Duration(seconds: 3));
   }
 
   static Future<String> getExternalStoragePath() async {
-    return await _channel.invokeMethod('getExternalStoragePath');
+    return _invokeRequired<String>(
+      'getExternalStoragePath',
+      null,
+      const Duration(seconds: 5),
+    );
   }
 
   static Future<String?> readRootfsFile(String path) async {
-    return await _channel.invokeMethod('readRootfsFile', {'path': path});
+    return _invokeNullable<String>(
+      'readRootfsFile',
+      {'path': path},
+      const Duration(seconds: 10),
+    );
   }
 
   static Future<bool> writeRootfsFile(String path, String content) async {
-    return await _channel.invokeMethod('writeRootfsFile', {'path': path, 'content': content});
+    return _invokeRequired<bool>(
+      'writeRootfsFile',
+      {'path': path, 'content': content},
+      const Duration(seconds: 10),
+    );
   }
 
   // SSH Service
   static Future<bool> startSshd({int port = 8022}) async {
-    return await _channel.invokeMethod('startSshd', {'port': port});
+    return _invokeRequired<bool>(
+      'startSshd',
+      {'port': port},
+      const Duration(seconds: 5),
+    );
   }
 
   static Future<bool> stopSshd() async {
-    return await _channel.invokeMethod('stopSshd');
+    return _invokeRequired<bool>('stopSshd', null, const Duration(seconds: 5));
   }
 
   static Future<bool> isSshdRunning() async {
-    return await _channel.invokeMethod('isSshdRunning');
+    return _invokeRequired<bool>('isSshdRunning', null, const Duration(seconds: 3));
   }
 
   static Future<int> getSshdPort() async {
-    return await _channel.invokeMethod('getSshdPort');
+    return _invokeRequired<int>('getSshdPort', null, const Duration(seconds: 3));
   }
 
   static Future<List<String>> getDeviceIps() async {
-    final result = await _channel.invokeMethod('getDeviceIps');
+    final result = await _invokeRequired<List>(
+      'getDeviceIps',
+      null,
+      const Duration(seconds: 5),
+    );
     return List<String>.from(result);
   }
 
   static Future<bool> bringToForeground() async {
-    return await _channel.invokeMethod('bringToForeground');
+    return _invokeRequired<bool>('bringToForeground', null, const Duration(seconds: 3));
   }
 
   static Future<bool> setRootPassword(String password) async {
-    return await _channel.invokeMethod('setRootPassword', {'password': password});
+    return _invokeRequired<bool>(
+      'setRootPassword',
+      {'password': password},
+      const Duration(seconds: 15),
+    );
   }
 }

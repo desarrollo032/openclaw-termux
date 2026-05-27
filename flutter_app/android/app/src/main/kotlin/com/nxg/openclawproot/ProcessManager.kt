@@ -87,7 +87,7 @@ class ProcessManager(
     }
 
     @SuppressLint("SdCardPath")
-    private fun commonProotFlags(): List<String> {
+    private fun commonProotFlags(isGatewayMode: Boolean = false): List<String> {
         // Guarantee resolv.conf exists before building the bind-mount list
         ensureResolvConf()
         ensureAndroidSupplementalGroups()
@@ -96,13 +96,17 @@ class ProcessManager(
         val procFakes = "$configDir/proc_fakes"
         val sysFakes = "$configDir/sys_fakes"
 
-        val stdioBinds = listOf(
-            0 to "/dev/stdin",
-            1 to "/dev/stdout",
-            2 to "/dev/stderr",
-        ).mapNotNull { (fd, target) ->
-            val source = File("/proc/self/fd/$fd")
-            if (source.exists()) "--bind=/proc/self/fd/$fd:$target" else null
+        val stdioBinds = if (GatewayRuntimePolicy.shouldBindStdio(isGatewayMode)) {
+            listOf(
+                0 to "/dev/stdin",
+                1 to "/dev/stdout",
+                2 to "/dev/stderr",
+            ).mapNotNull { (fd, target) ->
+                val source = File("/proc/self/fd/$fd")
+                if (source.exists()) "--bind=/proc/self/fd/$fd:$target" else null
+            }
+        } else {
+            emptyList()
         }
 
         return listOf(
@@ -225,7 +229,7 @@ class ProcessManager(
     // Simpler: no --sysvipc, simple kernel-release, minimal guest env.
     // ================================================================
     fun buildInstallCommand(command: String): List<String> {
-        val flags = commonProotFlags().toMutableList()
+        val flags = commonProotFlags(isGatewayMode = false).toMutableList()
 
         // --root-id: fake root identity (same as proot-distro run_proot_cmd)
         flags.add(1, "--root-id")
@@ -258,7 +262,7 @@ class ProcessManager(
     // Full featured: --sysvipc, full uname struct, more guest env vars.
     // ================================================================
     fun buildGatewayCommand(command: String): List<String> {
-        val flags = commonProotFlags().toMutableList()
+        val flags = commonProotFlags(isGatewayMode = true).toMutableList()
         val arch = ArchUtils.getArch()
         // Map to uname -m format
         val machine = when (arch) {
@@ -280,19 +284,12 @@ class ProcessManager(
         // The command launches the optimized start-gateway.sh script, which
         // sets NODE_OPTIONS, NODE_COMPILE_CACHE, OPENCLAW_NO_RESPAWN, etc.
         val startScript = "$rootfsDir/root/.openclaw/start-gateway.sh"
-        val resolvedCommand = if (File(startScript).exists()) {
-            // Use optimized startup script if it exists
-            if (command == "openclaw gateway --verbose") {
-                "/root/.openclaw/start-gateway.sh"
-            } else {
-                command
-            }
-        } else {
-            // Fallback: use inline env vars (pre-optimized bootstrap)
-            command
-        }
+        val resolvedCommand = GatewayRuntimePolicy.resolveGatewayCommand(
+            requestedCommand = command,
+            optimizedScriptExists = File(startScript).exists(),
+        )
 
-        val nodeOptions = "--require /root/.openclaw/bionic-bypass.js --max-old-space-size=400 --optimize-for-size --max-semi-space-size=32"
+        val nodeOptions = GatewayRuntimePolicy.nodeOptions()
 
         flags.addAll(listOf(
             "/usr/bin/env", "-i",
@@ -491,6 +488,27 @@ class ProcessManager(
         }
 
         return runInProotSync(command, timeoutSeconds)
+    }
+
+    fun cleanupGatewayTempFiles() {
+        val tmp = File(rootfsDir, "tmp")
+        if (!tmp.exists()) {
+            tmp.mkdirs()
+            return
+        }
+
+        tmp.listFiles()?.forEach { file ->
+            val name = file.name
+            if (name.startsWith("openclaw-") ||
+                name.startsWith("node-") ||
+                name.startsWith("npm-") ||
+                name == "npm-cache") {
+                try {
+                    file.deleteRecursively()
+                } catch (_: Exception) {}
+            }
+        }
+        File(tmp, "npm-cache").mkdirs()
     }
 
     // ================================================================
