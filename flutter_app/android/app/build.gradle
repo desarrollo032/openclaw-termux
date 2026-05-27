@@ -19,7 +19,7 @@ if (flutterVersionCode == null) {
 
 def flutterVersionName = localProperties.getProperty("flutter.versionName")
 if (flutterVersionName == null) {
-    flutterVersionName = "1.5.0"
+    flutterVersionName = "1.9.0-beta.1"
 }
 
 def keystoreProperties = new Properties()

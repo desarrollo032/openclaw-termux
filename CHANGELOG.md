@@ -4,6 +4,25 @@
 
 ---
 
+## 🚦 v1.9.0-beta.1 <small>— Gateway Runtime Performance Beta</small>
+
+### 🚀 Mejoras de rendimiento
+
+- **Arranque de OpenClaw sin modo verbose por defecto** — El gateway ahora se ejecuta con salida limpia (`--no-color --no-emoji`) para reducir carga de stdout, presión sobre el event loop y tráfico de logs entre proot, Kotlin y Flutter.
+- **Launcher runtime auto-actualizable** — Antes de iniciar OpenClaw, la app refresca `/root/.openclaw/start-gateway.sh` para que instalaciones existentes reciban las optimizaciones sin repetir el wizard ni reinstalar paquetes.
+- **Más espacio para V8** — El heap de Node.js sube a 512 MB y el semi-space a 64 MB para disminuir GC agresivo cuando OpenClaw carga plugins y dependencias pesadas.
+- **Caches persistentes en storage de la app** — `NODE_COMPILE_CACHE`, `XDG_CACHE_HOME` y `npm_config_cache` quedan dentro del rootfs para acelerar arranques calientes y reutilizar compilación/caches.
+- **Limpieza de temporales sin abrir proot extra** — Los temporales del gateway se limpian desde Kotlin sobre el filesystem de la app, evitando un proceso proot adicional antes de arrancar OpenClaw.
+- **Menos warnings de `/proc/self/fd` en gateway mode** — El modo runtime evita binds stdio innecesarios que generaban ruido de proot en dispositivos Android.
+
+### ✅ Validación
+
+- `flutter analyze`
+- `:app:testDebugUnitTest --tests com.nxg.openclawproot.GatewayRuntimePolicyTest`
+- `:app:assembleDebug`
+
+---
+
 ## 🚦 v1.8.9-beta <small>— WebView Fix, Arquitectura Modular & Terminal Optimizada</small>
 
 ### 🐛 Correcciones

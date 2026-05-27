@@ -7,7 +7,7 @@
 [![Descargar APK](https://img.shields.io/badge/Descargar-APK-green?style=for-the-badge&logo=android)](https://github.com/desarrollo032/openclaw-termux/releases/latest)
 [![Build](https://github.com/desarrollo032/openclaw-termux/actions/workflows/flutter-build.yml/badge.svg)](https://github.com/desarrollo032/openclaw-termux/actions/workflows/flutter-build.yml)
 [![npm](https://img.shields.io/npm/v/openclaw-termux?color=blue&label=npm)](https://www.npmjs.com/package/openclaw-termux)
-[![Versión](https://img.shields.io/badge/versión-1.8.9--beta-blue?style=flat-square)](https://github.com/desarrollo032/openclaw-termux/releases)
+[![Versión](https://img.shields.io/badge/versión-1.9.0--beta.1-blue?style=flat-square)](https://github.com/desarrollo032/openclaw-termux/releases)
 [![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-22-green?logo=node.js)](https://nodejs.org/)
 [![Android](https://img.shields.io/badge/Android-10%2B-brightgreen?logo=android)](https://www.android.com/)
@@ -82,6 +82,14 @@ OpenClaw lleva la puerta de enlace de IA [OpenClaw](https://github.com/anthropic
 - **🔔 Servicio foreground** — Gateway activa en segundo plano con notificaciones
 - **📊 Barra de progreso optimizada** — Progreso de descarga con throttling inteligente (~20 líneas totales)
 
+### ⚡ Runtime Gateway Optimizado (v1.9.0-beta.1)
+
+- **OpenClaw sin `--verbose` por defecto** — Menos stdout y menor presión sobre el event loop de Node.js.
+- **Launcher runtime auto-actualizable** — Las instalaciones existentes reciben el nuevo `start-gateway.sh` al iniciar el gateway, sin repetir el wizard.
+- **Más espacio para Node.js** — V8 usa `--max-old-space-size=512` y `--max-semi-space-size=64` para reducir GC en cargas pesadas.
+- **Caches persistentes** — `NODE_COMPILE_CACHE`, `XDG_CACHE_HOME` y `npm_config_cache` se guardan dentro del rootfs para acelerar arranques calientes.
+- **Menos overhead de proot** — La limpieza de temporales se hace desde Kotlin y el gateway evita binds stdio que generaban warnings de `/proc/self/fd`.
+
 ### 🏗️ Arquitectura Modular (v1.8.9-beta)
 
 - **MainActivity refactorizada** — La lógica nativa se dividió en 3 handlers especializados:
@@ -131,7 +139,7 @@ bash scripts/build-apk.sh
 
 #### Plugins locales con Kotlin Built-in
 
-> ⚡ **Nuevo en v1.8.9-beta:** Build release verificado sin errores. Todos los fixes de arquitectura, WebView y terminal están incluidos.
+> ⚡ **Nuevo en v1.9.0-beta.1:** runtime del gateway optimizado para arranque más rápido, menos logs, más cache y menor presión del event loop.
 
 > Si compilas desde fuente, asegúrate de tener Flutter 3.24+ y Android SDK API 29+.
 
