@@ -207,20 +207,24 @@ class InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final text = Text(
+      value,
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w500,
+      ),
+      overflow: TextOverflow.ellipsis,
+      maxLines: 1,
+    );
     return ListTile(
       leading: Icon(icon, size: 22, color: theme.colorScheme.onSurfaceVariant),
       title: Text(
         label,
         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
       ),
-      trailing: Text(
-        value,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w500,
-        ),
-        overflow: TextOverflow.ellipsis,
-        maxLines: 1,
+      trailing: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 150),
+        child: text,
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
     );
