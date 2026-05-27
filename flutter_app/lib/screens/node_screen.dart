@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../design/components.dart';
@@ -70,7 +69,8 @@ class _NodeScreenState extends State<NodeScreen> {
                     const SizedBox(height: 24),
 
                     // Gateway Connection
-                    _sectionHeader(theme, Icons.link_outlined, 'CONEXIÓN DEL GATEWAY'),
+                    _sectionHeader(
+                        theme, Icons.link_outlined, 'CONEXIÓN DEL GATEWAY'),
                     const SizedBox(height: 4),
                     Card(
                       margin: EdgeInsets.zero,
@@ -83,10 +83,15 @@ class _NodeScreenState extends State<NodeScreen> {
                               leading: Radio<bool>(
                                 value: true,
                                 groupValue: _isLocal,
-                                onChanged: (value) => setState(() => _isLocal = value ?? true),
+                                onChanged: (value) =>
+                                    setState(() => _isLocal = value ?? true),
                               ),
-                              title: const Text('Gateway Local', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                              subtitle: const Text('Emparejar automáticamente con el gateway en este dispositivo'),
+                              title: const Text('Gateway Local',
+                                  style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500)),
+                              subtitle: const Text(
+                                  'Emparejar automáticamente con el gateway en este dispositivo'),
                               contentPadding: EdgeInsets.zero,
                               onTap: () => setState(() => _isLocal = true),
                               dense: true,
@@ -95,10 +100,15 @@ class _NodeScreenState extends State<NodeScreen> {
                               leading: Radio<bool>(
                                 value: false,
                                 groupValue: _isLocal,
-                                onChanged: (value) => setState(() => _isLocal = value ?? false),
+                                onChanged: (value) =>
+                                    setState(() => _isLocal = value ?? false),
                               ),
-                              title: const Text('Gateway Remoto', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                              subtitle: const Text('Conectar a un gateway en otro dispositivo'),
+                              title: const Text('Gateway Remoto',
+                                  style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500)),
+                              subtitle: const Text(
+                                  'Conectar a un gateway en otro dispositivo'),
                               contentPadding: EdgeInsets.zero,
                               onTap: () => setState(() => _isLocal = false),
                               dense: true,
@@ -129,26 +139,36 @@ class _NodeScreenState extends State<NodeScreen> {
                                 decoration: const InputDecoration(
                                   labelText: 'Token del Gateway',
                                   hintText: 'Pega el token de la URL del panel',
-                                  helperText: 'Se encuentra después de #token= en la URL del panel',
+                                  helperText:
+                                      'Se encuentra después de #token= en la URL del panel',
                                   prefixIcon: Icon(Icons.key),
                                 ),
                                 obscureText: true,
                               ),
                               const SizedBox(height: 16),
                               AnimatedBuilder(
-                                animation: Listenable.merge([_hostController, _portController]),
+                                animation: Listenable.merge(
+                                    [_hostController, _portController]),
                                 builder: (context, _) {
-                                  final hostFilled = _hostController.text.trim().isNotEmpty;
+                                  final hostFilled =
+                                      _hostController.text.trim().isNotEmpty;
                                   return SizedBox(
                                     width: double.infinity,
                                     child: FilledButton.icon(
                                       onPressed: hostFilled
                                           ? () {
-                                              final host = _hostController.text.trim();
-                                              final port = int.tryParse(_portController.text.trim()) ?? 18789;
-                                              final token = _tokenController.text.trim();
+                                              final host =
+                                                  _hostController.text.trim();
+                                              final port = int.tryParse(
+                                                      _portController.text
+                                                          .trim()) ??
+                                                  18789;
+                                              final token =
+                                                  _tokenController.text.trim();
                                               provider.connectRemote(host, port,
-                                                  token: token.isNotEmpty ? token : null);
+                                                  token: token.isNotEmpty
+                                                      ? token
+                                                      : null);
                                             }
                                           : null,
                                       icon: const Icon(Icons.link, size: 18),
@@ -165,7 +185,8 @@ class _NodeScreenState extends State<NodeScreen> {
                     const SizedBox(height: 24),
 
                     // Privacy Mode
-                    _sectionHeader(theme, Icons.security_outlined, 'PRIVACIDAD'),
+                    _sectionHeader(
+                        theme, Icons.security_outlined, 'PRIVACIDAD'),
                     const SizedBox(height: 4),
                     Card(
                       margin: EdgeInsets.zero,
@@ -200,17 +221,20 @@ class _NodeScreenState extends State<NodeScreen> {
                               segments: const [
                                 ButtonSegment(
                                   value: PrivacyMode.high,
-                                  label: Text('Alta', style: TextStyle(fontSize: 12)),
+                                  label: Text('Alta',
+                                      style: TextStyle(fontSize: 12)),
                                   icon: Icon(Icons.shield, size: 16),
                                 ),
                                 ButtonSegment(
                                   value: PrivacyMode.medium,
-                                  label: Text('Media', style: TextStyle(fontSize: 12)),
+                                  label: Text('Media',
+                                      style: TextStyle(fontSize: 12)),
                                   icon: Icon(Icons.shield_outlined, size: 16),
                                 ),
                                 ButtonSegment(
                                   value: PrivacyMode.low,
-                                  label: Text('Baja', style: TextStyle(fontSize: 12)),
+                                  label: Text('Baja',
+                                      style: TextStyle(fontSize: 12)),
                                   icon: Icon(Icons.lock_open, size: 16),
                                 ),
                               ],
@@ -230,8 +254,9 @@ class _NodeScreenState extends State<NodeScreen> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: _privacyColor(provider.privacyFilter.mode)
-                                    .withAlpha(10),
+                                color:
+                                    _privacyColor(provider.privacyFilter.mode)
+                                        .withAlpha(10),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
@@ -239,7 +264,8 @@ class _NodeScreenState extends State<NodeScreen> {
                                   Icon(
                                     _privacyIcon(provider.privacyFilter.mode),
                                     size: 18,
-                                    color: _privacyColor(provider.privacyFilter.mode),
+                                    color: _privacyColor(
+                                        provider.privacyFilter.mode),
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
@@ -247,7 +273,8 @@ class _NodeScreenState extends State<NodeScreen> {
                                       _privacyInfo(provider.privacyFilter.mode),
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: theme.colorScheme.onSurfaceVariant,
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
                                       ),
                                     ),
                                   ),
@@ -276,7 +303,8 @@ class _NodeScreenState extends State<NodeScreen> {
                                   color: AppColors.statusAmber.withAlpha(15),
                                   borderRadius: BorderRadius.circular(16),
                                 ),
-                                child: const Icon(Icons.qr_code, size: 48, color: AppColors.statusAmber),
+                                child: const Icon(Icons.qr_code,
+                                    size: 48, color: AppColors.statusAmber),
                               ),
                               const SizedBox(height: 12),
                               Text(
@@ -287,17 +315,21 @@ class _NodeScreenState extends State<NodeScreen> {
                               ),
                               const SizedBox(height: 12),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 24, vertical: 12),
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.primary.withAlpha(10),
+                                  color:
+                                      theme.colorScheme.primary.withAlpha(10),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: theme.colorScheme.primary.withAlpha(30),
+                                    color:
+                                        theme.colorScheme.primary.withAlpha(30),
                                   ),
                                 ),
                                 child: SelectableText(
                                   state.pairingCode!,
-                                  style: theme.textTheme.headlineMedium?.copyWith(
+                                  style:
+                                      theme.textTheme.headlineMedium?.copyWith(
                                     fontFamily: 'monospace',
                                     fontWeight: FontWeight.bold,
                                     color: theme.colorScheme.primary,
@@ -313,53 +345,118 @@ class _NodeScreenState extends State<NodeScreen> {
                     ],
 
                     // Capabilities
-                    _sectionHeader(theme, Icons.devices_outlined, 'CAPACIDADES'),
+                    _sectionHeader(
+                        theme, Icons.devices_outlined, 'CAPACIDADES'),
                     const SizedBox(height: 4),
                     Card(
                       margin: EdgeInsets.zero,
                       child: Column(
                         children: [
-                          _capabilityTile(theme, 'Audio', 'Grabar audio, controlar volumen y altavoz', Icons.mic),
+                          _capabilityTile(
+                              theme,
+                              'Audio',
+                              'Grabar audio, controlar volumen y altavoz',
+                              Icons.mic),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Bluetooth', 'Estado, emparejados, escaneo, encender/apagar', Icons.bluetooth),
+                          _capabilityTile(
+                              theme,
+                              'Bluetooth',
+                              'Estado, emparejados, escaneo, encender/apagar',
+                              Icons.bluetooth),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Cámara', 'Capturar fotos y videos', Icons.camera_alt),
+                          _capabilityTile(theme, 'Cámara',
+                              'Capturar fotos y videos', Icons.camera_alt),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Canvas', 'No disponible en móvil', Icons.web, available: false),
+                          _capabilityTile(theme, 'Canvas',
+                              'No disponible en móvil', Icons.web,
+                              available: false),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Clipboard', 'Leer y escribir en el portapapeles', Icons.content_paste),
+                          _capabilityTile(
+                              theme,
+                              'Clipboard',
+                              'Leer y escribir en el portapapeles',
+                              Icons.content_paste),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Display', 'Brillo, tiempo de pantalla, orientación', Icons.brightness_medium),
+                          _capabilityTile(
+                              theme,
+                              'Display',
+                              'Brillo, tiempo de pantalla, orientación',
+                              Icons.brightness_medium),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Dispositivo', 'Modelo, RAM, almacenamiento, versión Android', Icons.phone_android),
+                          _capabilityTile(
+                              theme,
+                              'Dispositivo',
+                              'Modelo, RAM, almacenamiento, versión Android',
+                              Icons.phone_android),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Archivos', 'Listar, leer, escribir y eliminar archivos', Icons.folder_open),
+                          _capabilityTile(
+                              theme,
+                              'Archivos',
+                              'Listar, leer, escribir y eliminar archivos',
+                              Icons.folder_open),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Linterna', 'Encender/apagar el flash', Icons.flashlight_on),
+                          _capabilityTile(theme, 'Linterna',
+                              'Encender/apagar el flash', Icons.flashlight_on),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Hotspot', 'Activar/desactivar punto de acceso WiFi', Icons.wifi_tethering),
+                          _capabilityTile(
+                              theme,
+                              'Hotspot',
+                              'Activar/desactivar punto de acceso WiFi',
+                              Icons.wifi_tethering),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Ubicación', 'Obtener coordenadas GPS', Icons.location_on),
+                          _capabilityTile(theme, 'Ubicación',
+                              'Obtener coordenadas GPS', Icons.location_on),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Macros', 'Automatización: tap, swipe, apps, búsqueda, settings', Icons.auto_fix_high),
+                          _capabilityTile(
+                              theme,
+                              'Macros',
+                              'Automatización: tap, swipe, apps, búsqueda, settings',
+                              Icons.auto_fix_high),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Red', 'WiFi, datos móviles, IPs y estado de red', Icons.wifi),
+                          _capabilityTile(
+                              theme,
+                              'Red',
+                              'WiFi, datos móviles, IPs y estado de red',
+                              Icons.wifi),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'NFC', 'Estado, habilitar/deshabilitar NFC', Icons.nfc),
+                          _capabilityTile(theme, 'NFC',
+                              'Estado, habilitar/deshabilitar NFC', Icons.nfc),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Tono', 'Modo normal/silencio/vibración y volumen', Icons.volume_up),
+                          _capabilityTile(
+                              theme,
+                              'Tono',
+                              'Modo normal/silencio/vibración y volumen',
+                              Icons.volume_up),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Grabación de Pantalla', 'Grabar pantalla (requiere consentimiento)', Icons.screen_share),
+                          _capabilityTile(
+                              theme,
+                              'Grabación de Pantalla',
+                              'Grabar pantalla (requiere consentimiento)',
+                              Icons.screen_share),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Sensores', 'Acelerómetro, giroscopio, magnetómetro, luz, proximidad', Icons.sensors),
+                          _capabilityTile(
+                              theme,
+                              'Sensores',
+                              'Acelerómetro, giroscopio, magnetómetro, luz, proximidad',
+                              Icons.sensors),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Serial', 'Bluetooth y USB serie', Icons.usb),
+                          _capabilityTile(theme, 'Serial',
+                              'Bluetooth y USB serie', Icons.usb),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Telefonía', 'Llamadas, SMS, contactos y tipo de red', Icons.phone),
+                          _capabilityTile(
+                              theme,
+                              'Telefonía',
+                              'Llamadas, SMS, contactos y tipo de red',
+                              Icons.phone),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'TTS', 'Síntesis de voz (text-to-speech)', Icons.record_voice_over),
+                          _capabilityTile(
+                              theme,
+                              'TTS',
+                              'Síntesis de voz (text-to-speech)',
+                              Icons.record_voice_over),
                           const Divider(height: 1),
-                          _capabilityTile(theme, 'Vibración', 'Activar respuesta háptica', Icons.vibration),
+                          _capabilityTile(theme, 'Vibración',
+                              'Activar respuesta háptica', Icons.vibration),
                         ],
                       ),
                     ),
@@ -367,7 +464,8 @@ class _NodeScreenState extends State<NodeScreen> {
 
                     // Device Info
                     if (state.deviceId != null) ...[
-                      _sectionHeader(theme, Icons.fingerprint, 'INFORMACIÓN DEL DISPOSITIVO'),
+                      _sectionHeader(theme, Icons.fingerprint,
+                          'INFORMACIÓN DEL DISPOSITIVO'),
                       const SizedBox(height: 4),
                       Card(
                         margin: EdgeInsets.zero,
@@ -378,12 +476,16 @@ class _NodeScreenState extends State<NodeScreen> {
                               color: theme.colorScheme.primary.withAlpha(15),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Icon(Icons.fingerprint, size: 20, color: theme.colorScheme.primary),
+                            child: Icon(Icons.fingerprint,
+                                size: 20, color: theme.colorScheme.primary),
                           ),
-                          title: const Text('ID del Dispositivo', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                          title: const Text('ID del Dispositivo',
+                              style: TextStyle(
+                                  fontSize: 15, fontWeight: FontWeight.w500)),
                           subtitle: SelectableText(
                             state.deviceId!,
-                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                            style: const TextStyle(
+                                fontFamily: 'monospace', fontSize: 12),
                           ),
                         ),
                       ),
@@ -391,7 +493,8 @@ class _NodeScreenState extends State<NodeScreen> {
                     ],
 
                     // Logs
-                    _sectionHeader(theme, Icons.article_outlined, 'REGISTROS DEL NODO'),
+                    _sectionHeader(
+                        theme, Icons.article_outlined, 'REGISTROS DEL NODO'),
                     const SizedBox(height: 4),
                     Card(
                       margin: EdgeInsets.zero,
@@ -400,28 +503,35 @@ class _NodeScreenState extends State<NodeScreen> {
                         padding: const EdgeInsets.all(12),
                         child: state.logs.isEmpty
                             ? Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.article_outlined, size: 32,
-                                      color: theme.colorScheme.onSurfaceVariant.withAlpha(80)),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Sin registros aún',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.article_outlined,
+                                        size: 32,
+                                        color: theme
+                                            .colorScheme.onSurfaceVariant
+                                            .withAlpha(80)),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Sin registros aún',
+                                      style:
+                                          theme.textTheme.bodySmall?.copyWith(
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            )
+                                  ],
+                                ),
+                              )
                             : ListView.builder(
                                 reverse: true,
                                 itemCount: state.logs.length,
                                 itemBuilder: (context, index) {
-                                  final log = state.logs[state.logs.length - 1 - index];
+                                  final log =
+                                      state.logs[state.logs.length - 1 - index];
                                   return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 1),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 1),
                                     child: Text(
                                       log,
                                       style: const TextStyle(
@@ -478,7 +588,9 @@ class _NodeScreenState extends State<NodeScreen> {
     return SectionHeader(icon: icon, title: title);
   }
 
-  Widget _capabilityTile(ThemeData theme, String title, String subtitle, IconData icon, {bool available = true}) {
+  Widget _capabilityTile(
+      ThemeData theme, String title, String subtitle, IconData icon,
+      {bool available = true}) {
     final color = available ? AppColors.statusGreen : AppColors.statusAmber;
     return ListTile(
       leading: Container(
@@ -489,8 +601,11 @@ class _NodeScreenState extends State<NodeScreen> {
         ),
         child: Icon(icon, size: 20, color: color),
       ),
-      title: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-      subtitle: Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+      title: Text(title,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+      subtitle: Text(subtitle,
+          style: theme.textTheme.bodySmall
+              ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
       trailing: Icon(
         available ? Icons.check_circle : Icons.block,
         color: color,
