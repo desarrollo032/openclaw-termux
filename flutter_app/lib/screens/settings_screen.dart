@@ -36,6 +36,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _sshInstalled = false;
   bool _storageGranted = false;
   bool _checkingUpdate = false;
+  List<String> _configuredProviders = [];
 
   @override
   void initState() {
@@ -97,6 +98,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     if (!mounted) return;
+    final config = await ProviderConfigService.readConfig();
+    final providersMap = config['providers'] as Map<String, dynamic>? ?? {};
+    final providerIds = providersMap.keys.toList()..sort();
+    if (!mounted) return;
     setState(() {
       _batteryOptimized = batteryOptimized;
       _storageGranted = storageGranted;
@@ -106,6 +111,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _goInstalled = goInstalled;
       _brewInstalled = brewInstalled;
       _sshInstalled = sshInstalled;
+      _configuredProviders = providerIds;
       _loading = false;
     });
   }
@@ -308,6 +314,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 const SizedBox(height: 16),
 
+                // Advanced
+                SettingsCard(
+                  title: 'Avanzado',
+                  icon: Icons.tune_outlined,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.cloud_outlined, size: 22),
+                      title: const Text('Proveedores configurados', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      subtitle: Text(
+                        _configuredProviders.isEmpty
+                            ? 'Ninguno configurado en openclaw.json'
+                            : '${_configuredProviders.length} proveedor(es)',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => _showConfiguredProviders(context),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
                 // About
                 SettingsCard(
                   title: 'Acerca de',
@@ -386,6 +415,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ),
+    );
+  }
+
+  void _showConfiguredProviders(BuildContext context) async {
+    final config = await ProviderConfigService.readConfig();
+    final providersMap = config['providers'] as Map<String, dynamic>? ?? {};
+
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.cloud_outlined, size: 22),
+            SizedBox(width: 8),
+            Text('Proveedores en openclaw.json'),
+          ],
+        ),
+        content: providersMap.isEmpty
+            ? const Text('No hay proveedores configurados.')
+            : SizedBox(
+                width: double.maxFinite,
+                child: ListView(
+                  shrinkWrap: true,
+                  children: providersMap.entries.map((e) {
+                    final provider = e.value as Map<String, dynamic>? ?? {};
+                    final model = provider['model'] ?? '';
+                    return ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.cloud_outlined, size: 18),
+                      title: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                      subtitle: model.isNotEmpty
+                          ? Text('Modelo: $model', style: const TextStyle(fontSize: 12))
+                          : null,
+                    );
+                  }).toList(),
+                ),
+              ),
+        actions: [
+          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar')),
+        ],
+      ),
     );
   }
 

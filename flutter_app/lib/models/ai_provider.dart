@@ -296,7 +296,7 @@ class AiProvider {
       name: id[0].toUpperCase() + id.substring(1),
       description: 'Proveedor personalizado',
       icon: Icons.cloud_outlined,
-      color: Color(0xFF6B7280),
+      color: const Color(0xFF6B7280),
       baseUrl: '',
       defaultModels: [],
       apiKeyHint: 'Clave API',
