@@ -42,39 +42,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadSettings();
   }
 
-  Future<void> _loadSettings() async {
-    await _prefs.init();
-    _autoStart = _prefs.autoStartGateway;
-    _nodeEnabled = _prefs.nodeEnabled;
-
+  Future<T?> _safeCall<T>(Future<T> Function() fn) async {
     try {
-      final arch = await NativeBridge.getArch();
-      final prootPath = await NativeBridge.getProotPath();
-      final status = await NativeBridge.getBootstrapStatus();
-      final batteryOptimized = await NativeBridge.isBatteryOptimized();
-      final storageGranted = await NativeBridge.hasStoragePermission();
-
-      final filesDir = await NativeBridge.getFilesDir();
-      final rootfs = '$filesDir/rootfs/ubuntu';
-      final goInstalled = File('$rootfs/usr/bin/go').existsSync();
-      final brewInstalled =
-          File('$rootfs/home/linuxbrew/.linuxbrew/bin/brew').existsSync();
-      final sshInstalled = File('$rootfs/usr/bin/ssh').existsSync();
-
-      setState(() {
-        _batteryOptimized = batteryOptimized;
-        _storageGranted = storageGranted;
-        _arch = arch;
-        _prootPath = prootPath;
-        _status = status;
-        _goInstalled = goInstalled;
-        _brewInstalled = brewInstalled;
-        _sshInstalled = sshInstalled;
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() => _loading = false);
+      return await fn();
+    } catch (_) {
+      return null;
     }
+  }
+
+  bool _safeFileExists(String path) {
+    try {
+      return File(path).existsSync();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      await _prefs.init();
+      _autoStart = _prefs.autoStartGateway;
+      _nodeEnabled = _prefs.nodeEnabled;
+    } catch (_) {
+      // Preferences may be unavailable; fall back to defaults so the
+      // settings page still renders instead of getting stuck on the spinner.
+    }
+
+    final arch = await _safeCall(NativeBridge.getArch) ?? '';
+    final prootPath = await _safeCall(NativeBridge.getProotPath) ?? '';
+    final status = await _safeCall(NativeBridge.getBootstrapStatus) ??
+        <String, dynamic>{};
+    final batteryOptimized =
+        await _safeCall(NativeBridge.isBatteryOptimized) ?? false;
+    final storageGranted =
+        await _safeCall(NativeBridge.hasStoragePermission) ?? false;
+    final filesDir = await _safeCall(NativeBridge.getFilesDir);
+
+    var goInstalled = false;
+    var brewInstalled = false;
+    var sshInstalled = false;
+    if (filesDir != null && filesDir.isNotEmpty) {
+      final rootfs = '$filesDir/rootfs/ubuntu';
+      goInstalled = _safeFileExists('$rootfs/usr/bin/go');
+      brewInstalled =
+          _safeFileExists('$rootfs/home/linuxbrew/.linuxbrew/bin/brew');
+      sshInstalled = _safeFileExists('$rootfs/usr/bin/ssh');
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _batteryOptimized = batteryOptimized;
+      _storageGranted = storageGranted;
+      _arch = arch;
+      _prootPath = prootPath;
+      _status = status;
+      _goInstalled = goInstalled;
+      _brewInstalled = brewInstalled;
+      _sshInstalled = sshInstalled;
+      _loading = false;
+    });
   }
 
   @override
