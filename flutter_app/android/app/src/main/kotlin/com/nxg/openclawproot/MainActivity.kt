@@ -11,8 +11,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
-import android.os.Handler
-import android.os.HandlerThread
 import android.provider.Settings
 import android.Manifest
 import androidx.core.app.ActivityCompat
@@ -44,16 +42,11 @@ class MainActivity : FlutterActivity() {
     private var setupDone = false
     private val executor = Executors.newCachedThreadPool()
 
-    private val channelHandlerThread = HandlerThread("method-channel-dispatcher").apply { start() }
-    private val channelHandler = Handler(channelHandlerThread.looper)
-
     private val handlers = mutableListOf<BaseHandler>()
 
     override fun onDestroy() {
         ptyBridge.destroy()
         executor.shutdownNow()
-        channelHandlerThread.quitSafely()
-        GatewayService.releaseResources()
         super.onDestroy()
     }
 
@@ -99,20 +92,21 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        // All MethodChannel operations are dispatched to a dedicated background thread
-        // to prevent ANY blocking operation from reaching Flutter's UI thread.
+        // MethodChannel calls arrive on the main thread (Flutter's default).
+        // Heavy operations (proot, I/O) are internally dispatched to executor
+        // by each handler. Lightweight ops (flag checks, getters) run inline.
+        // Android APIs like startActivity() and requestPermissions() require
+        // the main thread, so we must NOT dispatch the handler to a bg thread.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-            channelHandler.post {
-                var handled = false
-                for (handler in handlers) {
-                    if (handler.handleMethodCall(call, result)) {
-                        handled = true
-                        break
-                    }
+            var handled = false
+            for (handler in handlers) {
+                if (handler.handleMethodCall(call, result)) {
+                    handled = true
+                    break
                 }
-                if (!handled) {
-                    activity.runOnUiThread { result.notImplemented() }
-                }
+            }
+            if (!handled) {
+                result.notImplemented()
             }
         }
 

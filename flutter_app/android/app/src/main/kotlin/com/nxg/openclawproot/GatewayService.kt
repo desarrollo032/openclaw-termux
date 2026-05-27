@@ -59,9 +59,14 @@ class GatewayService : Service() {
         }
 
         fun releaseResources() {
-            logHandlerThread?.quitSafely()
-            logHandlerThread = null
-            logHandler = null
+            // Only release if the service is not running.
+            // The logHandlerThread is shared across service lifetimes;
+            // quitting it while the gateway is active will break log emission.
+            if (!isRunning) {
+                logHandlerThread?.quitSafely()
+                logHandlerThread = null
+                logHandler = null
+            }
         }
     }
 
