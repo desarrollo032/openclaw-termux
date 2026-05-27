@@ -68,15 +68,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // settings page still renders instead of getting stuck on the spinner.
     }
 
-    final arch = await _safeCall(NativeBridge.getArch) ?? '';
-    final prootPath = await _safeCall(NativeBridge.getProotPath) ?? '';
-    final status = await _safeCall(NativeBridge.getBootstrapStatus) ??
+    final results = await Future.wait([
+      _safeCall(NativeBridge.getArch),
+      _safeCall(NativeBridge.getProotPath),
+      _safeCall(NativeBridge.getBootstrapStatus),
+      _safeCall(NativeBridge.isBatteryOptimized),
+      _safeCall(NativeBridge.hasStoragePermission),
+      _safeCall(NativeBridge.getFilesDir),
+    ]);
+    final arch = (results[0] as String?) ?? '';
+    final prootPath = (results[1] as String?) ?? '';
+    final status = (results[2] as Map<String, dynamic>?) ??
         <String, dynamic>{};
-    final batteryOptimized =
-        await _safeCall(NativeBridge.isBatteryOptimized) ?? false;
-    final storageGranted =
-        await _safeCall(NativeBridge.hasStoragePermission) ?? false;
-    final filesDir = await _safeCall(NativeBridge.getFilesDir);
+    final batteryOptimized = (results[3] as bool?) ?? false;
+    final storageGranted = (results[4] as bool?) ?? false;
+    final filesDir = results[5] as String?;
 
     var goInstalled = false;
     var brewInstalled = false;
