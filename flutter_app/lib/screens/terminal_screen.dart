@@ -72,6 +72,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        titleSpacing: 0,
         title: Row(
           children: [
             Container(
@@ -86,8 +87,10 @@ class _TerminalScreenState extends State<TerminalScreen> {
                 color: theme.colorScheme.primary,
               ),
             ),
-            const SizedBox(width: 10),
-            const Text('Terminal'),
+            const SizedBox(width: 8),
+            const Flexible(
+              child: Text('Terminal', overflow: TextOverflow.ellipsis),
+            ),
           ],
         ),
         actions: [
