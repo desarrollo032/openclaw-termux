@@ -151,6 +151,174 @@ class AiProvider {
     apiKeyHint: 'xai-...',
   );
 
+  static const ollama = AiProvider(
+    id: 'ollama',
+    name: 'Ollama',
+    description: 'Local LLM runner — modelos open-source en tu dispositivo',
+    icon: Icons.computer,
+    color: Color(0xFF4338CA),
+    baseUrl: 'http://localhost:11434/v1',
+    defaultModels: [
+      'llama3.3',
+      'llama3.2',
+      'mistral',
+      'codellama',
+      'phi-4',
+      'deepseek-r1',
+    ],
+    apiKeyHint: 'No requiere clave (local)',
+  );
+
+  static const groq = AiProvider(
+    id: 'groq',
+    name: 'Groq',
+    description: 'Inferencia ultrarrápida con LPU',
+    icon: Icons.bolt,
+    color: Color(0xFFF97316),
+    baseUrl: 'https://api.groq.com/openai/v1',
+    fetchModelsUrl: 'https://api.groq.com/openai/v1/models',
+    apiKeyHeader: 'Authorization',
+    defaultModels: [
+      'llama-3.3-70b-versatile',
+      'llama-3.1-8b-instant',
+      'mixtral-8x7b-32768',
+      'gemma2-9b-it',
+    ],
+    apiKeyHint: 'gsk_...',
+  );
+
+  static const mistral = AiProvider(
+    id: 'mistral',
+    name: 'Mistral',
+    description: 'Modelos eficientes y open-source de Mistral AI',
+    icon: Icons.air,
+    color: Color(0xFF7C3AED),
+    baseUrl: 'https://api.mistral.ai/v1',
+    fetchModelsUrl: 'https://api.mistral.ai/v1/models',
+    apiKeyHeader: 'Authorization',
+    defaultModels: [
+      'mistral-large-latest',
+      'mistral-small-latest',
+      'codestral-latest',
+      'open-mistral-nemo',
+    ],
+    apiKeyHint: 'R9P...',
+  );
+
+  static const together = AiProvider(
+    id: 'together',
+    name: 'Together AI',
+    description: 'Cloud API para modelos open-source y propietarios',
+    icon: Icons.cloud,
+    color: Color(0xFF0F172A),
+    baseUrl: 'https://api.together.xyz/v1',
+    fetchModelsUrl: 'https://api.together.xyz/v1/models',
+    apiKeyHeader: 'Authorization',
+    defaultModels: [
+      'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+      'meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo',
+      'mistralai/Mixtral-8x22B-Instruct-v0.1',
+      'deepseek-ai/DeepSeek-R1',
+    ],
+    apiKeyHint: 'tgpv2_...',
+  );
+
+  static const perplexity = AiProvider(
+    id: 'perplexity',
+    name: 'Perplexity',
+    description: 'Modelos Sonar con búsqueda en tiempo real',
+    icon: Icons.travel_explore,
+    color: Color(0xFF1F2937),
+    baseUrl: 'https://api.perplexity.ai',
+    apiKeyHeader: 'Authorization',
+    defaultModels: [
+      'sonar-pro',
+      'sonar',
+      'sonar-reasoning-pro',
+      'sonar-reasoning',
+    ],
+    apiKeyHint: 'pplx-...',
+  );
+
+  static const azure = AiProvider(
+    id: 'azure',
+    name: 'Azure OpenAI',
+    description: 'OpenAI models hosted on Microsoft Azure',
+    icon: Icons.cloud_queue,
+    color: Color(0xFF0078D4),
+    baseUrl: 'https://{resource}.openai.azure.com',
+    apiKeyHeader: 'api-key',
+    defaultModels: [
+      'gpt-4o',
+      'gpt-4o-mini',
+      'o1',
+      'gpt-4-turbo',
+    ],
+    apiKeyHint: 'Clave del recurso Azure',
+  );
+
+  static const cohere = AiProvider(
+    id: 'cohere',
+    name: 'Cohere',
+    description: 'Modelos empresariales RAG y generación',
+    icon: Icons.business,
+    color: Color(0xFF39594D),
+    baseUrl: 'https://api.cohere.com/v1',
+    apiKeyHeader: 'Authorization',
+    defaultModels: [
+      'command-r-plus',
+      'command-r',
+      'command-light',
+    ],
+    apiKeyHint: 'Clave de Cohere',
+  );
+
+  static const replicate = AiProvider(
+    id: 'replicate',
+    name: 'Replicate',
+    description: 'Modelos open-source como API serverless',
+    icon: Icons.loop,
+    color: Color(0xFF0D1117),
+    baseUrl: 'https://api.replicate.com/v1',
+    apiKeyHeader: 'Authorization',
+    defaultModels: [
+      'meta/meta-llama-3.3-70b-instruct',
+      'mistralai/mistral-7b-instruct-v0.3',
+      'deepseek-ai/deepseek-r1',
+    ],
+    apiKeyHint: 'r8_...',
+  );
+
+  /// Create a generic provider from an ID (for providers in config but not in presets).
+  factory AiProvider.generic(String id) {
+    return AiProvider(
+      id: id,
+      name: id[0].toUpperCase() + id.substring(1),
+      description: 'Proveedor personalizado',
+      icon: Icons.cloud_outlined,
+      color: Color(0xFF6B7280),
+      baseUrl: '',
+      defaultModels: [],
+      apiKeyHint: 'Clave API',
+    );
+  }
+
   /// All available AI providers.
-  static const all = [anthropic, openai, google, openrouter, nvidia, deepseek, xai];
+  static const all = [
+    anthropic,
+    openai,
+    google,
+    openrouter,
+    nvidia,
+    deepseek,
+    xai,
+    ollama,
+    groq,
+    mistral,
+    together,
+    perplexity,
+    azure,
+    cohere,
+    replicate,
+  ];
 }
