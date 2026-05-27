@@ -1352,9 +1352,9 @@ require('/root/.openclaw/proot-compat.js');
 # ====================================================================
 # 1. Node.js memory management (V8 heap limits for mobile)
 # ====================================================================
-# Give V8 more room than the old 400MB cap to reduce GC churn on mobile,
-# while still keeping a hard ceiling for Android memory pressure.
-export NODE_OPTIONS="--require /root/.openclaw/bionic-bypass.js --max-old-space-size=${GatewayRuntimePolicy.HEAP_MB} --optimize-for-size --max-semi-space-size=${GatewayRuntimePolicy.SEMI_SPACE_MB}"
+# Limit heap to 400MB to avoid OOM on 6GB devices
+# (gateway + V8 can easily consume 600MB+ without limits)
+export NODE_OPTIONS="--require /root/.openclaw/bionic-bypass.js --max-old-space-size=400 --optimize-for-size --max-semi-space-size=32"
 
 # ====================================================================
 # 2. Node.js compile cache (v22.8+)
@@ -1364,12 +1364,6 @@ export NODE_OPTIONS="--require /root/.openclaw/bionic-bypass.js --max-old-space-
 # The cache directory is pre-created by BootstrapManager.
 export NODE_COMPILE_CACHE="/root/.cache/node/compile_cache"
 mkdir -p "${'$'}NODE_COMPILE_CACHE" 2>/dev/null
-
-# Keep npm and package caches inside app-owned storage so warm starts
-# and gateway plugin loads can reuse files without touching installation.
-export XDG_CACHE_HOME="/root/.cache"
-export npm_config_cache="/root/.cache/npm"
-mkdir -p "${'$'}XDG_CACHE_HOME" "${'$'}npm_config_cache" /tmp/npm-cache 2>/dev/null
 
 # ====================================================================
 # 3. OpenClaw process management
@@ -1402,22 +1396,9 @@ export CHOKIDAR_INTERVAL=2000
 # ====================================================================
 # 6. Launch OpenClaw gateway
 # ====================================================================
-exec openclaw gateway --no-color --no-emoji 2>&1
+exec openclaw gateway --verbose --no-color --no-emoji 2>&1
 """.trimIndent())
         startScript.setExecutable(true, false)
-    }
-
-    /**
-     * Refresh runtime-only gateway optimizations for existing users.
-     * This does not install packages or alter the setup wizard flow.
-     */
-    fun ensureGatewayRuntimeOptimizations() {
-        val bypassDir = File(rootfsDir, "root/.openclaw")
-        bypassDir.mkdirs()
-        File(rootfsDir, "root/.cache/node/compile_cache").mkdirs()
-        File(rootfsDir, "root/.cache/npm").mkdirs()
-        File(rootfsDir, "tmp/npm-cache").mkdirs()
-        writeGatewayStartScript(bypassDir)
     }
 
     /**

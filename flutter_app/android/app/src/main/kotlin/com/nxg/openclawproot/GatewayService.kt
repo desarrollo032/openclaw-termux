@@ -192,7 +192,7 @@ class GatewayService : Service() {
                     emitLog("[WARN] writeResolvConf failed: ${e.message}")
                 }
                 try {
-                    bootstrapManager.ensureGatewayRuntimeOptimizations()
+                    GatewayRuntimeFiles.ensure(filesDir)
                     emitLog("[INFO] Gateway runtime optimized")
                 } catch (e: Exception) {
                     emitLog("[WARN] Gateway runtime optimization skipped: ${e.message}")
