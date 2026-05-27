@@ -46,13 +46,13 @@ class NodeForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification("Node connected"))
         if (isRunning) {
-            return START_REDELIVER_INTENT
+            return START_STICKY
         }
         isRunning = true
         instance = this
         startTime = System.currentTimeMillis()
         acquireWakeLock()
-        return START_REDELIVER_INTENT
+        return START_STICKY
     }
 
     override fun onDestroy() {
@@ -76,7 +76,7 @@ class NodeForegroundService : Service() {
             PowerManager.PARTIAL_WAKE_LOCK,
             "OpenClaw::NodeWakeLock"
         )
-        wakeLock?.acquire(24 * 60 * 60 * 1000L)
+        wakeLock?.acquire(24 * 60 * 60 * 1000L) // 24 hours max
     }
 
     private fun releaseWakeLock() {
@@ -89,12 +89,11 @@ class NodeForegroundService : Service() {
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "OpenClaw Services",
+            "Services",
             NotificationManager.IMPORTANCE_LOW
         ).apply {
             description = "OpenClaw background services"
             setShowBadge(false)
-            lockscreenVisibility = Notification.VISIBILITY_PRIVATE
         }
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
@@ -115,7 +114,6 @@ class NodeForegroundService : Service() {
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setVisibility(Notification.VISIBILITY_PRIVATE)
-            .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
 
         return builder.build()
     }

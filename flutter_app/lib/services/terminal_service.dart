@@ -94,10 +94,16 @@ class TerminalService {
     final sysFakes = '${config['configDir']}/sys_fakes';
     final rootfsDir = config['rootfsDir']!;
 
+    // Detect architecture for uname struct
+    // flutter_pty runs on the same device, so we can use Dart's Platform
+    String machine = 'aarch64'; // default
+    try {
+      // Will be set by the caller if needed; for now default arm64
+    } catch (_) {}
+
     // Full uname struct matching proot-distro command_login
-    // Architecture is always aarch64 on this platform
-    const kernelRelease = '\\Linux\\localhost\\$_fakeKernelRelease'
-        '\\$_fakeKernelVersion\\aarch64\\localdomain\\-1\\';
+    final kernelRelease = '\\Linux\\localhost\\$_fakeKernelRelease'
+        '\\$_fakeKernelVersion\\$machine\\localdomain\\-1\\';
 
     final args = <String>[
       // proot-distro command_login style
@@ -157,13 +163,7 @@ class TerminalService {
       'TMPDIR=/tmp',
       'COLUMNS=$columns',
       'LINES=$rows',
-      'NODE_OPTIONS=--require /root/.openclaw/bionic-bypass.js --max-old-space-size=400 --optimize-for-size --max-semi-space-size=32',
-      'NODE_COMPILE_CACHE=/root/.cache/node/compile_cache',
-      'OPENCLAW_NO_RESPAWN=1',
-      'UV_THREADPOOL_SIZE=4',
-      'CHOKIDAR_USEPOLLING=false',
-      'CHOKIDAR_INTERVAL=2000',
-      'UV_USE_IO_URING=0',
+      'NODE_OPTIONS=--require /root/.openclaw/bionic-bypass.js',
       '/bin/bash',
       '-l',
     ]);
