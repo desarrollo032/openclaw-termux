@@ -784,7 +784,9 @@ class _FullConfigViewerDialogState extends State<_FullConfigViewerDialog> {
             RadioListTile<bool>(
               title: const Text('true'),
               value: true,
+              // ignore: deprecated_member_use
               groupValue: current,
+              // ignore: deprecated_member_use
               onChanged: (v) {
                 Navigator.pop(ctx);
                 setState(() {
@@ -796,7 +798,9 @@ class _FullConfigViewerDialogState extends State<_FullConfigViewerDialog> {
             RadioListTile<bool>(
               title: const Text('false'),
               value: false,
+              // ignore: deprecated_member_use
               groupValue: current,
+              // ignore: deprecated_member_use
               onChanged: (v) {
                 Navigator.pop(ctx);
                 setState(() {
@@ -830,7 +834,7 @@ class _FullConfigViewerDialogState extends State<_FullConfigViewerDialog> {
               autofocus: true,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
-                hintText: 'Nuevo valor (string)',
+                hintText: 'Nuevo valor (string, number, true/false)',
                 isDense: true,
               ),
             ),
@@ -842,10 +846,9 @@ class _FullConfigViewerDialogState extends State<_FullConfigViewerDialog> {
             onPressed: () {
               final text = controller.text.trim();
               Navigator.pop(ctx);
+              if (text.isEmpty) return; // no change
               setState(() {
-                if (text.isEmpty) {
-                  // Keep as null
-                } else if (text == 'true') {
+                if (text == 'true') {
                   node.type = _JsonValueType.boolean;
                   node.value = true;
                 } else if (text == 'false') {
@@ -1089,7 +1092,7 @@ class _FullConfigViewerDialogState extends State<_FullConfigViewerDialog> {
 
     Color valueColor;
     String valueText;
-    IconData? valueIcon;
+    IconData valueIcon;
 
     switch (node.type) {
       case _JsonValueType.string:
@@ -1111,6 +1114,7 @@ class _FullConfigViewerDialogState extends State<_FullConfigViewerDialog> {
       default:
         valueColor = cs.onSurface;
         valueText = '?';
+        valueIcon = Icons.help_outline_rounded;
     }
 
     return Padding(
@@ -1151,11 +1155,10 @@ class _FullConfigViewerDialogState extends State<_FullConfigViewerDialog> {
                 flex: 5,
                 child: Row(
                   children: [
-                    if (valueIcon != null)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: Icon(valueIcon, size: 12, color: valueColor.withAlpha(160)),
-                      ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Icon(valueIcon, size: 12, color: valueColor.withAlpha(160)),
+                    ),
                     Flexible(
                       child: Text(
                         valueText,
@@ -1216,8 +1219,8 @@ class _JsonNode {
     required this.type,
     this.value,
     List<_JsonNode>? children,
-    this.isExpanded = true,
-  }) : children = children ?? [];
+  })  : isExpanded = true,
+        children = children ?? [];
 
   factory _JsonNode.build(String key, dynamic json) {
     if (json is Map) {
