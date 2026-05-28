@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../native/openclaw_native.dart';
@@ -592,7 +591,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-/// Full-screen dialog that reads and displays the raw openclaw.json config.
+/// Full-screen dialog that reads, displays and allows inline editing of openclaw.json.
 class _FullConfigViewerDialog extends StatefulWidget {
   const _FullConfigViewerDialog();
 
@@ -601,9 +600,10 @@ class _FullConfigViewerDialog extends StatefulWidget {
 }
 
 class _FullConfigViewerDialogState extends State<_FullConfigViewerDialog> {
-  String? _jsonContent;
   bool _loading = true;
   String? _error;
+  _JsonNode? _root;
+  bool _dirty = false;
 
   @override
   void initState() {
@@ -617,19 +617,16 @@ class _FullConfigViewerDialogState extends State<_FullConfigViewerDialog> {
       if (raw == null || raw.isEmpty) {
         if (mounted) {
           setState(() {
-            _jsonContent = null;
             _loading = false;
             _error = 'No se encontró openclaw.json o está vacío';
           });
         }
         return;
       }
-      // Pretty-print with 2-space indent
       final parsed = jsonDecode(raw);
-      final pretty = const JsonEncoder.withIndent('  ').convert(parsed);
       if (mounted) {
         setState(() {
-          _jsonContent = pretty;
+          _root = _JsonNode.build('config', parsed);
           _loading = false;
         });
       }
@@ -643,14 +640,239 @@ class _FullConfigViewerDialogState extends State<_FullConfigViewerDialog> {
     }
   }
 
-  void _copyToClipboard() {
-    if (_jsonContent == null) return;
-    Clipboard.setData(ClipboardData(text: _jsonContent!));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('openclaw.json copiado al portapapeles'),
-        duration: Duration(seconds: 2),
+  Future<void> _saveConfig() async {
+    if (_root == null) return;
+    try {
+      final json = _nodeToJson(_root!);
+      final pretty = const JsonEncoder.withIndent('  ').convert(json);
+      await NativeBridge.writeRootfsFile('root/.openclaw/openclaw.json', pretty);
+      if (!mounted) return;
+      setState(() => _dirty = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('openclaw.json guardado'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al guardar: $e'), duration: const Duration(seconds: 3)),
+      );
+    }
+  }
+
+  dynamic _nodeToJson(_JsonNode node) {
+    switch (node.type) {
+      case _JsonValueType.object:
+        final map = <String, dynamic>{};
+        for (final child in node.children) {
+          map[child.key] = _nodeToJson(child);
+        }
+        return map;
+      case _JsonValueType.array:
+        return node.children.map((child) => _nodeToJson(child)).toList();
+      case _JsonValueType.string:
+        return node.value as String;
+      case _JsonValueType.number:
+        return node.value;
+      case _JsonValueType.boolean:
+        return node.value as bool;
+      case _JsonValueType.null_:
+        return null;
+    }
+  }
+
+  void _editValue(_JsonNode node) {
+    switch (node.type) {
+      case _JsonValueType.string:
+        _showStringEditDialog(node);
+      case _JsonValueType.number:
+        _showNumberEditDialog(node);
+      case _JsonValueType.boolean:
+        _showBooleanEditDialog(node);
+      case _JsonValueType.null_:
+        _showNullEditDialog(node);
+      case _JsonValueType.object:
+      case _JsonValueType.array:
+        break;
+    }
+  }
+
+  void _showStringEditDialog(_JsonNode node) {
+    final controller = TextEditingController(text: node.value as String? ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Editar "${node.key}"'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 5,
+          minLines: 1,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () {
+              final newValue = controller.text;
+              Navigator.pop(ctx);
+              setState(() {
+                node.value = newValue;
+                _dirty = true;
+              });
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showNumberEditDialog(_JsonNode node) {
+    final isInt = node.value is int;
+    final controller = TextEditingController(text: node.value.toString());
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Editar "${node.key}"'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.numberWithOptions(decimal: !isInt, signed: true),
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () {
+              final text = controller.text.trim();
+              Navigator.pop(ctx);
+              if (text.isEmpty) return;
+              setState(() {
+                if (isInt && !text.contains('.') && !text.contains(',')) {
+                  node.value = int.tryParse(text) ?? node.value;
+                } else {
+                  node.value = double.tryParse(text.replaceAll(',', '.')) ?? node.value;
+                }
+                _dirty = true;
+              });
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBooleanEditDialog(_JsonNode node) {
+    final current = node.value as bool;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Editar "${node.key}"'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadioListTile<bool>(
+              title: const Text('true'),
+              value: true,
+              groupValue: current,
+              onChanged: (v) {
+                Navigator.pop(ctx);
+                setState(() {
+                  node.value = v;
+                  _dirty = true;
+                });
+              },
+            ),
+            RadioListTile<bool>(
+              title: const Text('false'),
+              value: false,
+              groupValue: current,
+              onChanged: (v) {
+                Navigator.pop(ctx);
+                setState(() {
+                  node.value = v;
+                  _dirty = true;
+                });
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+        ],
+      ),
+    );
+  }
+
+  void _showNullEditDialog(_JsonNode node) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Establecer "${node.key}"'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Valor actual: null', style: TextStyle(fontStyle: FontStyle.italic)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: 'Nuevo valor (string)',
+                isDense: true,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () {
+              final text = controller.text.trim();
+              Navigator.pop(ctx);
+              setState(() {
+                if (text.isEmpty) {
+                  // Keep as null
+                } else if (text == 'true') {
+                  node.type = _JsonValueType.boolean;
+                  node.value = true;
+                } else if (text == 'false') {
+                  node.type = _JsonValueType.boolean;
+                  node.value = false;
+                } else {
+                  final intVal = int.tryParse(text);
+                  if (intVal != null) {
+                    node.type = _JsonValueType.number;
+                    node.value = intVal;
+                  } else {
+                    final doubleVal = double.tryParse(text.replaceAll(',', '.'));
+                    if (doubleVal != null) {
+                      node.type = _JsonValueType.number;
+                      node.value = doubleVal;
+                    } else {
+                      node.type = _JsonValueType.string;
+                      node.value = text;
+                    }
+                  }
+                }
+                _dirty = true;
+              });
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
       ),
     );
   }
@@ -663,18 +885,62 @@ class _FullConfigViewerDialogState extends State<_FullConfigViewerDialog> {
     return Dialog.fullscreen(
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('openclaw.json'),
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('openclaw.json'),
+              if (_dirty)
+                Container(
+                  margin: const EdgeInsets.only(left: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: cs.error.withAlpha(30),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'Sin guardar',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.error,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           actions: [
-            if (_jsonContent != null)
+            if (_root != null)
               IconButton(
-                icon: const Icon(Icons.copy_rounded),
-                tooltip: 'Copiar al portapapeles',
-                onPressed: _copyToClipboard,
+                icon: Icon(Icons.save_rounded, color: _dirty ? cs.primary : cs.onSurface.withAlpha(80)),
+                tooltip: 'Guardar cambios',
+                onPressed: _dirty ? _saveConfig : null,
               ),
             IconButton(
               icon: const Icon(Icons.close_rounded),
               tooltip: 'Cerrar',
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                if (_dirty) {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('¿Descartar cambios?'),
+                      content: const Text('Hay cambios sin guardar. ¿Estás seguro de que quieres cerrar?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+                        FilledButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            Navigator.of(context).pop();
+                          },
+                          child: const Text('Descartar'),
+                        ),
+                      ],
+                    ),
+                  );
+                } else {
+                  Navigator.of(context).pop();
+                }
+              },
             ),
           ],
         ),
@@ -697,83 +963,283 @@ class _FullConfigViewerDialogState extends State<_FullConfigViewerDialog> {
             children: [
               Icon(Icons.error_outline_rounded, size: 48, color: cs.error),
               const SizedBox(height: 16),
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(color: cs.error),
-              ),
+              Text(_error!, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: cs.error)),
             ],
           ),
         ),
       );
     }
 
-    if (_jsonContent == null) {
+    if (_root == null) {
       return Center(
-        child: Text(
-          'No se encontró openclaw.json',
-          style: theme.textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
-        ),
+        child: Text('No se encontró openclaw.json', style: theme.textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant)),
       );
     }
 
-    // Count lines for a subtle status bar
-    final lineCount = '\n'.allMatches(_jsonContent!).length + 1;
-    final byteCount = _jsonContent!.length;
+    // Build the flat list of tree rows
+    final rows = <Widget>[];
+    _buildTreeRows(_root!, 0, rows, theme, cs);
 
     return Column(
       children: [
         // Status bar
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withAlpha(80),
-            border: Border(bottom: BorderSide(color: cs.outlineVariant.withAlpha(60))),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.data_object_rounded, size: 14, color: cs.onSurfaceVariant.withAlpha(160)),
-              const SizedBox(width: 6),
-              Text(
-                '$lineCount líneas',
-                style: theme.textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant.withAlpha(160)),
-              ),
-              const SizedBox(width: 12),
-              Icon(Icons.text_fields_rounded, size: 14, color: cs.onSurfaceVariant.withAlpha(160)),
-              const SizedBox(width: 6),
-              Text(
-                _formatBytes(byteCount),
-                style: theme.textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant.withAlpha(160)),
-              ),
-            ],
-          ),
-        ),
-        // JSON content
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            scrollDirection: Axis.vertical,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SelectableText(
-                _jsonContent!,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                  height: 1.5,
-                ),
-              ),
+        if (rows.isNotEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withAlpha(80),
+              border: Border(bottom: BorderSide(color: cs.outlineVariant.withAlpha(60))),
             ),
+            child: Row(
+              children: [
+                Icon(Icons.data_object_rounded, size: 14, color: cs.onSurfaceVariant.withAlpha(160)),
+                const SizedBox(width: 6),
+                Text(
+                  '${_countLeaves(_root!)} valores',
+                  style: theme.textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant.withAlpha(160)),
+                ),
+                const SizedBox(width: 12),
+                Icon(Icons.list_alt_rounded, size: 14, color: cs.onSurfaceVariant.withAlpha(160)),
+                const SizedBox(width: 6),
+                Text(
+                  '${_countNodes(_root!)} nodos',
+                  style: theme.textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant.withAlpha(160)),
+                ),
+              ],
+            ),
+          ),
+        // Tree content
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            children: rows,
           ),
         ),
       ],
     );
   }
 
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  void _buildTreeRows(_JsonNode node, int depth, List<Widget> rows, ThemeData theme, ColorScheme cs) {
+    final indent = depth * 16.0;
+
+    if (node.type == _JsonValueType.object || node.type == _JsonValueType.array) {
+      // Expandable row
+      final isObject = node.type == _JsonValueType.object;
+      final icon = isObject ? Icons.code_rounded : Icons.view_list_rounded;
+      final count = node.children.length;
+
+      rows.add(
+        InkWell(
+          onTap: () => setState(() => node.isExpanded = !node.isExpanded),
+          child: Padding(
+            padding: EdgeInsets.only(left: indent, right: 8, top: 4, bottom: 4),
+            child: Row(
+              children: [
+                Icon(
+                  node.isExpanded ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_right_rounded,
+                  size: 18,
+                  color: cs.onSurfaceVariant,
+                ),
+                const SizedBox(width: 4),
+                Icon(icon, size: 16, color: cs.primary.withAlpha(180)),
+                const SizedBox(width: 6),
+                Text(
+                  node.key,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'monospace',
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest.withAlpha(80),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$count ${isObject ? 'claves' : 'items'}',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant.withAlpha(160),
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      if (node.isExpanded) {
+        for (final child in node.children) {
+          _buildTreeRows(child, depth + 1, rows, theme, cs);
+        }
+      }
+    } else {
+      // Leaf value row
+      rows.add(_buildLeafRow(node, depth, theme, cs));
+    }
+  }
+
+  Widget _buildLeafRow(_JsonNode node, int depth, ThemeData theme, ColorScheme cs) {
+    final indent = depth * 16.0;
+
+    Color valueColor;
+    String valueText;
+    IconData? valueIcon;
+
+    switch (node.type) {
+      case _JsonValueType.string:
+        valueColor = const Color(0xFF2E7D32);
+        valueText = '"${node.value}"';
+        valueIcon = Icons.text_fields_rounded;
+      case _JsonValueType.number:
+        valueColor = const Color(0xFF1565C0);
+        valueText = '${node.value}';
+        valueIcon = Icons.tag_rounded;
+      case _JsonValueType.boolean:
+        valueColor = (node.value as bool) ? const Color(0xFF6A1B9A) : const Color(0xFF9E9E9E);
+        valueText = '${node.value}';
+        valueIcon = Icons.toggle_on_outlined;
+      case _JsonValueType.null_:
+        valueColor = const Color(0xFF9E9E9E);
+        valueText = 'null';
+        valueIcon = Icons.block_rounded;
+      default:
+        valueColor = cs.onSurface;
+        valueText = '?';
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(left: indent + 22, right: 8, top: 2, bottom: 2),
+      child: InkWell(
+        onTap: () => _editValue(node),
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            children: [
+              // Key
+              Flexible(
+                flex: 3,
+                child: Text(
+                  node.key,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    color: cs.onSurface.withAlpha(200),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Separator
+              Text(
+                ':',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  color: cs.onSurface.withAlpha(80),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Value
+              Expanded(
+                flex: 5,
+                child: Row(
+                  children: [
+                    if (valueIcon != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Icon(valueIcon, size: 12, color: valueColor.withAlpha(160)),
+                      ),
+                    Flexible(
+                      child: Text(
+                        valueText,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          color: valueColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Edit indicator
+              Icon(
+                Icons.edit_rounded,
+                size: 14,
+                color: cs.onSurface.withAlpha(40),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  int _countLeaves(_JsonNode node) {
+    if (node.type == _JsonValueType.object || node.type == _JsonValueType.array) {
+      return node.children.fold(0, (sum, c) => sum + _countLeaves(c));
+    }
+    return 1;
+  }
+
+  int _countNodes(_JsonNode node) {
+    int count = 1;
+    for (final child in node.children) {
+      count += _countNodes(child);
+    }
+    return count;
+  }
+}
+
+// ─── Editable JSON tree model ─────────────────────────────────────────────
+
+enum _JsonValueType { object, array, string, number, boolean, null_ }
+
+class _JsonNode {
+  final String key;
+  _JsonValueType type;
+  dynamic value;
+  final List<_JsonNode> children;
+  bool isExpanded;
+
+  _JsonNode._({
+    required this.key,
+    required this.type,
+    this.value,
+    List<_JsonNode>? children,
+    this.isExpanded = true,
+  }) : children = children ?? [];
+
+  factory _JsonNode.build(String key, dynamic json) {
+    if (json is Map) {
+      final node = _JsonNode._(key: key, type: _JsonValueType.object);
+      for (final entry in json.entries) {
+        node.children.add(_JsonNode.build(entry.key as String, entry.value));
+      }
+      return node;
+    } else if (json is List) {
+      final node = _JsonNode._(key: key, type: _JsonValueType.array);
+      for (int i = 0; i < json.length; i++) {
+        node.children.add(_JsonNode.build('[$i]', json[i]));
+      }
+      return node;
+    } else if (json is String) {
+      return _JsonNode._(key: key, type: _JsonValueType.string, value: json);
+    } else if (json is num) {
+      return _JsonNode._(key: key, type: _JsonValueType.number, value: json);
+    } else if (json is bool) {
+      return _JsonNode._(key: key, type: _JsonValueType.boolean, value: json);
+    } else {
+      return _JsonNode._(key: key, type: _JsonValueType.null_, value: null);
+    }
   }
 }
