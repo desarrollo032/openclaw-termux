@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../native/openclaw_native.dart';
@@ -10,7 +11,6 @@ import '../constants.dart';
 import '../providers/node_provider.dart';
 import '../services/native_bridge.dart';
 import '../services/preferences_service.dart';
-import '../services/provider_config_service.dart';
 import '../services/update_service.dart';
 import 'node_screen.dart';
 import 'setup_wizard_screen.dart';
@@ -36,7 +36,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _sshInstalled = false;
   bool _storageGranted = false;
   bool _checkingUpdate = false;
-  List<String> _configuredProviders = [];
 
   @override
   void initState() {
@@ -98,10 +97,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     if (!mounted) return;
-    final config = await ProviderConfigService.readConfig();
-    final providersMap = config['providers'] as Map<String, dynamic>? ?? {};
-    final providerIds = providersMap.keys.toList()..sort();
-    if (!mounted) return;
     setState(() {
       _batteryOptimized = batteryOptimized;
       _storageGranted = storageGranted;
@@ -111,7 +106,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _goInstalled = goInstalled;
       _brewInstalled = brewInstalled;
       _sshInstalled = sshInstalled;
-      _configuredProviders = providerIds;
       _loading = false;
     });
   }
@@ -320,16 +314,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icons.tune_outlined,
                   children: [
                     ListTile(
-                      leading: const Icon(Icons.cloud_outlined, size: 22),
-                      title: const Text('Proveedores configurados', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      leading: const Icon(Icons.code_rounded, size: 22),
+                      title: const Text('openclaw.json', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
                       subtitle: Text(
-                        _configuredProviders.isEmpty
-                            ? 'Ninguno configurado en openclaw.json'
-                            : '${_configuredProviders.length} proveedor(es)',
+                        'Ver contenido completo del archivo de configuración',
                         style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                       trailing: const Icon(Icons.chevron_right, size: 20),
-                      onTap: () => _showConfiguredProviders(context),
+                      onTap: () => _showFullConfigViewer(context),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                     ),
                   ],
@@ -418,45 +410,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showConfiguredProviders(BuildContext context) async {
-    final config = await ProviderConfigService.readConfig();
-    final providersMap = config['providers'] as Map<String, dynamic>? ?? {};
-
-    if (!context.mounted) return;
+  void _showFullConfigViewer(BuildContext context) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.cloud_outlined, size: 22),
-            SizedBox(width: 8),
-            Text('Proveedores en openclaw.json'),
-          ],
-        ),
-        content: providersMap.isEmpty
-            ? const Text('No hay proveedores configurados.')
-            : SizedBox(
-                width: double.maxFinite,
-                child: ListView(
-                  shrinkWrap: true,
-                  children: providersMap.entries.map((e) {
-                    final provider = e.value as Map<String, dynamic>? ?? {};
-                    final model = provider['model'] ?? '';
-                    return ListTile(
-                      dense: true,
-                      leading: const Icon(Icons.cloud_outlined, size: 18),
-                      title: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                      subtitle: model.isNotEmpty
-                          ? Text('Modelo: $model', style: const TextStyle(fontSize: 12))
-                          : null,
-                    );
-                  }).toList(),
-                ),
-              ),
-        actions: [
-          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar')),
-        ],
-      ),
+      barrierDismissible: false,
+      builder: (ctx) => const _FullConfigViewerDialog(),
     );
   }
 
@@ -631,5 +589,191 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       if (mounted) setState(() => _checkingUpdate = false);
     }
+  }
+}
+
+/// Full-screen dialog that reads and displays the raw openclaw.json config.
+class _FullConfigViewerDialog extends StatefulWidget {
+  const _FullConfigViewerDialog();
+
+  @override
+  State<_FullConfigViewerDialog> createState() => _FullConfigViewerDialogState();
+}
+
+class _FullConfigViewerDialogState extends State<_FullConfigViewerDialog> {
+  String? _jsonContent;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadConfig();
+  }
+
+  Future<void> _loadConfig() async {
+    try {
+      final raw = await NativeBridge.readRootfsFile('root/.openclaw/openclaw.json');
+      if (raw == null || raw.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _jsonContent = null;
+            _loading = false;
+            _error = 'No se encontró openclaw.json o está vacío';
+          });
+        }
+        return;
+      }
+      // Pretty-print with 2-space indent
+      final parsed = jsonDecode(raw);
+      final pretty = const JsonEncoder.withIndent('  ').convert(parsed);
+      if (mounted) {
+        setState(() {
+          _jsonContent = pretty;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = 'Error al leer openclaw.json: $e';
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  void _copyToClipboard() {
+    if (_jsonContent == null) return;
+    Clipboard.setData(ClipboardData(text: _jsonContent!));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('openclaw.json copiado al portapapeles'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Dialog.fullscreen(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('openclaw.json'),
+          actions: [
+            if (_jsonContent != null)
+              IconButton(
+                icon: const Icon(Icons.copy_rounded),
+                tooltip: 'Copiar al portapapeles',
+                onPressed: _copyToClipboard,
+              ),
+            IconButton(
+              icon: const Icon(Icons.close_rounded),
+              tooltip: 'Cerrar',
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+        ),
+        body: _buildBody(theme, cs),
+      ),
+    );
+  }
+
+  Widget _buildBody(ThemeData theme, ColorScheme cs) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline_rounded, size: 48, color: cs.error),
+              const SizedBox(height: 16),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(color: cs.error),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_jsonContent == null) {
+      return Center(
+        child: Text(
+          'No se encontró openclaw.json',
+          style: theme.textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+        ),
+      );
+    }
+
+    // Count lines for a subtle status bar
+    final lineCount = '\n'.allMatches(_jsonContent!).length + 1;
+    final byteCount = _jsonContent!.length;
+
+    return Column(
+      children: [
+        // Status bar
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withAlpha(80),
+            border: Border(bottom: BorderSide(color: cs.outlineVariant.withAlpha(60))),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.data_object_rounded, size: 14, color: cs.onSurfaceVariant.withAlpha(160)),
+              const SizedBox(width: 6),
+              Text(
+                '$lineCount líneas',
+                style: theme.textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant.withAlpha(160)),
+              ),
+              const SizedBox(width: 12),
+              Icon(Icons.text_fields_rounded, size: 14, color: cs.onSurfaceVariant.withAlpha(160)),
+              const SizedBox(width: 6),
+              Text(
+                _formatBytes(byteCount),
+                style: theme.textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant.withAlpha(160)),
+              ),
+            ],
+          ),
+        ),
+        // JSON content
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            scrollDirection: Axis.vertical,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SelectableText(
+                _jsonContent!,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }

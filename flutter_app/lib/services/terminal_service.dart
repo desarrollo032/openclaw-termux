@@ -128,6 +128,8 @@ class TerminalService {
       'COLUMNS=$columns',
       'LINES=$rows',
       'NODE_OPTIONS=--require /root/.openclaw/bionic-bypass.js',
+      'NODE_COMPILE_CACHE=/root/.cache/node/compile_cache',
+      'OPENCLAW_NO_RESPAWN=1',
       '/bin/bash',
       '-l',
     ]);

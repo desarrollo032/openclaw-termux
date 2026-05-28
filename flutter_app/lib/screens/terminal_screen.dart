@@ -63,8 +63,30 @@ class _TerminalScreenState extends State<TerminalScreen> {
     super.dispose();
   }
 
+  static Widget _noSelectionContent() {
+    return const Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.info_outline, size: 16, color: Colors.white),
+        SizedBox(width: 8),
+        Text('Mantén presionado o toca SEL para seleccionar texto'),
+      ],
+    );
+  }
+
   void _copySelection() {
-    _terminalModuleKey.currentState?.copySelection();
+    final state = _terminalModuleKey.currentState;
+    if (state == null || !state.hasSelection) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: _noSelectionContent(),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    state.copySelection();
   }
 
   @override
@@ -101,7 +123,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
             onPressed: () => ScreenshotService.capture(_screenshotKey),
           ),
           IconButton(
-            icon: const Icon(Icons.copy),
+            icon: const Icon(Icons.copy_rounded),
             tooltip: 'Copiar selección',
             onPressed: _copySelection,
           ),

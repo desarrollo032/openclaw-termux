@@ -10,6 +10,17 @@ import '../design/tokens.dart';
 import '../design/components.dart';
 import '../widgets/terminal_toolbar.dart';
 
+/// Terminal emulator widget built on xterm.dart.
+///
+/// Architecture for selection & scroll:
+///   - TerminalView is rendered WITHOUT any GestureDetector wrapper so
+///     the xterm widget's own scroll gesture recognizer wins the arena.
+///   - A transparent long‑press overlay with `HitTestBehavior.translucent`
+///     sits *above* the terminal to detect long‑press → activate selection.
+///   - In selection mode the terminal is ignored and a Listener overlay
+///     handles drag‑to‑select.
+///   - A floating toolbar (Copy / Select‑All / Cancel) appears when text
+///     is selected.
 class TerminalViewModule extends StatefulWidget {
   final String shell;
   final List<String> arguments;
@@ -55,11 +66,17 @@ class TerminalViewModuleState extends State<TerminalViewModule> {
   bool _selectionMode = false;
   int? _selStartX;
   int? _selStartY;
+  double _cellWidth = 0;
+  double _cellHeight = 0;
+
+  // ── Public accessors ────────────────────────────────────────────────────
 
   Terminal get terminal => _terminal;
   TerminalController get controller => _controller;
   int? get sessionId => _sessionId;
   bool get selectionMode => _selectionMode;
+
+  /// Whether there is an active (non-collapsed) selection.
   bool get hasSelection =>
       _controller.selection != null && !_controller.selection!.isCollapsed;
 
@@ -76,17 +93,34 @@ class TerminalViewModuleState extends State<TerminalViewModule> {
     return (width / 360 * 11).clamp(9.0, 14.0);
   }
 
+  // ── Lifecycle ───────────────────────────────────────────────────────────
+
   @override
   void initState() {
     super.initState();
     _terminal = Terminal(maxLines: 2000);
     _controller = TerminalController();
     if (widget.autoStart) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        startPty();
-      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => startPty());
     }
   }
+
+  @override
+  void dispose() {
+    _ctrlNotifier.dispose();
+    _altNotifier.dispose();
+    _controller.dispose();
+    _ptySubscription?.cancel();
+    _ptySubscription = null;
+    final sid = _sessionId;
+    _sessionId = null;
+    if (sid != null) {
+      OpenClawPty.close(sid);
+    }
+    super.dispose();
+  }
+
+  // ── PTY session ─────────────────────────────────────────────────────────
 
   Future<void> startPty() async {
     if (!mounted) return;
@@ -118,8 +152,7 @@ class TerminalViewModuleState extends State<TerminalViewModule> {
       _ptySubscription = OpenClawPty.events(sessionId).listen((event) {
         switch (event['type']) {
           case 'output':
-            final raw = (event['data'] as Uint8List);
-            final text = utf8.decode(raw, allowMalformed: true);
+            final text = event['text'] as String;  // Pre-decodeado en Kotlin
             if (text.isNotEmpty) {
               if (DateTime.now().difference(_lastWakeLockRenewal).inSeconds >=
                   15) {
@@ -157,13 +190,12 @@ class TerminalViewModuleState extends State<TerminalViewModule> {
           }
         }
         if (_altNotifier.value && data.isNotEmpty) {
-          OpenClawPty.write(sid,
-              Uint8List.fromList(utf8.encode('\x1b$data')));
+          OpenClawPty.write(
+              sid, Uint8List.fromList(utf8.encode('\x1b$data')));
           _altNotifier.value = false;
           return;
         }
-        OpenClawPty.write(
-            sid, Uint8List.fromList(utf8.encode(data)));
+        OpenClawPty.write(sid, Uint8List.fromList(utf8.encode(data)));
       };
 
       _terminal.onResize = (w, h, pw, ph) {
@@ -184,6 +216,8 @@ class TerminalViewModuleState extends State<TerminalViewModule> {
     }
   }
 
+  // ── Paste ────────────────────────────────────────────────────────────────
+
   Future<void> paste() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text;
@@ -195,29 +229,98 @@ class TerminalViewModuleState extends State<TerminalViewModule> {
     }
   }
 
+  // ── Selection mode ───────────────────────────────────────────────────────
+
+  /// Toggle selection mode on/off.
   void setSelectionMode(bool enabled) {
     if (!enabled) {
       _controller.clearSelection();
       _selStartX = null;
       _selStartY = null;
     }
-    setState(() => _selectionMode = enabled);
+    if (mounted) setState(() => _selectionMode = enabled);
   }
 
-  void _onSelectionTap(int col, int row) {
-    if (_selStartX == null) {
-      _selStartX = col;
-      _selStartY = row;
-      final anchor = _terminal.buffer.createAnchor(col, row);
-      _controller.setSelection(anchor, anchor);
-    } else {
-      final base =
-          _terminal.buffer.createAnchor(_selStartX!, _selStartY!);
-      final extent = _terminal.buffer.createAnchor(col, row);
-      _controller.setSelection(base, extent);
-      _selStartX = null;
-      _selStartY = null;
-    }
+  // ── Long-press activation (separate overlay, does NOT wrap TerminalView) ─
+
+  void _onLongPressStart(LongPressStartDetails details) {
+    if (_selectionMode) return;
+    final col = (details.localPosition.dx / _cellWidth)
+        .floor()
+        .clamp(0, _terminal.viewWidth - 1);
+    final row = (details.localPosition.dy / _cellHeight)
+        .floor()
+        .clamp(0, _terminal.viewHeight - 1);
+    _selStartX = col;
+    _selStartY = row;
+    setSelectionMode(true);
+    // Place initial single-character anchor
+    final anchor = _terminal.buffer.createAnchor(col, row);
+    _controller.setSelection(anchor, anchor);
+  }
+
+  void _onLongPressMoveUpdate(LongPressMoveUpdateDetails details) {
+    if (!_selectionMode || _selStartX == null) return;
+    final col = (details.localPosition.dx / _cellWidth)
+        .floor()
+        .clamp(0, _terminal.viewWidth - 1);
+    final row = (details.localPosition.dy / _cellHeight)
+        .floor()
+        .clamp(0, _terminal.viewHeight - 1);
+    final base = _terminal.buffer.createAnchor(_selStartX!, _selStartY!);
+    final extent = _terminal.buffer.createAnchor(col, row);
+    _controller.setSelection(base, extent);
+    setState(() {});
+  }
+
+  void _onLongPressEnd(LongPressEndDetails details) {
+    setState(() {});
+  }
+
+  // ── Drag-to-select in selection mode ────────────────────────────────────
+
+  void _onSelectionPointerDown(PointerDownEvent event) {
+    if (!_selectionMode) return;
+    final col = (event.localPosition.dx / _cellWidth)
+        .floor()
+        .clamp(0, _terminal.viewWidth - 1);
+    final row = (event.localPosition.dy / _cellHeight)
+        .floor()
+        .clamp(0, _terminal.viewHeight - 1);
+    _selStartX = col;
+    _selStartY = row;
+    final anchor = _terminal.buffer.createAnchor(col, row);
+    _controller.setSelection(anchor, anchor);
+    setState(() {});
+  }
+
+  void _onSelectionPointerMove(PointerMoveEvent event) {
+    if (!_selectionMode || _selStartX == null) return;
+    final col = (event.localPosition.dx / _cellWidth)
+        .floor()
+        .clamp(0, _terminal.viewWidth - 1);
+    final row = (event.localPosition.dy / _cellHeight)
+        .floor()
+        .clamp(0, _terminal.viewHeight - 1);
+    final base = _terminal.buffer.createAnchor(_selStartX!, _selStartY!);
+    final extent = _terminal.buffer.createAnchor(col, row);
+    _controller.setSelection(base, extent);
+    setState(() {});
+  }
+
+  void _onSelectionPointerUp(PointerUpEvent event) {
+    setState(() {});
+  }
+
+  // ── Selection actions ───────────────────────────────────────────────────
+
+  void selectAll() {
+    final maxY = _terminal.buffer.lines.length - 1;
+    if (maxY < 0) return;
+    final base = _terminal.buffer.createAnchor(0, 0);
+    final extent =
+        _terminal.buffer.createAnchor(_terminal.viewWidth, maxY);
+    _controller.setSelection(base, extent);
     setState(() {});
   }
 
@@ -235,35 +338,30 @@ class TerminalViewModuleState extends State<TerminalViewModule> {
       sb.write(line.getText(from, to));
       if (y < range.end.y) sb.writeln();
     }
-    final text = sb.toString().trim();
-    if (text.isEmpty) return;
+    final text = sb.toString();
+    if (text.trim().isEmpty) return;
 
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Copiado al portapapeles'),
-          duration: Duration(seconds: 1),
+        SnackBar(
+          content: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.check, size: 16, color: Colors.white),
+              const SizedBox(width: 8),
+              Text('Copiado (${text.length} caracteres)'),
+            ],
+          ),
+          duration: const Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
     setSelectionMode(false);
   }
 
-  @override
-  void dispose() {
-    _ctrlNotifier.dispose();
-    _altNotifier.dispose();
-    _controller.dispose();
-    _ptySubscription?.cancel();
-    _ptySubscription = null;
-    final sid = _sessionId;
-    _sessionId = null;
-    if (sid != null) {
-      OpenClawPty.close(sid);
-    }
-    super.dispose();
-  }
+  // ── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -316,13 +414,17 @@ class TerminalViewModuleState extends State<TerminalViewModule> {
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final cellWidth =
+              // Cache cell dimensions for pointer → coordinate conversion
+              _cellWidth =
                   constraints.maxWidth / math.max(_terminal.viewWidth, 1);
-              final cellHeight =
+              _cellHeight =
                   constraints.maxHeight / math.max(_terminal.viewHeight, 1);
 
               return Stack(
                 children: [
+                  // ── Terminal (NO GestureDetector wrapper) ─────────────
+                  // TerminalView receives pointer events directly so its
+                  // built-in scroll gesture recogniser wins the arena.
                   Positioned.fill(
                     child: IgnorePointer(
                       ignoring: _selectionMode,
@@ -338,31 +440,54 @@ class TerminalViewModuleState extends State<TerminalViewModule> {
                       ),
                     ),
                   ),
+
+                  // ── Long-press overlay (always present) ───────────────
+                  // Translucent → terminal still receives events for scroll.
+                  // If the user holds still for 500ms the long-press
+                  // recogniser wins and activates selection mode.
+                  // IMPORTANT: This overlay stays mounted even when
+                  // _selectionMode is true so the gesture isn't cancelled
+                  // mid-drag. The Listener overlay below coexists because
+                  // Listener is passive (it doesn't compete in the arena).
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onLongPressStart: _onLongPressStart,
+                      onLongPressMoveUpdate: _onLongPressMoveUpdate,
+                      onLongPressEnd: _onLongPressEnd,
+                      // translucent = overlay participates in hit-test
+                      // but does NOT block events from reaching the
+                      // TerminalView below.
+                      behavior: HitTestBehavior.translucent,
+                    ),
+                  ),
+
+                  // ── Selection overlay (drag-to-select) ───────────────
                   if (_selectionMode)
                     Positioned.fill(
-                      child: GestureDetector(
-                        onTapDown: (details) {
-                          final col = (details.localPosition.dx / cellWidth)
-                              .floor()
-                              .clamp(0, _terminal.viewWidth - 1);
-                          final row = (details.localPosition.dy / cellHeight)
-                              .floor()
-                              .clamp(0, _terminal.viewHeight - 1);
-                          _onSelectionTap(col, row);
+                      child: Listener(
+                        onPointerDown: _onSelectionPointerDown,
+                        onPointerMove: _onSelectionPointerMove,
+                        onPointerUp: _onSelectionPointerUp,
+                        onPointerCancel: (_) {
+                          _selStartX = null;
+                          _selStartY = null;
+                          setState(() {});
                         },
                         behavior: HitTestBehavior.translucent,
                       ),
                     ),
-                  if (_selectionMode && _selStartX == null)
+
+                  // ── Hint banner ───────────────────────────────────────
+                  if (_selectionMode && !hasSelection)
                     Positioned(
                       top: Spacing.sm,
-                      left: 0,
-                      right: 0,
+                      left: Spacing.md,
+                      right: Spacing.md,
                       child: Center(
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: Spacing.md,
-                            vertical: Spacing.xs,
+                            vertical: Spacing.xs + 2,
                           ),
                           decoration: BoxDecoration(
                             color: theme.colorScheme.primaryContainer
@@ -370,56 +495,106 @@ class TerminalViewModuleState extends State<TerminalViewModule> {
                             borderRadius:
                                 BorderRadius.circular(RadiusTokens.pill),
                           ),
-                          child: Text(
-                            'Toca el primer carácter para iniciar selección',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color:
-                                  theme.colorScheme.onPrimaryContainer,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.touch_app_rounded,
+                                size: 14,
+                                color: theme
+                                    .colorScheme.onPrimaryContainer,
+                              ),
+                              const SizedBox(width: Spacing.xs + 2),
+                              Text(
+                                'Arrastra para seleccionar',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme
+                                      .colorScheme.onPrimaryContainer,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
+
+                  // ── Floating toolbar (text selected) ────────────────
                   if (_selectionMode && hasSelection)
                     Positioned(
-                      bottom: Spacing.sm,
-                      left: 0,
-                      right: 0,
+                      bottom: Spacing.sm + 4,
+                      left: Spacing.md,
+                      right: Spacing.md,
                       child: Center(
                         child: Material(
-                          elevation: 6,
+                          elevation: 8,
+                          shadowColor: Colors.black.withAlpha(60),
                           borderRadius:
-                              BorderRadius.circular(RadiusTokens.pill),
-                          color: AppColors.accent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(
-                                RadiusTokens.pill),
-                            onTap: copySelection,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: Spacing.xl,
-                                vertical: Spacing.sm + 2,
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.copy_rounded,
-                                    size: 18,
-                                    color: Colors.white,
+                              BorderRadius.circular(RadiusTokens.md + 4),
+                          color: theme.brightness == Brightness.dark
+                              ? theme.colorScheme.surfaceContainerHigh
+                              : Colors.white,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: Spacing.xs,
+                              vertical: Spacing.xs,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Close
+                                IconButton(
+                                  icon: const Icon(
+                                      Icons.close_rounded, size: 18),
+                                  tooltip: 'Cancelar selección',
+                                  onPressed: () =>
+                                      setSelectionMode(false),
+                                  style: IconButton.styleFrom(
+                                    foregroundColor: theme
+                                        .colorScheme.onSurfaceVariant,
+                                    visualDensity: VisualDensity.compact,
                                   ),
-                                  SizedBox(width: Spacing.sm - 1),
-                                  Text(
-                                    'Copiar',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                    ),
+                                ),
+                                const SizedBox(width: Spacing.xs),
+                                _divider(theme),
+                                const SizedBox(width: Spacing.xs),
+
+                                // Select All
+                                TextButton.icon(
+                                  onPressed: selectAll,
+                                  icon: const Icon(
+                                      Icons.select_all_rounded,
+                                      size: 16),
+                                  label: const Text('Todo',
+                                      style:
+                                          TextStyle(fontSize: 12)),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: theme
+                                        .colorScheme.onSurfaceVariant,
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8),
                                   ),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(width: Spacing.xs),
+                                _divider(theme),
+                                const SizedBox(width: Spacing.xs),
+
+                                // Copy (primary)
+                                FilledButton.icon(
+                                  onPressed: copySelection,
+                                  icon: const Icon(Icons.copy_rounded,
+                                      size: 16),
+                                  label: const Text('Copiar',
+                                      style:
+                                          TextStyle(fontSize: 12)),
+                                  style: FilledButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -430,15 +605,24 @@ class TerminalViewModuleState extends State<TerminalViewModule> {
             },
           ),
         ),
+
+        // ── Bottom toolbar (ESC, SEL, CTRL, ALT, arrows…) ────────────
         TerminalToolbar(
           sessionId: _sessionId,
           ctrlNotifier: _ctrlNotifier,
           altNotifier: _altNotifier,
           selectionMode: _selectionMode,
-          onToggleSelection: () =>
-              setSelectionMode(!_selectionMode),
+          onToggleSelection: () => setSelectionMode(!_selectionMode),
         ),
       ],
+    );
+  }
+
+  Widget _divider(ThemeData theme) {
+    return Container(
+      width: 1,
+      height: 24,
+      color: theme.colorScheme.outlineVariant.withAlpha(80),
     );
   }
 }

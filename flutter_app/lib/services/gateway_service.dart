@@ -307,10 +307,28 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
     try {
       await _ensureEnvFiles();
       await _writeNodeAllowConfig();
+      // Signal to Kotlin: entering gateway mode
+      // This triggers service cleanup and zombie process killing
+      try {
+        await NativeBridge.setRuntimeMode('GATEWAY');
+      } catch (_) {}
       _startingAt = DateTime.now();
       await NativeBridge.startGateway();
       _subscribeLogs();
       _startHealthCheck();
+      // Fetch runtime diagnostics post-start
+      try {
+        final diag = await NativeBridge.getRuntimeDiagnostics();
+        _updateState(_state.copyWith(
+          logs: [..._state.logs,
+            _ts('[INFO] Runtime: mode=${diag['mode']} '
+                'gateway=${diag['gatewayRunning']} '
+                'pid=${diag['pidGateway']} '
+                'port18789=${diag['port18789Active']} '
+                'services=${(diag['servicesActive'] as List?)?.join(',') ?? 'none'}'),
+          ],
+        ));
+      } catch (_) {}
     } catch (e) {
       _updateState(_state.copyWith(
         status: GatewayStatus.error,
@@ -329,6 +347,10 @@ fs.writeFileSync(p, JSON.stringify(c, null, 2));
 
     try {
       await NativeBridge.stopGateway();
+      // Return to idle mode
+      try {
+        await NativeBridge.setRuntimeMode('IDLE');
+      } catch (_) {}
       _updateState(GatewayState(
         status: GatewayStatus.stopped,
         logs: [..._state.logs, _ts('[INFO] Gateway stopped')],

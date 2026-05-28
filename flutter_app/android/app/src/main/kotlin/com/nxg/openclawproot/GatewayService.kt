@@ -34,9 +34,32 @@ class GatewayService : Service() {
         private var logHandlerThread: HandlerThread? = null
         private var logHandler: Handler? = null
 
+        /** Runtime resource guard — manages cleanup and diagnostics. */
+        private var runtimeGuard: GatewayRuntimeGuard? = null
+
         init {
             logHandlerThread = HandlerThread("gateway-log-emitter").apply { start() }
             logHandler = Handler(logHandlerThread!!.looper)
+        }
+
+        /** Set the runtime mode from Flutter. */
+        fun setRuntimeMode(mode: String) {
+            instance?.let { svc ->
+                val guard = svc.runtimeGuard ?: GatewayRuntimeGuard(svc)
+                when (mode.uppercase()) {
+                    "INSTALL" -> guard.enterInstallMode()
+                    "TERMINAL" -> guard.enterTerminalMode()
+                    "GATEWAY" -> guard.enterGatewayMode()
+                    else -> {}
+                }
+            }
+        }
+
+        /** Collect runtime diagnostics for Flutter. */
+        fun getRuntimeDiagnostics(): Map<String, Any> {
+            val inst = instance ?: return emptyMap()
+            val guard = inst.runtimeGuard ?: GatewayRuntimeGuard(inst)
+            return guard.collectRuntimeDiagnostics()
         }
 
         fun isProcessAlive(): Boolean {
@@ -83,6 +106,11 @@ class GatewayService : Service() {
     private var gatewayThread: Thread? = null
     private val lock = Object()
     @Volatile private var stopping = false
+
+    /** Runtime resource guard — initialized lazily on first gateway start. */
+    private val runtimeGuard: GatewayRuntimeGuard by lazy {
+        GatewayRuntimeGuard(this)
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -229,9 +257,32 @@ class GatewayService : Service() {
                     return@Thread
                 }
 
+                // ── Runtime resource cleanup ─────────────────────────────────
+                // Before spawning the gateway, stop non-essential services and
+                // kill stale/zombie processes (openclaw-doctor, npm, apt, etc.).
+                // This frees ~400+ MB RSS for the gateway.
+                emitLog("[gateway] cleaning non-gateway services and processes")
+                try {
+                    runtimeGuard.keepOnlyGatewayAndTerminal()
+                    emitLog("[gateway] resource cleanup complete")
+                } catch (e: Exception) {
+                    emitLog("[gateway] WARN: resource cleanup failed: ${e.message}")
+                }
+
                 emitLog("[gateway] cleaning stale temp files")
                 try {
                     pm.cleanupGatewayTempFiles()
+                } catch (_: Exception) {}
+
+                // ── Verify cleanup ───────────────────────────────────────────
+                // Check that openclaw-doctor zombie was killed
+                try {
+                    val remainingZombie = Runtime.getRuntime().exec(arrayOf("ps", "-A"))
+                    val zombieCheck = remainingZombie.inputStream.bufferedReader().readText()
+                    if ("openclaw-doctor" in zombieCheck) {
+                        emitLog("[gateway] WARN: openclaw-doctor still alive, retrying kill")
+                        Runtime.getRuntime().exec(arrayOf("kill", "-9", "\$(pgrep -x openclaw-doctor 2>/dev/null)"))
+                    }
                 } catch (_: Exception) {}
 
                 emitLog("[gateway] spawning proot")
@@ -242,6 +293,16 @@ class GatewayService : Service() {
                 }
                 updateNotificationRunning()
                 emitLog("[gateway] process spawned")
+
+                // ── Post-start diagnostics ──────────────────────────────────
+                // Verify gateway PID and port availability
+                try {
+                    val diag = runtimeGuard.collectRuntimeDiagnostics()
+                    val pidGateway = diag["pidGateway"] ?: -1
+                    val portActive = diag["port18789Active"] ?: false
+                    emitLog("[gateway] PID=$pidGateway port=18789/$portActive")
+                } catch (_: Exception) {}
+
                 startUptimeTicker()
                 startWatchdog()
 
@@ -252,11 +313,19 @@ class GatewayService : Service() {
                 val stderrReader = BufferedReader(InputStreamReader(proc.errorStream))
                 val currentRestartCount = restartCount
 
-                // Filter patterns for repetitive proot warnings
+                // Filter patterns for repetitive proot/gateway warnings.
+                // These are harmless but flood the log buffer:
+                //   - "proot warning: can't sanitize ..." (proot internal)
+                //   - "/proc/self/fd" (stdin/stdout bind mount noise)
+                //   - "InsetsController", "ViewRootImpl" (Android UI — irrelevant)
                 val filterPatterns = listOf(
                     "proot warning",
                     "can't sanitize",
                     "/proc/self/fd",
+                    "InsetsController",
+                    "ViewRootImpl",
+                    "Sending viewport metrics",
+                    "NotifHistoryProto",
                 )
 
                 val stdoutThread = Thread {
@@ -264,7 +333,7 @@ class GatewayService : Service() {
                         var line: String?
                         while (stdoutReader.readLine().also { line = it } != null) {
                             val l = line ?: continue
-                            if (currentRestartCount > 0 && filterPatterns.any { l.contains(it) }) continue
+                            if (filterPatterns.any { l.contains(it) }) continue
                             emitLog(l)
                         }
                     } catch (_: Exception) {}
@@ -334,6 +403,10 @@ class GatewayService : Service() {
             gatewayProcess = null
         }
         emitLog("[gateway] stopping")
+        // Reset runtime mode back to IDLE
+        try {
+            runtimeGuard.enterIdleMode()
+        } catch (_: Exception) {}
         procToStop?.let { proc ->
             Thread({
                 try {
@@ -364,6 +437,7 @@ class GatewayService : Service() {
                 } catch (_: Exception) {}
             }, "gateway-stop").apply { isDaemon = true }.start()
         }
+        emitLog("[gateway] stop complete — resources released")
     }
 
     private fun startWatchdog() {

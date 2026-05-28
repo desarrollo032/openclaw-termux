@@ -86,6 +86,27 @@ class NativeBridge {
     return _cachedNativeLibDir!;
   }
 
+  /// Set the runtime mode (IDLE, INSTALL, TERMINAL, GATEWAY).
+  /// Informs the Kotlin runtime guard to stop non-essential services
+  /// and clean stale processes.
+  static Future<bool> setRuntimeMode(String mode) async {
+    return _invokeRequired<bool>(
+      'setRuntimeMode',
+      {'mode': mode},
+      const Duration(seconds: 3),
+    );
+  }
+
+  /// Collect runtime diagnostics (mode, PIDs, ports, services, etc.).
+  static Future<Map<String, dynamic>> getRuntimeDiagnostics() async {
+    final result = await _invokeRequired<Map>(
+      'getRuntimeDiagnostics',
+      null,
+      const Duration(seconds: 3),
+    );
+    return Map<String, dynamic>.from(result);
+  }
+
   /// Clear all caches (useful for testing or after reconfiguration).
   static void clearCache() {
     _cachedFilesDir = null;

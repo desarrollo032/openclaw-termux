@@ -71,7 +71,7 @@ SOFTWARE.''';
     }
   }
 
-  static const int healthCheckIntervalMs = 3000;
+  static const int healthCheckIntervalMs = 30000;
   static const int maxAutoRestarts = 5;
 
   // Node constants

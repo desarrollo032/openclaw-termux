@@ -100,6 +100,16 @@ class ProcessHandler(
                 result.success(GatewayService.isProcessAlive())
                 return true
             }
+            "setRuntimeMode" -> {
+                val mode = call.argument<String>("mode") ?: "IDLE"
+                GatewayService.setRuntimeMode(mode)
+                result.success(true)
+                return true
+            }
+            "getRuntimeDiagnostics" -> {
+                result.success(GatewayService.getRuntimeDiagnostics())
+                return true
+            }
             "startTerminalService" -> {
                 try {
                     TerminalSessionService.start(context)

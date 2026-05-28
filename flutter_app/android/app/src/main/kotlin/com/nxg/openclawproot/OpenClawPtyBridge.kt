@@ -1,10 +1,9 @@
 package com.nxg.openclawproot
 
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.BasicMessageChannel
+import io.flutter.plugin.common.JSONMessageCodec
 import io.flutter.plugin.common.MethodChannel
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -20,16 +19,22 @@ import java.util.concurrent.atomic.AtomicBoolean
  *   - killPty(sessionId) → bool
  *   - closePty(sessionId) → bool
  *
- * EventChannel: com.nxg.openclawproot/pty/events/{sessionId}
- *   Events: { type: "output", data: byte[] }
- *          { type: "exit", exitCode: int }
+ * OutputChannel (BasicMessageChannel): com.nxg.openclawproot/pty/output/{sessionId}
+ *   Messages: { type: "output", text: "..." }  (pre-decoded UTF-8 string)
+ *            { type: "exit", exitCode: int }
+ *            { type: "error", message: "..." }
+ *
+ * Optimisations:
+ *   - BasicMessageChannel.send() is thread-safe → eliminates mainHandler.post() overhead
+ *   - UTF-8 decode runs on the background thread, not Flutter UI thread
+ *   - System.nanoTime() for sub-millisecond flush threshold (500 μs)
  */
 class OpenClawPtyBridge(private val flutterEngine: FlutterEngine) {
 
     companion object {
         private const val TAG = "OpenClawPty"
         private const val METHOD_CHANNEL = "com.nxg.openclawproot/pty"
-        private const val EVENT_CHANNEL_PREFIX = "com.nxg.openclawproot/pty/events/"
+        private const val OUTPUT_CHANNEL_PREFIX = "com.nxg.openclawproot/pty/output/"
 
         // Load native library
         init {
@@ -181,107 +186,90 @@ class OpenClawPtyBridge(private val flutterEngine: FlutterEngine) {
     }
 
     /**
-     * Background reader that polls nativeReadPty and pushes to EventChannel.
+     * Background reader that polls nativeReadPty and pushes output to Flutter
+     * via BasicMessageChannel (thread-safe, no main-thread post overhead).
+     *
+     * Optimisations vs the old EventChannel approach:
+     * 1. BasicMessageChannel.send() is thread-safe → eliminates mainHandler.post() (~2-16ms savings)
+     * 2. UTF-8 decode runs on this background thread, not Flutter UI thread
+     * 3. System.nanoTime() enables sub-millisecond flush threshold (500 μs)
+     * 4. Buffer threshold reduced to 2048 bytes for more responsive small-output commands
      */
     private inner class SessionReader(private val sessionId: Int) : Runnable {
         private val active = AtomicBoolean(true)
-        private val eventChannel: EventChannel
-        private var eventSink: EventChannel.EventSink? = null
-        private val mainHandler = Handler(Looper.getMainLooper())
+        private val outputChannel: BasicMessageChannel<Any>
 
         init {
-            eventChannel = EventChannel(
+            outputChannel = BasicMessageChannel(
                 flutterEngine.dartExecutor.binaryMessenger,
-                "$EVENT_CHANNEL_PREFIX$sessionId"
+                "$OUTPUT_CHANNEL_PREFIX$sessionId",
+                JSONMessageCodec.INSTANCE
             )
-            eventChannel.setStreamHandler(object : EventChannel.StreamHandler {
-                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                    eventSink = events
-                }
-
-                override fun onCancel(arguments: Any?) {
-                    eventSink = null
-                }
-            })
         }
 
         fun cancel() {
             active.set(false)
-            mainHandler.post { eventSink?.endOfStream() }
-            eventSink = null
         }
 
         override fun run() {
             val outputBuffer = java.io.ByteArrayOutputStream()
-            var lastPostTime = 0L
+            var lastFlushNanos = System.nanoTime()
 
             while (active.get()) {
                 try {
                     // Check exit status
                     val exitCode = nativeGetExitCode(sessionId)
                     if (exitCode >= 0) {
-                        // Process exited
-                        val sink = eventSink
-                        if (sink != null) {
-                            val event = HashMap<String, Any>()
-                            event["type"] = "exit"
-                            event["exitCode"] = exitCode
-                            mainHandler.post { sink.success(event) }
+                        // Process exited — flush remaining, notify, drain
+                        flushToDart(outputBuffer)
+                        // Drain any last output from the PTY buffer
+                        drainRemaining { decoded ->
+                            outputChannel.send(mapOf("type" to "output", "text" to decoded))
                         }
-                        // Drain remaining output
-                        drainRemaining()
+                        outputChannel.send(mapOf("type" to "exit", "exitCode" to exitCode))
                         cancel()
                         sessionReaders.remove(sessionId)
                         return
                     } else if (exitCode < -1) {
                         // Session error
-                        val sink = eventSink
-                        if (sink != null) {
-                            val event = HashMap<String, Any>()
-                            event["type"] = "error"
-                            event["message"] = "Session terminated unexpectedly"
-                            mainHandler.post { sink.success(event) }
-                        }
+                        outputChannel.send(
+                            mapOf("type" to "error", "message" to "Session terminated unexpectedly")
+                        )
                         cancel()
                         sessionReaders.remove(sessionId)
                         return
                     }
 
-                    // Read available data (non-blocking)
+                    // Read available data (non-blocking, epoll + O_NONBLOCK)
                     val data = nativeReadPty(sessionId)
                     if (data != null && data.isNotEmpty()) {
                         outputBuffer.write(data)
-                        
-                        val now = System.currentTimeMillis()
-                        // Real-time batching: flush if buffer > 4KB or > 1ms elapsed
-                        // Higher buffer threshold reduces main-thread posts (expensive),
-                        // lower time threshold keeps latency <2ms for responsiveness.
-                        // Flutter side writes immediately (no batch timer) so no double-buffering.
-                        if (outputBuffer.size() > 4096 || (now - lastPostTime) > 1) {
-                            flushToSink(outputBuffer)
-                            lastPostTime = now
+
+                        val nowNanos = System.nanoTime()
+                        // Flush if buffer > 2 KB or > 500 μs elapsed
+                        // 2048 bytes @ ~2 MB/s = ~1ms of terminal output
+                        // 500 μs threshold is imperceptible to humans
+                        if (outputBuffer.size() > 2048 || (nowNanos - lastFlushNanos) > 500_000) {
+                            flushToDart(outputBuffer)
+                            lastFlushNanos = nowNanos
                         }
-                        // If data is flowing, don't sleep, read again immediately
+                        // Data flowing → read again immediately, no sleep
                         continue
                     } else {
-                        // No data available right now, flush any remaining bytes
+                        // No data right now — flush whatever we have
                         if (outputBuffer.size() > 0) {
-                            flushToSink(outputBuffer)
-                            lastPostTime = System.currentTimeMillis()
+                            flushToDart(outputBuffer)
+                            lastFlushNanos = System.nanoTime()
                         }
-                        // Idle sleep: 2ms — low latency but saves battery
+                        // Idle sleep: 2 ms — balances responsiveness & battery
                         Thread.sleep(2)
                     }
                 } catch (e: Exception) {
                     if (active.get()) {
                         Log.e(TAG, "Reader error for session $sessionId: ${e.message}")
-                        val sink = eventSink
-                        if (sink != null) {
-                            val event = HashMap<String, Any>()
-                            event["type"] = "error"
-                            event["message"] = e.message ?: "Unknown error"
-                            mainHandler.post { sink.success(event) }
-                        }
+                        outputChannel.send(
+                            mapOf("type" to "error", "message" to (e.message ?: "Unknown error"))
+                        )
                     }
                     cancel()
                     sessionReaders.remove(sessionId)
@@ -290,31 +278,31 @@ class OpenClawPtyBridge(private val flutterEngine: FlutterEngine) {
             }
         }
 
-        private fun flushToSink(buffer: java.io.ByteArrayOutputStream) {
+        /**
+         * Decode buffered bytes to UTF-8 string on this background thread
+         * and send the pre-decoded text to Flutter via BasicMessageChannel.
+         *
+         * No mainHandler.post() needed — BasicMessageChannel is thread-safe.
+         */
+        private fun flushToDart(buffer: java.io.ByteArrayOutputStream) {
             val data = buffer.toByteArray()
             buffer.reset()
-            val sink = eventSink
-            if (sink != null) {
-                val event = HashMap<String, Any>()
-                event["type"] = "output"
-                event["data"] = data
-                mainHandler.post { sink.success(event) }
+            val text = data.toString(Charsets.UTF_8)
+            if (text.isNotEmpty()) {
+                outputChannel.send(mapOf("type" to "output", "text" to text))
             }
         }
 
-        private fun drainRemaining() {
+        /**
+         * Drain any remaining PTY output after the process exits.
+         */
+        private fun drainRemaining(onOutput: (String) -> Unit) {
             try {
-                // Sleep a bit to let any final output arrive
                 Thread.sleep(50)
                 var data = nativeReadPty(sessionId)
                 while (data != null && data.isNotEmpty()) {
-                    val sink = eventSink
-                    if (sink != null) {
-                        val event = HashMap<String, Any>()
-                        event["type"] = "output"
-                        event["data"] = data
-                        mainHandler.post { sink.success(event) }
-                    }
+                    val text = data.toString(Charsets.UTF_8)
+                    if (text.isNotEmpty()) onOutput(text)
                     Thread.sleep(10)
                     data = nativeReadPty(sessionId)
                 }

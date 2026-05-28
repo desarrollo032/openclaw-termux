@@ -14,16 +14,16 @@ object GatewayRuntimeFiles {
         File(rootfsDir, "tmp/npm-cache").mkdirs()
 
         writeStartGatewayScript(File(openClawDir, "start-gateway.sh"))
-        writeOpenClawConfigPatch(File(openClawDir, "openclaw.json"))
+        writeMinimalConfig(File(openClawDir, "openclaw.json"))
     }
 
     /**
-     * Generate the start-gateway.sh script with:
-     * - Config repair before launch
-     * - Heavy plugins disabled (browser, phone-control, talk-voice)
-     * - Light plugins enabled (telegram, memory-core, device-pair, file-transfer)
+     * Generate the start-gateway.sh script:
      * - Cache directories
+     * - Validate node and openclaw binaries
+     * - Repair config with openclaw doctor --fix
      * - PID file
+     * - Launch openclaw gateway
      */
     private fun writeStartGatewayScript(startScript: File) {
         startScript.writeText("""#!/data/data/com.nxg.openclawproot/files/rootfs/ubuntu/bin/bash
@@ -90,15 +90,11 @@ fi
 
 log "validations passed"
 
-# ── Disable heavy plugins ──────────────────────────────────────────────
-# Browser/phone/talk-voice plugins can crash in proot (no Chrome, no telephony).
-CONFIG_FILE="/root/.openclaw/openclaw.json"
-if [ -f "${'$'}CONFIG_FILE" ]; then
-  sed -i 's/"browser":[[:space:]]*true/"browser": false/g' "${'$'}CONFIG_FILE" 2>/dev/null || true
-  sed -i 's/"phone-control":[[:space:]]*true/"phone-control": false/g' "${'$'}CONFIG_FILE" 2>/dev/null || true
-  sed -i 's/"talk-voice":[[:space:]]*true/"talk-voice": false/g' "${'$'}CONFIG_FILE" 2>/dev/null || true
-fi
-log "plugins configured"
+# ── Repair config ──────────────────────────────────────────────────────
+# OpenClaw 2026.5.7 rejects unknown keys (e.g. "plugins" inside "gateway").
+# Run doctor --fix to repair any config issues before launching.
+openclaw doctor --fix 2>/dev/null || true
+log "config repaired"
 
 # ── PID file ───────────────────────────────────────────────────────────
 echo "${'$'}${'$'}" > /root/.openclaw/gateway.pid 2>/dev/null || true
@@ -111,20 +107,14 @@ exec openclaw gateway --no-color --no-emoji
     }
 
     /**
-     * Pre-configure openclaw.json with safe defaults for plugins.
-     * Only writes if the file does not exist yet.
+     * Write minimal valid openclaw.json if it does not exist yet.
+     * Only writes if the file does not exist, to avoid overwriting user config.
      */
-    private fun writeOpenClawConfigPatch(configFile: File) {
+    private fun writeMinimalConfig(configFile: File) {
         if (configFile.exists()) return // don't overwrite existing config
         configFile.writeText("""{
-  "plugins": {
-    "telegram": true,
-    "memory-core": true,
-    "device-pair": true,
-    "file-transfer": false,
-    "browser": false,
-    "phone-control": false,
-    "talk-voice": false
+  "gateway": {
+    "mode": "local"
   }
 }
 """.trimIndent())
