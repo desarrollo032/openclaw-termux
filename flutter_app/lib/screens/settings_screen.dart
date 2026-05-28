@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../native/openclaw_native.dart';
@@ -640,6 +641,27 @@ class _FullConfigViewerDialogState extends State<_FullConfigViewerDialog> {
     }
   }
 
+  Future<void> _copyFullJson() async {
+    if (_root == null) return;
+    try {
+      final json = _nodeToJson(_root!);
+      final pretty = const JsonEncoder.withIndent('  ').convert(json);
+      await Clipboard.setData(ClipboardData(text: pretty));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('JSON copiado al portapapeles'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al copiar: $e'), duration: const Duration(seconds: 2)),
+      );
+    }
+  }
+
   Future<void> _saveConfig() async {
     if (_root == null) return;
     try {
@@ -912,12 +934,18 @@ class _FullConfigViewerDialogState extends State<_FullConfigViewerDialog> {
             ],
           ),
           actions: [
-            if (_root != null)
+            if (_root != null) ...[
+              IconButton(
+                icon: Icon(Icons.copy_rounded, color: cs.onSurface.withAlpha(180)),
+                tooltip: 'Copiar JSON completo',
+                onPressed: () => _copyFullJson(),
+              ),
               IconButton(
                 icon: Icon(Icons.save_rounded, color: _dirty ? cs.primary : cs.onSurface.withAlpha(80)),
                 tooltip: 'Guardar cambios',
                 onPressed: _dirty ? _saveConfig : null,
               ),
+            ],
             IconButton(
               icon: const Icon(Icons.close_rounded),
               tooltip: 'Cerrar',

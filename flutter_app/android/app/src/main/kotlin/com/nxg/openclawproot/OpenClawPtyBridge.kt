@@ -1,6 +1,8 @@
 package com.nxg.openclawproot
 
 import android.util.Log
+import android.os.Handler
+import android.os.Looper
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.BasicMessageChannel
 import io.flutter.plugin.common.JSONMessageCodec
@@ -187,17 +189,20 @@ class OpenClawPtyBridge(private val flutterEngine: FlutterEngine) {
 
     /**
      * Background reader that polls nativeReadPty and pushes output to Flutter
-     * via BasicMessageChannel (thread-safe, no main-thread post overhead).
+     * via BasicMessageChannel, posting to the main thread for thread-safety.
      *
-     * Optimisations vs the old EventChannel approach:
-     * 1. BasicMessageChannel.send() is thread-safe → eliminates mainHandler.post() (~2-16ms savings)
-     * 2. UTF-8 decode runs on this background thread, not Flutter UI thread
-     * 3. System.nanoTime() enables sub-millisecond flush threshold (500 μs)
-     * 4. Buffer threshold reduced to 2048 bytes for more responsive small-output commands
+     * Note: BasicMessageChannel.send() must run on the main thread (FlutterJNI requires it),
+     * so we use mainHandler.post() to bridge from this background thread to the UI thread.
+     *
+     * Optimisations:
+     * 1. UTF-8 decode runs on this background thread, not Flutter UI thread
+     * 2. System.nanoTime() enables sub-millisecond flush threshold (500 μs)
+     * 3. Buffer threshold reduced to 2048 bytes for more responsive small-output commands
      */
     private inner class SessionReader(private val sessionId: Int) : Runnable {
         private val active = AtomicBoolean(true)
         private val outputChannel: BasicMessageChannel<Any>
+        private val mainHandler = Handler(Looper.getMainLooper())
 
         init {
             outputChannel = BasicMessageChannel(
@@ -224,17 +229,19 @@ class OpenClawPtyBridge(private val flutterEngine: FlutterEngine) {
                         flushToDart(outputBuffer)
                         // Drain any last output from the PTY buffer
                         drainRemaining { decoded ->
-                            outputChannel.send(mapOf("type" to "output", "text" to decoded))
+                            mainHandler.post { outputChannel.send(mapOf("type" to "output", "text" to decoded)) }
                         }
-                        outputChannel.send(mapOf("type" to "exit", "exitCode" to exitCode))
+                        mainHandler.post { outputChannel.send(mapOf("type" to "exit", "exitCode" to exitCode)) }
                         cancel()
                         sessionReaders.remove(sessionId)
                         return
                     } else if (exitCode < -1) {
                         // Session error
-                        outputChannel.send(
-                            mapOf("type" to "error", "message" to "Session terminated unexpectedly")
-                        )
+                        mainHandler.post {
+                            outputChannel.send(
+                                mapOf("type" to "error", "message" to "Session terminated unexpectedly")
+                            )
+                        }
                         cancel()
                         sessionReaders.remove(sessionId)
                         return
@@ -267,9 +274,11 @@ class OpenClawPtyBridge(private val flutterEngine: FlutterEngine) {
                 } catch (e: Exception) {
                     if (active.get()) {
                         Log.e(TAG, "Reader error for session $sessionId: ${e.message}")
-                        outputChannel.send(
-                            mapOf("type" to "error", "message" to (e.message ?: "Unknown error"))
-                        )
+                        mainHandler.post {
+                            outputChannel.send(
+                                mapOf("type" to "error", "message" to (e.message ?: "Unknown error"))
+                            )
+                        }
                     }
                     cancel()
                     sessionReaders.remove(sessionId)
@@ -280,16 +289,15 @@ class OpenClawPtyBridge(private val flutterEngine: FlutterEngine) {
 
         /**
          * Decode buffered bytes to UTF-8 string on this background thread
-         * and send the pre-decoded text to Flutter via BasicMessageChannel.
-         *
-         * No mainHandler.post() needed — BasicMessageChannel is thread-safe.
+         * and send the pre-decoded text to Flutter via BasicMessageChannel
+         * on the main thread.
          */
         private fun flushToDart(buffer: java.io.ByteArrayOutputStream) {
             val data = buffer.toByteArray()
             buffer.reset()
             val text = data.toString(Charsets.UTF_8)
             if (text.isNotEmpty()) {
-                outputChannel.send(mapOf("type" to "output", "text" to text))
+                mainHandler.post { outputChannel.send(mapOf("type" to "output", "text" to text)) }
             }
         }
 
