@@ -1,14 +1,12 @@
 import 'dart:io';
 import 'native_bridge.dart';
 
-/// Provides shell configuration for both native and proot-based terminals.
+/// Provides shell configuration for proot-based terminals.
 ///
-/// - [getNativeShellConfig] / [buildNativeArgs] / [buildNativeHostEnv]:
-///   Used when the native Termux/glibc runtime is installed (no proot).
 /// - [getProotShellConfig] / [buildProotArgs] / [buildHostEnv]:
-///   Used as fallback when only the proot-based Ubuntu rootfs is available.
+///   Used for the proot-based Ubuntu rootfs.
 class TerminalService {
-  // ── Proot config (legacy fallback) ────────────────────────────────────────
+  // ── Proot config ──────────────────────────────────────────────────────────
 
   static const _fakeKernelRelease = '6.17.0-PRoot-Distro';
   static const _fakeKernelVersion =
@@ -145,67 +143,5 @@ class TerminalService {
       'PROOT_LOADER_32': config['PROOT_LOADER_32']!,
       'LD_LIBRARY_PATH': config['LD_LIBRARY_PATH']!,
     };
-  }
-
-  // ── Native terminal config (Termux + glibc runtime, no proot) ─────────────
-
-  static Map<String, String>? _cachedNativeConfig;
-
-  /// Get native terminal config from the Kotlin NativeRuntimeManager.
-  ///
-  /// Returns a map with:
-  /// - `shell`: path to native bash binary
-  /// - `homeDir`: native home directory
-  /// - `prefix`: native prefix (usr)
-  /// - `binDir`: openclaw bin directory
-  /// - `environment`: full environment map for the native shell
-  ///
-  /// Returns null if native runtime is not installed.
-  static Future<Map<String, String>?> getNativeShellConfig() async {
-    if (_cachedNativeConfig != null) {
-      return _cachedNativeConfig;
-    }
-
-    try {
-      final complete = await NativeBridge.isNativeBootstrapComplete();
-      if (!complete) return null;
-
-      final config = await NativeBridge.getNativeTerminalConfig();
-      final env = Map<String, String>.from(
-        Map<String, dynamic>.from(config['environment'] as Map),
-      );
-
-      _cachedNativeConfig = {
-        'shell': config['shell'] as String,
-        'homeDir': config['homeDir'] as String,
-        'prefix': config['prefix'] as String,
-        'binDir': config['binDir'] as String,
-        ...env,
-      };
-      return _cachedNativeConfig;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// Clear cached native config (call after native bootstrap completes).
-  static void clearNativeCache() {
-    _cachedNativeConfig = null;
-  }
-
-  /// Build native terminal arguments — just "-l" for login shell.
-  static List<String> buildNativeArgs({int columns = 80, int rows = 24}) {
-    return ['-l'];
-  }
-
-  /// Build native terminal environment (includes OA_GLIBC, PATH, etc.).
-  /// The config map should be the result of [getNativeShellConfig].
-  static Map<String, String> buildNativeHostEnv(Map<String, String> config) {
-    // Filter out non-env entries like 'shell', 'homeDir', 'prefix', 'binDir'
-    return Map.from(config)
-      ..remove('shell')
-      ..remove('homeDir')
-      ..remove('prefix')
-      ..remove('binDir');
   }
 }

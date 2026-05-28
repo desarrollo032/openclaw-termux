@@ -9,21 +9,17 @@ enum SetupStep {
   error,
 }
 
-enum InstallationMode { native, proot }
-
 class SetupState {
   final SetupStep step;
   final double progress;
   final String message;
   final String? error;
-  final InstallationMode? mode;
 
   const SetupState({
     this.step = SetupStep.checkingStatus,
     this.progress = 0.0,
     this.message = '',
     this.error,
-    this.mode,
   });
 
   SetupState copyWith({
@@ -31,14 +27,12 @@ class SetupState {
     double? progress,
     String? message,
     String? error,
-    InstallationMode? mode,
   }) {
     return SetupState(
       step: step ?? this.step,
       progress: progress ?? this.progress,
       message: message ?? this.message,
       error: error,
-      mode: mode ?? this.mode,
     );
   }
 
@@ -50,15 +44,15 @@ class SetupState {
       case SetupStep.checkingStatus:
         return 'Comprobando estado...';
       case SetupStep.downloadingRootfs:
-        return 'Descargando paquetes nativos';
+        return 'Descargando Ubuntu rootfs';
       case SetupStep.extractingRootfs:
-        return 'Extrayendo runtime nativo';
+        return 'Extrayendo rootfs';
       case SetupStep.installingNode:
-        return 'Instalando Node.js nativo';
+        return 'Instalando Node.js';
       case SetupStep.installingOpenClaw:
         return 'Instalando OpenClaw';
       case SetupStep.configuringBypass:
-        return 'Configurando compatibilidad glibc';
+        return 'Configurando Bionic Bypass';
       case SetupStep.complete:
         return 'Instalacion completa';
       case SetupStep.error:

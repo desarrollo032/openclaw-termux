@@ -1,8 +1,8 @@
 package com.nxg.openclawproot
 
 object GatewayRuntimePolicy {
-    const val HEAP_MB = 512
-    const val SEMI_SPACE_MB = 64
+    const val HEAP_MB = 384
+    const val SEMI_SPACE_MB = 32
 
     fun resolveGatewayCommand(
         requestedCommand: String,

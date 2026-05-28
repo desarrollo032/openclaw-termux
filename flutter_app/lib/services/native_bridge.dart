@@ -104,52 +104,6 @@ class NativeBridge {
     return Map<String, dynamic>.from(result);
   }
 
-  static Future<bool> isNativeExecAllowed() async {
-    return _invokeRequired<bool>('isNativeExecAllowed');
-  }
-
-  static Future<bool> isNativeBootstrapComplete() async {
-    return _invokeRequired<bool>('isNativeBootstrapComplete');
-  }
-
-  static Future<Map<String, dynamic>> getNativeBootstrapStatus() async {
-    final result = await _invokeRequired<Map>('getNativeBootstrapStatus');
-    return Map<String, dynamic>.from(result);
-  }
-
-  static Future<String> runNativeBootstrap() async {
-    return _invokeRequired<String>(
-      'runNativeBootstrap',
-      null,
-      const Duration(minutes: 45),
-    );
-  }
-
-  static Future<String> runNativeCommand(String command, {int timeout = 900}) async {
-    return _invokeRequired<String>(
-      'runNativeCommand',
-      {'command': command, 'timeout': timeout},
-      Duration(seconds: timeout + 10),
-    );
-  }
-
-  static Future<Map<String, dynamic>> getNativeTerminalConfig() async {
-    final result = await _invokeRequired<Map>(
-      'getNativeTerminalConfig',
-      null,
-      const Duration(seconds: 5),
-    );
-    return Map<String, dynamic>.from(result);
-  }
-
-  static Future<bool> cleanupProotRootfs() async {
-    return _invokeRequired<bool>(
-      'cleanupProotRootfs',
-      null,
-      const Duration(seconds: 15),
-    );
-  }
-
   static Future<bool> extractRootfs(String tarPath, {String? sha256}) async {
     return _invokeRequired<bool>('extractRootfs', {
       'tarPath': tarPath,

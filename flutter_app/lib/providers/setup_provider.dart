@@ -7,17 +7,10 @@ class SetupProvider extends ChangeNotifier {
   SetupState _state = const SetupState();
   bool _isRunning = false;
   final List<String> _logs = [];
-  InstallationMode? _selectedMode;
 
   SetupState get state => _state;
   bool get isRunning => _isRunning;
   List<String> get logs => _logs;
-  InstallationMode? get selectedMode => _selectedMode;
-
-  void selectMode(InstallationMode mode) {
-    _selectedMode = mode;
-    notifyListeners();
-  }
 
   Future<bool> checkIfSetupNeeded() async {
     _state = await _bootstrapService.checkStatus();
@@ -26,13 +19,12 @@ class SetupProvider extends ChangeNotifier {
   }
 
   Future<void> runSetup() async {
-    if (_isRunning || _selectedMode == null) return;
+    if (_isRunning) return;
     _isRunning = true;
     _logs.clear();
     notifyListeners();
 
     await _bootstrapService.runFullSetup(
-      mode: _selectedMode!,
       onProgress: (state) {
         _state = state;
         notifyListeners();
@@ -51,7 +43,6 @@ class SetupProvider extends ChangeNotifier {
     _state = const SetupState();
     _isRunning = false;
     _logs.clear();
-    _selectedMode = null;
     notifyListeners();
   }
 }

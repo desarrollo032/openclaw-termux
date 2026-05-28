@@ -27,48 +27,26 @@ class BootstrapService {
     } catch (_) {}
   }
 
-  /// Returns true if the old proot rootfs can be cleaned up.
-  Future<bool> cleanupOldRootfs() async {
-    try {
-      final nativeComplete = await NativeBridge.isNativeBootstrapComplete();
-      if (!nativeComplete) return false;
-      return await NativeBridge.cleanupProotRootfs();
-    } catch (_) {
-      return false;
-    }
-  }
-
   Future<SetupState> checkStatus() async {
     try {
-      final nativeComplete = await NativeBridge.isNativeBootstrapComplete();
-      if (nativeComplete) {
-        return const SetupState(
-          step: SetupStep.complete,
-          progress: 1.0,
-          message: 'Native OpenClaw runtime ready',
-          mode: InstallationMode.native,
-        );
-      }
-
       final prootComplete = await NativeBridge.isBootstrapComplete();
       if (prootComplete) {
         return const SetupState(
           step: SetupStep.complete,
           progress: 1.0,
-          message: 'Proot OpenClaw runtime ready',
-          mode: InstallationMode.proot,
+          message: 'Entorno proot listo',
         );
       }
 
       return const SetupState(
         step: SetupStep.checkingStatus,
         progress: 0.0,
-        message: 'Select installation mode',
+        message: 'Verificando estado...',
       );
     } catch (e) {
       return SetupState(
         step: SetupStep.error,
-        error: 'Failed to check status: $e',
+        error: 'Error al verificar estado: $e',
       );
     }
   }
@@ -307,10 +285,9 @@ class BootstrapService {
         );
   }
 
-  // ── Full setup orchestration ──────────────────────────────────────────────
+  // ── Full setup orchestration (proot mode only) ───────────────────────────
 
   Future<void> runFullSetup({
-    required InstallationMode mode,
     required void Function(SetupState) onProgress,
     void Function(String)? onLog,
   }) async {
@@ -319,11 +296,7 @@ class BootstrapService {
     try {
       try { await NativeBridge.startSetupService(); } catch (_) {}
 
-      if (mode == InstallationMode.native) {
-        await _runNativeSetup(onProgress: onProgress, onLog: onLog);
-      } else {
-        await _runProotSetup(onProgress: onProgress, onLog: onLog);
-      }
+      await _runProotSetup(onProgress: onProgress, onLog: onLog);
     } on DioException catch (e) {
       _log(onLog, '[ERR] Download error: ${e.message}');
       _stopSetupService();
@@ -353,69 +326,6 @@ class BootstrapService {
         error: 'Setup failed: $e',
       ));
     }
-  }
-
-  Future<void> _runNativeSetup({
-    required void Function(SetupState) onProgress,
-    void Function(String)? onLog,
-  }) async {
-    _log(onLog, '[STEP] Preparing native runtime (no proot)...');
-    _updateSetupNotification('Preparing native runtime...', progress: 2);
-    onProgress(const SetupState(
-      step: SetupStep.checkingStatus,
-      progress: 0.0,
-      message: 'Preparing native runtime...',
-    ));
-
-    final nativeStatus = await NativeBridge.getNativeBootstrapStatus();
-    _log(onLog, '[INFO] Native prefix: ${nativeStatus['prefix']}');
-    _log(onLog, '[INFO] glibc ld.so source: ${nativeStatus['glibcDownloadUrl']}');
-    _log(onLog, '[INFO] Node.js source: ${nativeStatus['nodeDownloadUrl']}');
-
-    if (nativeStatus['complete'] == true) {
-      _log(onLog, '[OK] Native runtime already installed');
-      _updateSetupNotification('Native runtime ready', progress: 100);
-      _stopSetupService();
-      onProgress(const SetupState(
-        step: SetupStep.complete,
-        progress: 1.0,
-        message: 'Native runtime ready',
-      ));
-      return;
-    }
-
-    onProgress(const SetupState(
-      step: SetupStep.downloadingRootfs,
-      progress: 0.1,
-      message: 'Downloading native Termux/glibc packages...',
-    ));
-    _updateSetupNotification('Downloading native packages...', progress: 10);
-
-    final output = await NativeBridge.runNativeBootstrap();
-    for (final line in output.split('\n')) {
-      if (line.trim().isNotEmpty) _log(onLog, line);
-    }
-
-    onProgress(const SetupState(
-      step: SetupStep.installingOpenClaw,
-      progress: 0.9,
-      message: 'Verifying native OpenClaw...',
-    ));
-    _updateSetupNotification('Verifying native OpenClaw...', progress: 95);
-
-    final complete = await NativeBridge.isNativeBootstrapComplete();
-    if (!complete) {
-      throw StateError('Native bootstrap finished without .post-setup-done');
-    }
-
-    _log(onLog, '[OK] Native installation completed successfully');
-    _updateSetupNotification('Native setup complete!', progress: 100);
-    _stopSetupService();
-    onProgress(const SetupState(
-      step: SetupStep.complete,
-      progress: 1.0,
-      message: 'Native OpenClaw runtime ready',
-    ));
   }
 
   Future<void> _runProotSetup({

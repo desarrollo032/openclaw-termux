@@ -32,24 +32,7 @@ class _ConfigureScreenState extends State<ConfigureScreen> {
 
   Future<void> _prepareConfig() async {
     try {
-      // Try native terminal first (Termux + glibc runtime, no proot)
-      final nativeConfig = await TerminalService.getNativeShellConfig();
-      if (nativeConfig != null) {
-        if (!mounted) return;
-        setState(() {
-          _shell = nativeConfig['shell'] as String;
-          _args = [
-            '-lc',
-            'echo "=== OpenClaw Configure ===" && openclaw configure; echo "Configuration complete!"',
-          ];
-          _env = TerminalService.buildNativeHostEnv(nativeConfig);
-          _initialized = true;
-          _error = null;
-        });
-        return;
-      }
-
-      // Fallback to proot-based terminal
+      // Use proot-based terminal
       final config = await TerminalService.getProotShellConfig();
       final args = TerminalService.buildProotArgs(
         config,

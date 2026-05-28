@@ -78,7 +78,7 @@ class DashboardScreen extends StatelessWidget {
           _DashboardTile(
             icon: Icons.code_rounded,
             title: 'Terminal',
-            subtitle: 'Shell nativo con glibc ld.so y Node.js',
+            subtitle: 'Shell Ubuntu con entorno OpenClaw',
             iconBgColor: theme.colorScheme.primary.withAlpha(15),
             iconColor: theme.colorScheme.primary,
             onTap: () => Navigator.of(context).push(
@@ -141,11 +141,11 @@ class DashboardScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _DashboardTile(
-            icon: Icons.rocket_launch_rounded,
-            title: 'Runtime nativo',
-            subtitle: 'Instalar ld.so, Node.js y OpenClaw sin proot',
-            iconBgColor: theme.colorScheme.tertiary.withAlpha(15),
-            iconColor: theme.colorScheme.tertiary,
+            icon: Icons.vpn_lock_rounded,
+            title: 'Entorno Proot',
+            subtitle: 'Instalar rootfs Ubuntu, Node.js y OpenClaw',
+            iconBgColor: const Color(0xFFE55E2B).withAlpha(15),
+            iconColor: const Color(0xFFE55E2B),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const SetupWizardScreen()),
             ),

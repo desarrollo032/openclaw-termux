@@ -19,6 +19,8 @@ import java.io.File
 import java.io.InputStreamReader
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class GatewayService : Service() {
     companion object {
@@ -232,23 +234,11 @@ class GatewayService : Service() {
                     pm.cleanupGatewayTempFiles()
                 } catch (_: Exception) {}
 
-                val nativeRuntime = NativeRuntimeManager(applicationContext)
-                val useNativeRuntime = nativeRuntime.isInstalled()
-                emitLog(
-                    if (useNativeRuntime) {
-                        "[INFO] Spawning native glibc gateway..."
-                    } else {
-                        "[INFO] Native runtime not ready, spawning proot process..."
-                    }
-                )
+                emitLog("[INFO] Spawning proot gateway...")
                 synchronized(lock) {
                     if (stopping) return@Thread
                     processStartTime = System.currentTimeMillis()
-                    gatewayProcess = if (useNativeRuntime) {
-                        nativeRuntime.startGateway()
-                    } else {
-                        pm.startProotProcess("openclaw gateway")
-                    }
+                    gatewayProcess = pm.startProotProcess("openclaw gateway")
                 }
                 updateNotificationRunning()
                 emitLog("[INFO] Gateway process spawned")
@@ -256,31 +246,42 @@ class GatewayService : Service() {
                 startWatchdog()
 
                 val proc = gatewayProcess!!
+
+                // Read stdout — use ExecutorService to avoid raw Thread overhead
                 val stdoutReader = BufferedReader(InputStreamReader(proc.inputStream))
-                Thread {
+                val stderrReader = BufferedReader(InputStreamReader(proc.errorStream))
+                val currentRestartCount = restartCount
+
+                // Filter patterns for repetitive proot warnings
+                val filterPatterns = listOf(
+                    "proot warning",
+                    "can't sanitize",
+                    "/proc/self/fd",
+                )
+
+                val stdoutThread = Thread {
                     try {
                         var line: String?
                         while (stdoutReader.readLine().also { line = it } != null) {
                             val l = line ?: continue
+                            if (currentRestartCount > 0 && filterPatterns.any { l.contains(it) }) continue
                             emitLog(l)
                         }
                     } catch (_: Exception) {}
-                }.start()
+                }.apply { name = "gateway-stdout-reader"; isDaemon = true }
+                stdoutThread.start()
 
-                val stderrReader = BufferedReader(InputStreamReader(proc.errorStream))
-                val currentRestartCount = restartCount
-                Thread {
+                val stderrThread = Thread {
                     try {
                         var line: String?
                         while (stderrReader.readLine().also { line = it } != null) {
                             val l = line ?: continue
-                            if (currentRestartCount == 0 ||
-                                (!l.contains("proot warning") && !l.contains("can't sanitize"))) {
-                                emitLog("[ERR] $l")
-                            }
+                            if (filterPatterns.any { l.contains(it) }) continue
+                            emitLog("[ERR] $l")
                         }
                     } catch (_: Exception) {}
-                }.start()
+                }.apply { name = "gateway-stderr-reader"; isDaemon = true }
+                stderrThread.start()
 
                 val exitCode = proc.waitFor()
                 val uptimeMs = System.currentTimeMillis() - processStartTime

@@ -262,27 +262,64 @@ class ProcessManager(
     // Full featured: --sysvipc, full uname struct, more guest env vars.
     // ================================================================
     fun buildGatewayCommand(command: String): List<String> {
-        val flags = commonProotFlags(isGatewayMode = true).toMutableList()
+        return buildGatewayCommandLite(command)
+    }
+
+    // ================================================================
+    // GATEWAY LITE MODE — lightweight command_login for gateway.
+    //
+    // Differences from full gateway mode:
+    // - No /storage or /sdcard bind mounts (not needed for gateway)
+    // - No full /proc bind (only essential /proc fakes)
+    // - Fewer guest env vars
+    // - Same --sysvipc, --kill-on-exit, env -i
+    // ================================================================
+    fun buildGatewayCommandLite(command: String): List<String> {
         val arch = ArchUtils.getArch()
-        // Map to uname -m format
         val machine = when (arch) {
             "arm" -> "armv7l"
-            else -> arch // aarch64, x86_64, x86
+            else -> arch
         }
 
-        // --change-id=0:0 (proot-distro command_login uses this for root)
-        flags.add(1, "--change-id=0:0")
-        // --sysvipc: enable SysV IPC (proot-distro enables for login sessions)
-        flags.add(2, "--sysvipc")
-        // Full uname struct format (matching proot-distro command_login)
-        // Format: \sysname\nodename\release\version\machine\domainname\personality\
+        val flags = mutableListOf<String>()
+        flags.add(getProotPath())
+        flags.add("--link2symlink")
+        flags.add("-L")
+        flags.add("--kill-on-exit")
+        flags.add("--change-id=0:0")
+        flags.add("--sysvipc")
+
         val kernelRelease = "\\Linux\\localhost\\$FAKE_KERNEL_RELEASE" +
             "\\$FAKE_KERNEL_VERSION\\$machine\\localdomain\\-1\\"
-        flags.add(3, "--kernel-release=$kernelRelease")
+        flags.add("--kernel-release=$kernelRelease")
 
-        // Guest environment via env -i (matching proot-distro command_login)
-        // The command launches the optimized start-gateway.sh script, which
-        // sets NODE_OPTIONS, NODE_COMPILE_CACHE, OPENCLAW_NO_RESPAWN, etc.
+        flags.add("--rootfs=$rootfsDir")
+        flags.add("--cwd=/root")
+
+        // Minimal binds — only what the gateway needs
+        flags.add("--bind=/dev")
+        flags.add("--bind=/dev/urandom:/dev/random")
+        flags.add("--bind=/proc/self/fd:/dev/fd")
+        flags.add("--bind=/sys")
+        flags.add("--bind=$rootfsDir/tmp:/dev/shm")
+        flags.add("--bind=$configDir/resolv.conf:/etc/resolv.conf")
+        flags.add("--bind=$homeDir:/root/home")
+
+        // Proc fakes (minimal set for Node.js health checks)
+        val procFakes = "$configDir/proc_fakes"
+        flags.add("--bind=$procFakes/loadavg:/proc/loadavg")
+        flags.add("--bind=$procFakes/stat:/proc/stat")
+        flags.add("--bind=$procFakes/uptime:/proc/uptime")
+        flags.add("--bind=$procFakes/version:/proc/version")
+        flags.add("--bind=$procFakes/vmstat:/proc/vmstat")
+        flags.add("--bind=$procFakes/cap_last_cap:/proc/sys/kernel/cap_last_cap")
+        flags.add("--bind=$procFakes/fips_enabled:/proc/sys/crypto/fips_enabled")
+
+        // SELinux override
+        val sysFakes = "$configDir/sys_fakes"
+        flags.add("--bind=$sysFakes/empty:/sys/fs/selinux")
+
+        // Guest environment via env -i
         val startScript = "$rootfsDir/root/.openclaw/start-gateway.sh"
         val resolvedCommand = GatewayRuntimePolicy.resolveGatewayCommand(
             requestedCommand = command,
@@ -296,7 +333,7 @@ class ProcessManager(
             "HOME=/root",
             "USER=root",
             "LANG=C.UTF-8",
-            "PATH=${guestPath()}",
+            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             "TERM=xterm-256color",
             "TMPDIR=/tmp",
             "NODE_OPTIONS=$nodeOptions",

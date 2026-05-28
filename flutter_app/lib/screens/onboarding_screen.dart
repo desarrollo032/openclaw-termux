@@ -35,24 +35,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _prepareConfig() async {
     try {
-      // Try native terminal first (Termux + glibc runtime, no proot)
-      final nativeConfig = await TerminalService.getNativeShellConfig();
-      if (nativeConfig != null) {
-        if (!mounted) return;
-        setState(() {
-          _shell = nativeConfig['shell'] as String;
-          _args = [
-            '-lc',
-            'echo "=== OpenClaw Onboarding ===" && openclaw onboard && echo "Onboarding complete!"',
-          ];
-          _env = TerminalService.buildNativeHostEnv(nativeConfig);
-          _initialized = true;
-          _error = null;
-        });
-        return;
-      }
-
-      // Fallback to proot-based terminal
+      // Use proot-based terminal
       final config = await TerminalService.getProotShellConfig();
       final args = TerminalService.buildProotArgs(config, columns: 80, rows: 24);
 
