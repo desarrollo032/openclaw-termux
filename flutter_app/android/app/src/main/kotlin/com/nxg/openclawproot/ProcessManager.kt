@@ -15,7 +15,13 @@ import java.io.InputStreamReader
  */
 class ProcessManager(
     private val filesDir: String,
-    private val nativeLibDir: String
+    private val nativeLibDir: String,
+    /**
+     * Internal flag to switch between full (stable) and lite (lightweight) gateway mode.
+     * - false (default): uses buildGatewayCommandFull() — complete binds, stable.
+     * - true: uses buildGatewayCommandLite() — reduced mounts, lower resource usage.
+     */
+    private val useLiteGateway: Boolean = false
 ) {
     private val rootfsDir get() = "$filesDir/rootfs/ubuntu"
     private val tmpDir get() = "$filesDir/tmp"
@@ -259,11 +265,145 @@ class ProcessManager(
     // ================================================================
     // GATEWAY MODE — matches proot-distro's command_login()
     // Used for: running openclaw gateway (long-lived Node.js process).
-    // Full featured: --sysvipc, full uname struct, more guest env vars.
+    // Full featured: --sysvipc, full uname struct, complete bind mounts.
+    //
+    // By default uses FULL mode (stable). Set useLite=true for lightweight.
     // ================================================================
     fun buildGatewayCommand(command: String): List<String> {
-        return buildGatewayCommandLite(command)
+        return if (useLiteGateway) buildGatewayCommandLite(command) else buildGatewayCommandFull(command)
     }
+
+    // ================================================================
+    // GATEWAY FULL MODE — stable default for OpenClaw gateway.
+    //
+    // Includes:
+    // - Full /proc bind (not just fakes)
+    // - /storage and /sdcard bind mounts
+    // - --sysvipc for long-lived Node.js process
+    // - Full uname struct
+    // - All common proot bindings
+    // ================================================================
+    private fun buildGatewayCommandFull(command: String): List<String> {
+        val arch = ArchUtils.getArch()
+        val machine = when (arch) {
+            "arm" -> "armv7l"
+            else -> arch
+        }
+        val procFakes = "$configDir/proc_fakes"
+        val sysFakes = "$configDir/sys_fakes"
+
+        val flags = mutableListOf<String>()
+        flags.add(getProotPath())
+        flags.add("--link2symlink")
+        flags.add("-L")
+        flags.add("--kill-on-exit")
+        flags.add("--root-id")
+        flags.add("--sysvipc")
+
+        val kernelRelease = "\\Linux\\localhost\\$FAKE_KERNEL_RELEASE" +
+            "\\$FAKE_KERNEL_VERSION\\$machine\\localdomain\\-1\\"
+        flags.add("--kernel-release=$kernelRelease")
+
+        flags.add("--rootfs=$rootfsDir")
+        flags.add("--cwd=/root")
+
+        // Core device binds (matching proot-distro)
+        flags.add("--bind=/dev")
+        flags.add("--bind=/dev/urandom:/dev/random")
+        flags.add("--bind=/proc")
+        flags.add("--bind=/proc/self/fd:/dev/fd")
+        flags.add("--bind=/sys")
+
+        // Proc fakes (read by health checks and libs)
+        flags.add("--bind=$procFakes/loadavg:/proc/loadavg")
+        flags.add("--bind=$procFakes/stat:/proc/stat")
+        flags.add("--bind=$procFakes/uptime:/proc/uptime")
+        flags.add("--bind=$procFakes/version:/proc/version")
+        flags.add("--bind=$procFakes/vmstat:/proc/vmstat")
+        flags.add("--bind=$procFakes/cap_last_cap:/proc/sys/kernel/cap_last_cap")
+        flags.add("--bind=$procFakes/max_user_watches:/proc/sys/fs/inotify/max_user_watches")
+        flags.add("--bind=$procFakes/fips_enabled:/proc/sys/crypto/fips_enabled")
+
+        // Shared memory
+        flags.add("--bind=$rootfsDir/tmp:/dev/shm")
+
+        // SELinux override
+        flags.add("--bind=$sysFakes/empty:/sys/fs/selinux")
+
+        // Network config
+        flags.add("--bind=$configDir/resolv.conf:/etc/resolv.conf")
+
+        // Home directory
+        flags.add("--bind=$homeDir:/root/home")
+
+        // Storage binds (needed for file-transfer plugin and user data)
+        val hasAccess = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            val sdcard = Environment.getExternalStorageDirectory()
+            sdcard.exists() && sdcard.canRead()
+        }
+        if (hasAccess) {
+            val storageDir = File("$rootfsDir/storage")
+            storageDir.mkdirs()
+            val sdcardLink = File("$rootfsDir/sdcard")
+            if (!sdcardLink.exists()) {
+                try {
+                    Runtime.getRuntime().exec(
+                        arrayOf("ln", "-sf", "/storage/emulated/0", "$rootfsDir/sdcard")
+                    ).waitFor()
+                } catch (_: Exception) {
+                    sdcardLink.mkdirs()
+                }
+            }
+            flags.add("--bind=/storage:/storage")
+            flags.add("--bind=/storage/emulated/0:/sdcard")
+        }
+
+        // Resolve the actual command (script or direct)
+        val startScript = "$rootfsDir/root/.openclaw/start-gateway.sh"
+        val resolvedCommand = GatewayRuntimePolicy.resolveGatewayCommand(
+            requestedCommand = command,
+            optimizedScriptExists = File(startScript).exists(),
+        )
+
+        val nodeOptions = GatewayRuntimePolicy.nodeOptions()
+
+        // Guest environment via env -i
+        flags.addAll(listOf(
+            "/usr/bin/env", "-i",
+            "HOME=/root",
+            "USER=root",
+            "LANG=C.UTF-8",
+            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "TERM=xterm-256color",
+            "TMPDIR=/tmp",
+            "NODE_OPTIONS=$nodeOptions",
+            "NODE_COMPILE_CACHE=/root/.cache/node/compile_cache",
+            "OPENCLAW_NO_RESPAWN=1",
+            "OPENCLAW_NO_WATCHDOG=1",
+            "UV_THREADPOOL_SIZE=4",
+            "CHOKIDAR_USEPOLLING=false",
+            "CHOKIDAR_INTERVAL=2000",
+            "NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt",
+            "UV_USE_IO_URING=0",
+            "/bin/bash", "-c",
+            resolvedCommand,
+        ))
+
+        return flags
+    }
+
+    // ================================================================
+    // GATEWAY LITE MODE — lightweight alternative for when full mode
+    // is stable and we want to reduce resource usage.
+    //
+    // Differences from full mode:
+    // - No /storage or /sdcard bind mounts
+    // - No full /proc bind (only essential fakes)
+    // - Fewer guest env vars
+    // - Same --sysvipc, --kill-on-exit, env -i
+    // ================================================================
 
     // ================================================================
     // GATEWAY LITE MODE — lightweight command_login for gateway.

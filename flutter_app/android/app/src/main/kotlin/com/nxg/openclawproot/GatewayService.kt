@@ -176,7 +176,7 @@ class GatewayService : Service() {
                     return@Thread
                 }
 
-                emitLog("[INFO] Setting up environment...")
+                emitLog("[gateway] starting")
                 val filesDir = applicationContext.filesDir.absolutePath
                 val nativeLibDir = applicationContext.applicationInfo.nativeLibraryDir
                 val pm = ProcessManager(filesDir, nativeLibDir)
@@ -184,9 +184,9 @@ class GatewayService : Service() {
                 val bootstrapManager = BootstrapManager(applicationContext, filesDir, nativeLibDir)
                 try {
                     bootstrapManager.setupDirectories()
-                    emitLog("[INFO] Directories ready")
+                    emitLog("[gateway] directories ready")
                 } catch (e: Exception) {
-                    emitLog("[WARN] setupDirectories failed: ${e.message}")
+                    emitLog("[gateway] WARN: setupDirectories failed: ${e.message}")
                 }
                 try {
                     bootstrapManager.writeResolvConf()
@@ -195,9 +195,9 @@ class GatewayService : Service() {
                 }
                 try {
                     GatewayRuntimeFiles.ensure(filesDir)
-                    emitLog("[INFO] Gateway runtime optimized")
+                    emitLog("[gateway] runtime files ready")
                 } catch (e: Exception) {
-                    emitLog("[WARN] Gateway runtime optimization skipped: ${e.message}")
+                    emitLog("[gateway] WARN: runtime optimization skipped: ${e.message}")
                 }
 
                 val resolvContent = "nameserver 8.8.8.8\nnameserver 8.8.4.4\n"
@@ -229,19 +229,19 @@ class GatewayService : Service() {
                     return@Thread
                 }
 
-                emitLog("[INFO] Cleaning stale gateway temp files...")
+                emitLog("[gateway] cleaning stale temp files")
                 try {
                     pm.cleanupGatewayTempFiles()
                 } catch (_: Exception) {}
 
-                emitLog("[INFO] Spawning proot gateway...")
+                emitLog("[gateway] spawning proot")
                 synchronized(lock) {
                     if (stopping) return@Thread
                     processStartTime = System.currentTimeMillis()
                     gatewayProcess = pm.startProotProcess("openclaw gateway")
                 }
                 updateNotificationRunning()
-                emitLog("[INFO] Gateway process spawned")
+                emitLog("[gateway] process spawned")
                 startUptimeTicker()
                 startWatchdog()
 
@@ -286,7 +286,7 @@ class GatewayService : Service() {
                 val exitCode = proc.waitFor()
                 val uptimeMs = System.currentTimeMillis() - processStartTime
                 val uptimeSec = uptimeMs / 1000
-                emitLog("[INFO] Gateway exited with code $exitCode (uptime: ${uptimeSec}s)")
+                emitLog("[gateway] exited code $exitCode (uptime: ${uptimeSec}s)")
 
                 if (stopping) return@Thread
 
@@ -297,7 +297,7 @@ class GatewayService : Service() {
                 if (isRunning && restartCount < maxRestarts) {
                     restartCount++
                     val delayMs = minOf(2000L * (1 shl (restartCount - 1)), 16000L)
-                    emitLog("[INFO] Auto-restarting in ${delayMs / 1000}s (attempt $restartCount/$maxRestarts)...")
+                    emitLog("[gateway] auto-restart in ${delayMs / 1000}s (attempt $restartCount/$maxRestarts)")
                     updateNotification("Restarting in ${delayMs / 1000}s (attempt $restartCount)...")
                     Thread.sleep(delayMs)
                     if (!stopping) {
@@ -305,13 +305,13 @@ class GatewayService : Service() {
                         startGateway()
                     }
                 } else if (restartCount >= maxRestarts) {
-                    emitLog("[WARN] Max restarts reached. Gateway stopped.")
+                    emitLog("[gateway] WARN: max restarts reached, stopped")
                     updateNotification("Gateway stopped (crashed)")
                     isRunning = false
                 }
             } catch (e: Exception) {
                 if (!stopping) {
-                    emitLog("[ERROR] Gateway error: ${e.message}")
+                    emitLog("[gateway] ERROR: ${e.message}")
                     isRunning = false
                     updateNotification("Gateway error")
                 }
@@ -333,7 +333,7 @@ class GatewayService : Service() {
             procToStop = gatewayProcess
             gatewayProcess = null
         }
-        emitLog("Gateway stopped by user")
+        emitLog("[gateway] stopping")
         procToStop?.let { proc ->
             Thread({
                 try {
@@ -374,11 +374,11 @@ class GatewayService : Service() {
                 while (!Thread.interrupted() && isRunning && !stopping) {
                     val proc = gatewayProcess
                     if (proc != null && !proc.isAlive) {
-                        emitLog("[WARN] Watchdog: gateway process not alive")
+                        emitLog("[gateway] WARN: watchdog - process not alive")
                         break
                     }
                     if (proc != null && !isPortInUse()) {
-                        emitLog("[WARN] Watchdog: port 18789 not responding")
+                        emitLog("[gateway] WARN: watchdog - port 18789 not responding")
                     }
                     Thread.sleep(15_000)
                 }
