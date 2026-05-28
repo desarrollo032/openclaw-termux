@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# systemd is unavailable in Android app-private runtime.
+for arg in "$@"; do
+  if [ "$arg" = "restart" ]; then
+    if ! openclaw gateway config.patch "{\"meta\":{\"restartNonce\":\"$(date +%s%N)\"}}" 2>/dev/null; then
+      openclaw gateway 2>/dev/null || true
+    fi
+    exit 0
+  fi
+done
+exit 0

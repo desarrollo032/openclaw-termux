@@ -1,35 +1,28 @@
 import 'dart:io';
 import 'native_bridge.dart';
 
-/// Provides proot shell configuration for the terminal and onboarding screens.
-/// Must match ProcessManager.kt's gateway mode (command_login) exactly.
+/// Provides shell configuration for both native and proot-based terminals.
 ///
-/// Caches the resolved config after first call to avoid redundant
-/// MethodChannel IPC (~5-15ms) and file I/O on every terminal start.
+/// - [getNativeShellConfig] / [buildNativeArgs] / [buildNativeHostEnv]:
+///   Used when the native Termux/glibc runtime is installed (no proot).
+/// - [getProotShellConfig] / [buildProotArgs] / [buildHostEnv]:
+///   Used as fallback when only the proot-based Ubuntu rootfs is available.
 class TerminalService {
+  // ── Proot config (legacy fallback) ────────────────────────────────────────
+
   static const _fakeKernelRelease = '6.17.0-PRoot-Distro';
   static const _fakeKernelVersion =
       '#1 SMP PREEMPT_DYNAMIC Fri, 10 Oct 2025 00:00:00 +0000';
 
-  static Map<String, String>? _cachedConfig;
+  static Map<String, String>? _cachedProotConfig;
 
   /// Get paths and host-side proot environment variables.
   /// Host env should ONLY contain proot-specific vars — guest env is
   /// set via `env -i` inside the command, matching proot-distro.
-  ///
-  /// Also ensures directories and resolv.conf exist — Android may clear
-  /// them during an app update (#40). Every screen that uses proot calls
-  /// this method, so it's the single place to guarantee the files exist.
-  ///
-  /// Static path values (filesDir, nativeLibDir, etc.) are cached after
-  /// first call since they never change for the lifetime of the app.
-  /// `storageGranted` is fetched fresh every call because the user can
-  /// grant permission at any time.
   static Future<Map<String, String>> getProotShellConfig() async {
-    // Ensure dirs + resolv.conf exist before any proot operation (#40).
     try { await NativeBridge.ensureReady(); } catch (_) {}
 
-    if (_cachedConfig == null) {
+    if (_cachedProotConfig == null) {
       final filesDir = await NativeBridge.getFilesDir();
       final nativeLibDir = await NativeBridge.getNativeLibDir();
 
@@ -40,8 +33,6 @@ class TerminalService {
       final prootPath = '$nativeLibDir/libproot.so';
       final libDir = '$filesDir/lib';
 
-      // Direct Dart fallback: create resolv.conf if it still doesn't exist
-      // after the native method channel calls (#40).
       const resolvContent = 'nameserver 8.8.8.8\nnameserver 1.1.1.1\nnameserver 8.8.4.4\nnameserver 1.0.0.1\n';
       try {
         final resolvFile = File('$configDir/resolv.conf');
@@ -50,7 +41,6 @@ class TerminalService {
           resolvFile.writeAsStringSync(resolvContent);
         }
       } catch (_) {}
-      // Also write into rootfs /etc/ so DNS works even if bind-mount fails
       try {
         final rootfsResolv = File('$rootfsDir/etc/resolv.conf');
         if (!rootfsResolv.existsSync()) {
@@ -59,7 +49,7 @@ class TerminalService {
         }
       } catch (_) {}
 
-      _cachedConfig = {
+      _cachedProotConfig = {
         'executable': prootPath,
         'rootfsDir': rootfsDir,
         'tmpDir': tmpDir,
@@ -67,9 +57,6 @@ class TerminalService {
         'homeDir': homeDir,
         'libDir': libDir,
         'nativeLibDir': nativeLibDir,
-        // Host-side proot env — ONLY proot-specific vars.
-        // Do NOT set PROOT_NO_SECCOMP (proot-distro doesn't set it).
-        // Do NOT set HOME/TERM/LANG here (those go in guest env via env -i).
         'PROOT_TMP_DIR': tmpDir,
         'PROOT_LOADER': '$nativeLibDir/libprootloader.so',
         'PROOT_LOADER_32': '$nativeLibDir/libprootloader32.so',
@@ -77,36 +64,24 @@ class TerminalService {
       };
     }
 
-    // storageGranted can change at runtime (user grants permission),
-    // so always fetch fresh — don't cache it.
     final storageGranted = await NativeBridge.hasStoragePermission();
-    final result = Map<String, String>.from(_cachedConfig!);
+    final result = Map<String, String>.from(_cachedProotConfig!);
     result['storageGranted'] = storageGranted.toString();
     return result;
   }
 
-  /// Build proot arguments matching ProcessManager.kt's gateway mode
-  /// (proot-distro command_login). Uses `env -i` for a clean guest
-  /// environment — prevents Android JVM vars from leaking into proot.
+  /// Build proot arguments matching ProcessManager.kt's gateway mode.
   static List<String> buildProotArgs(Map<String, String> config,
       {int columns = 80, int rows = 24}) {
     final procFakes = '${config['configDir']}/proc_fakes';
     final sysFakes = '${config['configDir']}/sys_fakes';
     final rootfsDir = config['rootfsDir']!;
+    String machine = 'aarch64';
 
-    // Detect architecture for uname struct
-    // flutter_pty runs on the same device, so we can use Dart's Platform
-    String machine = 'aarch64'; // default
-    try {
-      // Will be set by the caller if needed; for now default arm64
-    } catch (_) {}
-
-    // Full uname struct matching proot-distro command_login
     final kernelRelease = '\\Linux\\localhost\\$_fakeKernelRelease'
         '\\$_fakeKernelVersion\\$machine\\localdomain\\-1\\';
 
     final args = <String>[
-      // proot-distro command_login style
       '--change-id=0:0',
       '--sysvipc',
       '--kernel-release=$kernelRelease',
@@ -115,7 +90,6 @@ class TerminalService {
       '--kill-on-exit',
       '--rootfs=$rootfsDir',
       '--cwd=/root',
-      // Core device binds (matching proot-distro)
       '--bind=/dev',
       '--bind=/dev/urandom:/dev/random',
       '--bind=/proc',
@@ -124,7 +98,6 @@ class TerminalService {
       '--bind=/proc/self/fd/1:/dev/stdout',
       '--bind=/proc/self/fd/2:/dev/stderr',
       '--bind=/sys',
-      // Fake /proc entries
       '--bind=$procFakes/loadavg:/proc/loadavg',
       '--bind=$procFakes/stat:/proc/stat',
       '--bind=$procFakes/uptime:/proc/uptime',
@@ -133,16 +106,12 @@ class TerminalService {
       '--bind=$procFakes/cap_last_cap:/proc/sys/kernel/cap_last_cap',
       '--bind=$procFakes/max_user_watches:/proc/sys/fs/inotify/max_user_watches',
       '--bind=$procFakes/fips_enabled:/proc/sys/crypto/fips_enabled',
-      // Shared memory (proot-distro binds rootfs/tmp to /dev/shm)
       '--bind=$rootfsDir/tmp:/dev/shm',
-      // SELinux override
       '--bind=$sysFakes/empty:/sys/fs/selinux',
-      // App-specific binds
       '--bind=${config['configDir']}/resolv.conf:/etc/resolv.conf',
       '--bind=${config['homeDir']}:/root/home',
     ];
 
-    // Bind-mount shared storage if permission is granted (Termux-style)
     if (config['storageGranted'] == 'true') {
       args.addAll([
         '--bind=/storage:/storage',
@@ -151,9 +120,6 @@ class TerminalService {
     }
 
     args.addAll([
-      // Clean guest environment via env -i (matching proot-distro).
-      // This prevents Android JVM vars (LD_PRELOAD, CLASSPATH, DEX2OAT,
-      // ANDROID_ROOT, etc.) from leaking into the proot guest.
       '/usr/bin/env', '-i',
       'HOME=/root',
       'USER=root',
@@ -171,8 +137,7 @@ class TerminalService {
     return args;
   }
 
-  /// Host-side environment map for Pty.start().
-  /// Only proot-specific vars — no guest vars (those are in env -i).
+  /// Host-side environment map for Pty.start() (proot mode).
   static Map<String, String> buildHostEnv(Map<String, String> config) {
     return {
       'PROOT_TMP_DIR': config['PROOT_TMP_DIR']!,
@@ -180,5 +145,67 @@ class TerminalService {
       'PROOT_LOADER_32': config['PROOT_LOADER_32']!,
       'LD_LIBRARY_PATH': config['LD_LIBRARY_PATH']!,
     };
+  }
+
+  // ── Native terminal config (Termux + glibc runtime, no proot) ─────────────
+
+  static Map<String, String>? _cachedNativeConfig;
+
+  /// Get native terminal config from the Kotlin NativeRuntimeManager.
+  ///
+  /// Returns a map with:
+  /// - `shell`: path to native bash binary
+  /// - `homeDir`: native home directory
+  /// - `prefix`: native prefix (usr)
+  /// - `binDir`: openclaw bin directory
+  /// - `environment`: full environment map for the native shell
+  ///
+  /// Returns null if native runtime is not installed.
+  static Future<Map<String, String>?> getNativeShellConfig() async {
+    if (_cachedNativeConfig != null) {
+      return _cachedNativeConfig;
+    }
+
+    try {
+      final complete = await NativeBridge.isNativeBootstrapComplete();
+      if (!complete) return null;
+
+      final config = await NativeBridge.getNativeTerminalConfig();
+      final env = Map<String, String>.from(
+        Map<String, dynamic>.from(config['environment'] as Map),
+      );
+
+      _cachedNativeConfig = {
+        'shell': config['shell'] as String,
+        'homeDir': config['homeDir'] as String,
+        'prefix': config['prefix'] as String,
+        'binDir': config['binDir'] as String,
+        ...env,
+      };
+      return _cachedNativeConfig;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Clear cached native config (call after native bootstrap completes).
+  static void clearNativeCache() {
+    _cachedNativeConfig = null;
+  }
+
+  /// Build native terminal arguments — just "-l" for login shell.
+  static List<String> buildNativeArgs({int columns = 80, int rows = 24}) {
+    return ['-l'];
+  }
+
+  /// Build native terminal environment (includes OA_GLIBC, PATH, etc.).
+  /// The config map should be the result of [getNativeShellConfig].
+  static Map<String, String> buildNativeHostEnv(Map<String, String> config) {
+    // Filter out non-env entries like 'shell', 'homeDir', 'prefix', 'binDir'
+    return Map.from(config)
+      ..remove('shell')
+      ..remove('homeDir')
+      ..remove('prefix')
+      ..remove('binDir');
   }
 }

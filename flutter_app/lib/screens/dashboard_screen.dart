@@ -12,6 +12,7 @@ import '../providers/node_provider.dart';
 import 'node_screen.dart';
 import 'configure_screen.dart';
 import 'onboarding_screen.dart';
+import 'setup_wizard_screen.dart';
 import 'terminal_screen.dart';
 import 'web_dashboard_screen.dart';
 import 'logs_screen.dart';
@@ -77,7 +78,7 @@ class DashboardScreen extends StatelessWidget {
           _DashboardTile(
             icon: Icons.code_rounded,
             title: 'Terminal',
-            subtitle: 'Shell Ubuntu con entorno OpenClaw',
+            subtitle: 'Shell nativo con glibc ld.so y Node.js',
             iconBgColor: theme.colorScheme.primary.withAlpha(15),
             iconColor: theme.colorScheme.primary,
             onTap: () => Navigator.of(context).push(
@@ -141,16 +142,31 @@ class DashboardScreen extends StatelessWidget {
           const SizedBox(height: 8),
           _DashboardTile(
             icon: Icons.rocket_launch_rounded,
-            title: 'Configuración Inicial',
-            subtitle: 'Configurar claves API y enlace',
+            title: 'Runtime nativo',
+            subtitle: 'Instalar ld.so, Node.js y OpenClaw sin proot',
             iconBgColor: theme.colorScheme.tertiary.withAlpha(15),
             iconColor: theme.colorScheme.tertiary,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const SetupWizardScreen()),
+            ),
+          ).animate().fadeIn(
+                duration: 250.ms,
+                delay: 150.ms,
+                curve: Curves.easeOut,
+              ),
+          const SizedBox(height: 8),
+          _DashboardTile(
+            icon: Icons.key_rounded,
+            title: 'Claves API',
+            subtitle: 'Configurar proveedores despues del runtime',
+            iconBgColor: const Color(0xFF3B82F6).withAlpha(15),
+            iconColor: const Color(0xFF3B82F6),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const OnboardingScreen()),
             ),
           ).animate().fadeIn(
                 duration: 250.ms,
-                delay: 150.ms,
+                delay: 175.ms,
                 curve: Curves.easeOut,
               ),
 

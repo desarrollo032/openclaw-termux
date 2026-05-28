@@ -41,6 +41,22 @@ class _PackageInstallScreenState extends State<PackageInstallScreen> {
 
   Future<void> _prepareConfig() async {
     try {
+      // Try native terminal first (Termux + glibc runtime, no proot)
+      final nativeConfig = await TerminalService.getNativeShellConfig();
+      if (nativeConfig != null) {
+        final command = widget.isUninstall ? widget.package.uninstallCommand : widget.package.installCommand;
+        if (!mounted) return;
+        setState(() {
+          _shell = nativeConfig['shell'] as String;
+          _args = ['-lc', command];
+          _env = TerminalService.buildNativeHostEnv(nativeConfig);
+          _initialized = true;
+          _error = null;
+        });
+        return;
+      }
+
+      // Fallback to proot-based terminal
       final config = await TerminalService.getProotShellConfig();
       final args = TerminalService.buildProotArgs(config, columns: 80, rows: 24);
       final command = widget.isUninstall ? widget.package.uninstallCommand : widget.package.installCommand;

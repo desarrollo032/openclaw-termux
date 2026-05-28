@@ -88,14 +88,25 @@ class _SplashScreenState extends State<SplashScreen> {
         prefs.lastAppVersion = AppConstants.version;
       } catch (_) {}
 
+      // Check native completion first, then proot
       bool setupComplete;
+      String? setupMode;
       try {
-        setupComplete = await NativeBridge.isBootstrapComplete();
+        final nativeComplete = await NativeBridge.isNativeBootstrapComplete();
+        if (nativeComplete) {
+          setupComplete = true;
+          setupMode = 'native';
+        } else {
+          final prootComplete = await NativeBridge.isBootstrapComplete();
+          setupComplete = prootComplete;
+          setupMode = prootComplete ? 'proot' : null;
+        }
       } catch (_) {
         setupComplete = false;
       }
 
       if (!setupComplete) {
+        // Proot partial repair (only if proot rootfs exists)
         try {
           final status = await NativeBridge.getBootstrapStatus();
           final rootfsOk = status['rootfsExists'] == true;
@@ -135,6 +146,7 @@ class _SplashScreenState extends State<SplashScreen> {
               } catch (_) {}
             }
             setupComplete = await NativeBridge.isBootstrapComplete();
+            if (setupComplete) setupMode = 'proot';
           }
         } catch (_) {}
       }
@@ -142,7 +154,12 @@ class _SplashScreenState extends State<SplashScreen> {
       if (!mounted) return;
 
       if (setupComplete) {
+        setState(() => _status = setupMode == 'native'
+            ? 'Runtime nativo listo'
+            : 'Entorno proot listo');
         prefs.setupComplete = true;
+        await Future.delayed(const Duration(milliseconds: 400));
+        if (!mounted) return;
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
             pageBuilder: (_, __, ___) => const DashboardScreen(),

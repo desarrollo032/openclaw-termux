@@ -32,6 +32,22 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
   Future<void> _prepareConfig() async {
     try {
+      // Try native terminal first (Termux + glibc runtime, no proot)
+      final nativeConfig = await TerminalService.getNativeShellConfig();
+      if (nativeConfig != null) {
+        final args = TerminalService.buildNativeArgs(columns: 80, rows: 24);
+        if (!mounted) return;
+        setState(() {
+          _shell = nativeConfig['shell'] as String;
+          _args = args;
+          _env = TerminalService.buildNativeHostEnv(nativeConfig);
+          _initialized = true;
+          _error = null;
+        });
+        return;
+      }
+
+      // Fallback to proot-based terminal
       final config = await TerminalService.getProotShellConfig();
       final args = TerminalService.buildProotArgs(
         config,

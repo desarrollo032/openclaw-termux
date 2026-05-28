@@ -8,6 +8,7 @@ import '../constants.dart';
 import '../models/setup_state.dart';
 import '../models/optional_package.dart';
 import '../providers/setup_provider.dart';
+import '../services/native_bridge.dart';
 import '../services/package_service.dart';
 import '../widgets/live_console_widget.dart';
 import 'onboarding_screen.dart';
@@ -179,11 +180,40 @@ class SetupWizardScreen extends StatefulWidget {
 
 class _SetupWizardScreenState extends State<SetupWizardScreen> {
   bool _started = false;
+  InstallationMode? _selectedMode;
+  bool _nativeNotSupported = false;
+  bool _checkingCompatibility = false;
   Map<String, bool> _pkgStatuses = {};
 
   @override
   void initState() {
     super.initState();
+  }
+
+  Future<void> _checkNativeCompatibility() async {
+    setState(() {
+      _selectedMode = InstallationMode.native;
+      _checkingCompatibility = true;
+      _nativeNotSupported = false;
+    });
+
+    try {
+      final allowed = await NativeBridge.isNativeExecAllowed();
+      if (mounted) {
+        setState(() {
+          _nativeNotSupported = !allowed;
+          _checkingCompatibility = false;
+        });
+      }
+    } catch (_) {
+      // If the bridge call fails, assume exec is NOT allowed
+      if (mounted) {
+        setState(() {
+          _nativeNotSupported = true;
+          _checkingCompatibility = false;
+        });
+      }
+    }
   }
 
   Future<void> _refreshPkgStatuses() async {
@@ -340,8 +370,13 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     } else if (state.hasError) {
       subtitle = 'Error en la instalación';
       subtitleColor = cs.error;
+    } else if (_selectedMode != null) {
+      subtitle = _selectedMode == InstallationMode.native
+          ? 'NatIAvo: glibc ld.so + Node.js + OpenClaw'
+          : 'Proot: Ubuntu rootfs + Node.js + OpenClaw';
+      subtitleColor = cs.onSurfaceVariant;
     } else {
-      subtitle = 'Descargar Ubuntu, Node.js y OpenClaw';
+      subtitle = 'Elige el modo de instalación';
       subtitleColor = cs.onSurfaceVariant;
     }
 
@@ -412,6 +447,12 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     }
 
     if (!_started) {
+      if (_selectedMode == null) {
+        return _buildModeSelection(theme, cs, isDark);
+      }
+      if (_nativeNotSupported) {
+        return _buildIncompatibilityWarning(theme, cs, isDark);
+      }
       return _buildPreInstallInfo(theme, cs, isDark);
     }
 
@@ -430,9 +471,277 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     );
   }
 
+  // ─── Mode selection (choice between Native & Proot) ───────────────────────
+
+  Widget _buildModeSelection(ThemeData theme, ColorScheme cs, bool isDark) {
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: Spacing.sm),
+          // Native card
+          _buildModeCard(
+            theme: theme,
+            cs: cs,
+            isDark: isDark,
+            mode: InstallationMode.native,
+            icon: Icons.flash_on_rounded,
+            title: 'Nativo (glibc)',
+            description: 'Instalación directa usando glibc ld.so sin emulación.\n',
+            details: '✓ Sin rootfs Ubuntu\n'
+                '✓ Arranque más rápido\n'
+                '✓ Menor uso de almacenamiento\n'
+                '✓ Paquetes ARM64 nativos',
+            accentColor: const Color(0xFF6C63FF),
+            onTap: () => _checkNativeCompatibility(),
+          ),
+          const SizedBox(height: Spacing.md),
+          // Proot card
+          _buildModeCard(
+            theme: theme,
+            cs: cs,
+            isDark: isDark,
+            mode: InstallationMode.proot,
+            icon: Icons.vpn_lock_rounded,
+            title: 'Proot (Ubuntu)',
+            description: 'Entorno Ubuntu completo mediante proot.\n',
+            details: '✓ Rootfs Ubuntu 24.04\n'
+                '✓ Mayor compatibilidad\n'
+                '✓ Paquetes apt-get completos\n'
+                '✓ Entorno Linux tradicional',
+            accentColor: const Color(0xFFE55E2B),
+            onTap: () => setState(() => _selectedMode = InstallationMode.proot),
+          ),
+          const SizedBox(height: Spacing.xl),
+        ],
+      ),
+    ).animate().fadeIn(duration: AppDurations.normal, curve: Curves.easeOut);
+  }
+
+  Widget _buildModeCard({
+    required ThemeData theme,
+    required ColorScheme cs,
+    required bool isDark,
+    required InstallationMode mode,
+    required IconData icon,
+    required String title,
+    required String description,
+    required String details,
+    required Color accentColor,
+    required VoidCallback onTap,
+  }) {
+    final isSelected = _selectedMode == mode;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: AppDurations.normal,
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.all(Spacing.md + 2),
+        decoration: BoxDecoration(
+          color: isDark ? cs.surfaceContainerLow : Colors.transparent,
+          borderRadius: BorderRadius.circular(RadiusTokens.xl - 4),
+          border: Border.all(
+            color: isSelected
+                ? accentColor
+                : isDark
+                    ? cs.outlineVariant.withAlpha(60)
+                    : cs.outlineVariant.withAlpha(160),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Icon box
+            AnimatedContainer(
+              duration: AppDurations.normal,
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? accentColor.withAlpha(25)
+                    : accentColor.withAlpha(12),
+                borderRadius: BorderRadius.circular(RadiusTokens.md + 2),
+                border: Border.all(
+                  color: accentColor.withAlpha(isSelected ? 60 : 25),
+                ),
+              ),
+              child: Icon(icon, size: 26, color: accentColor),
+            ),
+            const SizedBox(width: Spacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (isSelected)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: Spacing.xs + 2, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: accentColor.withAlpha(25),
+                            borderRadius: BorderRadius.circular(Spacing.sm),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.check_circle, size: 14, color: accentColor),
+                              const SizedBox(width: 3),
+                              Text(
+                                'Seleccionado',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: accentColor,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: Spacing.xs),
+                  Text(
+                    description,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
+                  ),
+                  if (isSelected) ...[
+                    const SizedBox(height: Spacing.sm),
+                    Text(
+                      details,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant.withAlpha(180),
+                        fontSize: 11,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Incompatibility warning (native not supported) ──────────────────────
+
+  Widget _buildIncompatibilityWarning(ThemeData theme, ColorScheme cs, bool isDark) {
+    return Center(
+      child: SingleChildScrollView(
+        child: Container(
+          padding: const EdgeInsets.all(Spacing.xl),
+          decoration: BoxDecoration(
+            color: isDark ? cs.surfaceContainerLow.withAlpha(200) : Colors.transparent,
+            borderRadius: BorderRadius.circular(RadiusTokens.xl),
+            border: Border.all(
+              color: cs.error.withAlpha(isDark ? 40 : 80),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Warning icon
+              Container(
+                padding: const EdgeInsets.all(Spacing.md + 4),
+                decoration: BoxDecoration(
+                  color: cs.error.withAlpha(20),
+                  borderRadius: BorderRadius.circular(RadiusTokens.xl - 4),
+                ),
+                child: Icon(
+                  Icons.warning_amber_rounded,
+                  size: 48,
+                  color: cs.error,
+                ),
+              ),
+              const SizedBox(height: Spacing.xl),
+
+              Text(
+                'Modo nativo no compatible',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: Spacing.md),
+
+              Text(
+                'Este dispositivo (Samsung Android 10+) bloquea la ejecución de '
+                'binarios desde el directorio interno de la app debido a la política '
+                'de seguridad W^X (Write XOR Execute).\n\n'
+                '• El modo Nativo requiere permisos de ejecución que no están '
+                'disponibles en este dispositivo\n'
+                '• El modo Proot funciona en TODOS los dispositivos sin excepción\n'
+                '• Puedes cambiar al modo Proot con el botón de abajo',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  height: 1.6,
+                ),
+              ),
+
+              const SizedBox(height: Spacing.xl),
+
+              // Switch to proot button
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _selectedMode = InstallationMode.proot;
+                      _nativeNotSupported = false;
+                    });
+                  },
+                  icon: const Icon(Icons.vpn_lock_rounded, size: 20),
+                  label: const Text('Usar modo Proot'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: Spacing.md + 2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(RadiusTokens.md + 2),
+                    ),
+                    backgroundColor: const Color(0xFFE55E2B),
+                  ),
+                ),
+              ),
+              const SizedBox(height: Spacing.sm),
+
+              // Back to mode selection
+              TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _selectedMode = null;
+                    _nativeNotSupported = false;
+                  });
+                },
+                icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                label: const Text('Volver a selección de modo'),
+                style: TextButton.styleFrom(
+                  foregroundColor: cs.onSurfaceVariant.withAlpha(160),
+                  textStyle: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).animate().fadeIn(duration: AppDurations.normal, curve: Curves.easeOut);
+  }
+
   // ─── Pre-install info ──────────────────────────────────────────────────────
 
   Widget _buildPreInstallInfo(ThemeData theme, ColorScheme cs, bool isDark) {
+    final isNative = _selectedMode == InstallationMode.native;
     return Center(
       child: SingleChildScrollView(
         child: Container(
@@ -464,7 +773,9 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                   borderRadius: BorderRadius.circular(RadiusTokens.xl - 4),
                 ),
                 child: Icon(
-                  Icons.download_for_offline_rounded,
+                  isNative
+                      ? Icons.flash_on_rounded
+                      : Icons.vpn_lock_rounded,
                   size: 40,
                   color: cs.primary,
                 ),
@@ -472,7 +783,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
               const SizedBox(height: Spacing.xl),
 
               Text(
-                'Instalación del Entorno',
+                isNative ? 'Instalación Nativa' : 'Instalación Proot',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.3,
@@ -480,30 +791,56 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
               ),
               const SizedBox(height: Spacing.sm),
 
-              Text(
-                'Este proceso descargará e instalará Ubuntu rootfs, '
-                'Node.js y OpenClaw en tu dispositivo.\n\n'
-                '• ~500 MB de descarga\n'
-                '• Conexión a internet requerida\n'
-                '• El proceso puede tomar 5-15 minutos',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  height: 1.6,
+              if (isNative)
+                Text(
+                  'Este proceso instalara paquetes nativos, glibc ld.so, '
+                  'Node.js ARM64 y OpenClaw dentro de la app.\n\n'
+                  '• Sin proot ni rootfs Ubuntu\n'
+                  '• Conexion a internet requerida\n'
+                  '• El proceso puede tomar 5-15 minutos',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    height: 1.6,
+                  ),
+                )
+              else
+                Text(
+                  'Este proceso descargara e instalara un rootfs Ubuntu 24.04 '
+                  'completo, Node.js y OpenClaw mediante proot.\n\n'
+                  '• ~500 MB de descarga\n'
+                  '• Conexion a internet requerida\n'
+                  '• El proceso puede tomar 10-20 minutos',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    height: 1.6,
+                  ),
                 ),
-              ),
 
               const SizedBox(height: Spacing.xl),
 
               // What will be installed - compact cards
-              _buildInstallItem(
-                Icons.cloud_download_rounded,
-                'Ubuntu 24.04 Base',
-                'Sistema base ARM64',
-                const Color(0xFF6C63FF),
-                theme, cs,
-              ),
-              const SizedBox(height: Spacing.sm),
+              if (isNative) ...[
+                _buildInstallItem(
+                  Icons.cloud_download_rounded,
+                  'glibc ld.so',
+                  'Linker nativo ARM64',
+                  const Color(0xFF6C63FF),
+                  theme, cs,
+                ),
+                const SizedBox(height: Spacing.sm),
+              ],
+              if (!isNative) ...[
+                _buildInstallItem(
+                  Icons.cloud_download_rounded,
+                  'Ubuntu 24.04 Base',
+                  'Sistema ARM64 completo',
+                  const Color(0xFFE55E2B),
+                  theme, cs,
+                ),
+                const SizedBox(height: Spacing.sm),
+              ],
               _buildInstallItem(
                 Icons.javascript_rounded,
                 'Node.js 22',
@@ -518,6 +855,19 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
                 'AI Gateway',
                 const Color(0xFFF59E0B),
                 theme, cs,
+              ),
+
+              const SizedBox(height: Spacing.xl),
+
+              // Back button
+              TextButton.icon(
+                onPressed: () => setState(() => _selectedMode = null),
+                icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                label: const Text('Cambiar modo de instalación'),
+                style: TextButton.styleFrom(
+                  foregroundColor: cs.onSurfaceVariant.withAlpha(160),
+                  textStyle: const TextStyle(fontSize: 12),
+                ),
               ),
             ],
           ),
@@ -934,7 +1284,32 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       );
     }
 
+    if (!_started && _selectedMode == null) {
+      // Mode selection — only enable button when a mode is selected
+      return SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: _selectedMode != null
+              ? () {
+                  setState(() => _started = true);
+                  provider.selectMode(_selectedMode!);
+                  provider.runSetup();
+                }
+              : null,
+          icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+          label: const Text('Continuar'),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: Spacing.md + 2),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(RadiusTokens.md + 2),
+            ),
+          ),
+        ),
+      ).animate().fadeIn(duration: AppDurations.normal, curve: Curves.easeOut);
+    }
+
     if (!_started || state.hasError) {
+      final isNative = _selectedMode == InstallationMode.native;
       return SizedBox(
         width: double.infinity,
         child: FilledButton.icon(
@@ -942,13 +1317,20 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
               ? null
               : () {
                   setState(() => _started = true);
+                  provider.selectMode(_selectedMode!);
                   provider.runSetup();
                 },
           icon: Icon(
             _started ? Icons.refresh_rounded : Icons.download_rounded,
             size: 18,
           ),
-          label: Text(_started ? 'Reintentar' : 'Iniciar Instalación'),
+          label: Text(
+            _started
+                ? 'Reintentar'
+                : isNative
+                    ? 'Iniciar Instalación Nativa'
+                    : 'Iniciar Instalación Proot',
+          ),
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: Spacing.md + 2),
             shape: RoundedRectangleBorder(

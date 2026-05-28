@@ -93,13 +93,13 @@ class GatewayService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification("Starting..."))
         if (isRunning) {
             updateNotificationRunning()
-            return START_REDELIVER_INTENT
+            return START_STICKY
         }
         stopping = false
         acquireWakeLock()
         ensureDnsConfig()
         startGateway()
-        return START_REDELIVER_INTENT
+        return START_STICKY
     }
 
     override fun onDestroy() {
@@ -232,11 +232,23 @@ class GatewayService : Service() {
                     pm.cleanupGatewayTempFiles()
                 } catch (_: Exception) {}
 
-                emitLog("[INFO] Spawning proot process...")
+                val nativeRuntime = NativeRuntimeManager(applicationContext)
+                val useNativeRuntime = nativeRuntime.isInstalled()
+                emitLog(
+                    if (useNativeRuntime) {
+                        "[INFO] Spawning native glibc gateway..."
+                    } else {
+                        "[INFO] Native runtime not ready, spawning proot process..."
+                    }
+                )
                 synchronized(lock) {
                     if (stopping) return@Thread
                     processStartTime = System.currentTimeMillis()
-                    gatewayProcess = pm.startProotProcess("openclaw gateway")
+                    gatewayProcess = if (useNativeRuntime) {
+                        nativeRuntime.startGateway()
+                    } else {
+                        pm.startProotProcess("openclaw gateway")
+                    }
                 }
                 updateNotificationRunning()
                 emitLog("[INFO] Gateway process spawned")
