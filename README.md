@@ -253,7 +253,7 @@ La app se conecta al gateway como un **nodo**, exponiendo hardware de Android a 
 | **📊 Sensor**    | `sensor.read`, `sensor.list`                            | Sensores corporales |
 | **📳 Háptica**   | `haptic.vibrate`                                        | Ninguno             |
 
-> El archivo `openclaw.json` se parchea automáticamente para permitir los 15 comandos.
+> El archivo `openclaw.json` se repara automáticamente para permitir los 15 comandos y limpiar claves antiguas inválidas como `gateway.plugins`.
 
 ---
 

@@ -1342,7 +1342,6 @@ require('/root/.openclaw/proot-compat.js');
      *   - NODE_COMPILE_CACHE: bytecode compilation cache (Node.js 22.8+)
      *   - OPENCLAW_NO_RESPAWN=1: prevent OpenClaw from respawning crashed workers
      *   - UV_THREADPOOL_SIZE=4: limit libuv threadpool (default 4, no need for 16 on mobile)
-     *   - NODE_OPTIMIZE_FOR_SIZE=1: optimize V8 heap for mobile (less memory)
      *
      * @param bypassDir The rootfs directory containing bionic bypass scripts
      */
@@ -1358,7 +1357,7 @@ require('/root/.openclaw/proot-compat.js');
 # ====================================================================
 # Limit heap to 400MB to avoid OOM on 6GB devices
 # (gateway + V8 can easily consume 600MB+ without limits)
-export NODE_OPTIONS="--require /root/.openclaw/bionic-bypass.js --max-old-space-size=400 --optimize-for-size --max-semi-space-size=32"
+export NODE_OPTIONS="--require /root/.openclaw/bionic-bypass.js --max-old-space-size=400 --max-semi-space-size=32"
 
 # ====================================================================
 # 2. Node.js compile cache (v22.8+)

@@ -23,7 +23,6 @@ object GatewayRuntimePolicy {
     fun nodeOptions(): String =
         "--require /root/.openclaw/bionic-bypass.js " +
             "--max-old-space-size=$HEAP_MB " +
-            "--optimize-for-size " +
             "--max-semi-space-size=$SEMI_SPACE_MB"
 
     fun shouldBindStdio(isGatewayMode: Boolean): Boolean = !isGatewayMode
