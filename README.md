@@ -137,23 +137,21 @@ bash scripts/build-apk.sh
 
 ### 🔧 Desarrollo
 
-#### Plugins locales con Kotlin Built-in
+#### Configuracion OpenClaw y Gateway
 
 > ⚡ **Nuevo en v1.9.0-beta.1:** runtime del gateway optimizado para arranque más rápido, menos logs, más cache y menor presión del event loop.
 
 > Si compilas desde fuente, asegúrate de tener Flutter 3.24+ y Android SDK API 29+.
 
-Algunos plugins de Flutter aún aplican el **Kotlin Gradle Plugin (KGP)** de forma tradicional, lo cual será incompatible con futuras versiones de AGP. Para evitarlo, estos plugins se mantienen como **copias locales parcheadas** en `flutter_app/local_plugins/` con KGP eliminado y migrados a Kotlin built-in (`kotlin { compilerOptions { ... } }`).
+OpenClaw crea y mantiene su configuración principal en `/root/.openclaw/openclaw.json` dentro del rootfs. La app solo repara lo mínimo que necesita Android para arrancar de forma autónoma:
 
-Los plugins parcheados actualmente:
+- `gateway.mode = "local"` para que `openclaw gateway` pueda iniciar.
+- `gateway.nodes.allowCommands` para habilitar las capacidades del nodo Android.
+- entradas antiguas de modelos que OpenClaw ya no acepta.
 
-- `camera_android_camerax`
-- `package_info_plus`
-- `shared_preferences_android`
-- `url_launcher_android`
-- `webview_flutter_android`
+La app no debe crear `gateway.plugins`. En OpenClaw actual esa clave es inválida y `openclaw doctor --fix` falla con `gateway: Unrecognized key: "plugins"`. Si alguna vez se necesita configurar plugins del gateway, usa el esquema oficial de OpenClaw a nivel raíz (`plugins.entries`) o los comandos de OpenClaw, no una clave dentro de `gateway`.
 
-> `local_plugins/` se versiona en Git para que todas las computadoras usen las mismas copias parcheadas. Si cambias versiones con `flutter pub upgrade`, refresca las copias con `scripts/sync_local_plugins.dart` y confirma esos cambios junto con `pubspec.lock`.
+Si una instalación vieja ya tiene `gateway.plugins`, abre la app actualizada o ejecuta el reparador; esa clave se elimina automáticamente sin borrar API keys, proveedores ni agentes.
 
 **Si compilas manualmente con `flutter build`:**
 
@@ -162,15 +160,6 @@ cd flutter_app
 flutter pub get
 flutter build apk --release
 ```
-
-**Para refrescar después de `flutter pub upgrade`:**
-
-```bash
-cd flutter_app
-dart run ../scripts/sync_local_plugins.dart
-```
-
-Esto copia la nueva versión desde la caché de pub y re-aplica los parches automáticamente. Los parches están definidos en `scripts/sync_local_plugins.dart`.
 
 ### 💻 CLI de Termux
 
