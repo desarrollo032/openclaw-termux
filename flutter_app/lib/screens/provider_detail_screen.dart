@@ -29,7 +29,7 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
   late final TextEditingController _customModelController;
   late String _selectedModel;
   bool _isCustomModel = false;
-  late final bool _obscureKey;
+  bool _obscureKey = true;
   bool _saving = false;
   bool _removing = false;
   bool _browsingModels = false;
@@ -44,9 +44,11 @@ class _ProviderDetailScreenState extends State<ProviderDetailScreen> {
   @override
   void initState() {
     super.initState();
-    // Si ya hay una API key guardada, se muestra visible para que el usuario
-    // vea su clave al abrir el proveedor. Si no hay key, empieza oculto.
-    _obscureKey = widget.existingApiKey != null && widget.existingApiKey!.isNotEmpty;
+    // Si ya hay una API key guardada, se muestra visible (obscureKey=false)
+    // para que el usuario vea su clave al abrir el proveedor.
+    // Si no hay key, empieza oculto (obscureKey=true) — campo vacío.
+    final hasKey = widget.existingApiKey != null && widget.existingApiKey!.isNotEmpty;
+    _obscureKey = !hasKey;
     _apiKeyController = TextEditingController(text: widget.existingApiKey ?? '');
     _customModelController = TextEditingController();
 
