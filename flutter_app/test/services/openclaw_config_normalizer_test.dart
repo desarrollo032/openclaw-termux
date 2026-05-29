@@ -37,6 +37,11 @@ void main() {
           },
         },
       },
+      'gateway': {
+        'plugins': {
+          'browser': {'enabled': false},
+        },
+      },
     };
 
     final changed = OpenClawConfigNormalizer.repairConfig(config);
@@ -45,6 +50,7 @@ void main() {
 
     expect(changed, isTrue);
     expect((config['models'] as Map<String, dynamic>)['mode'], 'merge');
+    expect((config['gateway'] as Map).containsKey('plugins'), isFalse);
     expect(
       (providers['google'] as Map)['models'],
       [

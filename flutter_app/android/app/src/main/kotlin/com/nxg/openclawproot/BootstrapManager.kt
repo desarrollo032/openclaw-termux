@@ -1296,6 +1296,10 @@ require('/root/.openclaw/proot-compat.js');
                     modified = true
                 } else {
                     val gw = json.getJSONObject("gateway")
+                    if (gw.has("plugins")) {
+                        gw.remove("plugins")
+                        modified = true
+                    }
                     if (!gw.has("mode")) {
                         gw.put("mode", "local")
                         modified = true

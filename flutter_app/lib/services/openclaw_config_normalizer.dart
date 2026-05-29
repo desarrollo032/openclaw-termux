@@ -25,6 +25,10 @@ class OpenClawConfigNormalizer {
       gateway['mode'] = 'local';
       modified = true;
     }
+    if (gateway.containsKey('plugins')) {
+      gateway.remove('plugins');
+      modified = true;
+    }
 
     final models = _ensureMap(config, 'models');
     if (models['mode'] != 'merge') {
